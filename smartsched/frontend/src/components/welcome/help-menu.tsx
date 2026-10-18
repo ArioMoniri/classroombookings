@@ -78,7 +78,16 @@ export function HelpMenuGroup({ assistant }: { assistant?: ReactNode }) {
 }
 
 /** ⌘K commands, in the palette's `actions` shape. */
-export function useWelcomeCommands() {
+export interface WelcomeCommand {
+  value: string;
+  icon: typeof RotateCcw;
+  label: string;
+  keys?: string[];
+  run: () => void;
+  words: string;
+  allowed: boolean;
+}
+export function useWelcomeCommands(): WelcomeCommand[] {
   const { t } = useI18n();
   const actions = useWelcomeActions();
   const model = useChecklistModel();

@@ -769,6 +769,14 @@ async def flush_approver_notices(session: AsyncSession) -> int:
         for u, mine in per_user.values():
             await _send_requested(session, u, mine, scope, step)
             sent += 1
+        if step == 1:  # RF-11: a new submission (not a move to a later step): the submitter's receipt
+            from app.services import mail_senders
+
+            by_requester: dict[int, list[tuple[ApprovalRequest, Room, list[Booking], User]]] = {}
+            for entry in entries:
+                by_requester.setdefault(entry[3].id, []).append(entry)
+            for own in by_requester.values():
+                await mail_senders.approval_submitted(session, own)
     return sent
 
 

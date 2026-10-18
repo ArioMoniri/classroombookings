@@ -44,6 +44,8 @@ ORG_SPECS: dict[str, Spec] = {
         Spec("languages", "json", ["tr", "en"]),
         # CRBS settings/General "grid_highlight": coloured highlight of the mouse-focused grid slot
         Spec("grid_highlight", "bool", False),
+        # RF-11: "Yeni cihazdan giriş" e-mails for the whole organisation (each person can still switch it off)
+        Spec("new_device_sign_in_mail", "bool", True),
     )
 }
 LDAP_SPECS: dict[str, Spec] = {
@@ -138,6 +140,9 @@ BOOKINGS_SPECS: dict[str, Spec] = {
         #     approvals.decide, planning.admin or bookings.skip_approval (app/services/approvals.py need_for).
         #     The institution install sets it once: PUT /api/v1/org/settings {"approval_mode": "all"}.
         Spec("approval_mode", default="rules"),
+        # RF-11: e-mail + bell reminders this many hours before a booking starts (0 = no reminders;
+        #     app.services.mail_senders.send_due_reminders, worker app.workers.reminders)
+        Spec("reminder_lead_hours", "int", 24),
     )
 }
 APPROVAL_MODES = ("rules", "all")
@@ -203,6 +208,8 @@ POLICY_SPECS: dict[str, Spec] = {
     for s in (
         Spec("exam_period_mode", default="off"),
         Spec("exam_period_rooms", "json", None),
+        # AS-04 ``slots`` mode: {"buffer_periods": 0..4, "effect": request | refuse}
+        Spec("exam_period_slots", "json", None),
     )
 }
 # V2 public read-only day view (docs/product/booking-enhancements.md §V2; app/services/public_schedule.py). Off by

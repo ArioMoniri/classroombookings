@@ -1,0 +1,80 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='1170' height='844' viewBox='0 0 1170 844' font-family='-apple-system,BlinkMacSystemFont,Inter,Segoe UI,sans-serif' role='img' aria-label='Yönetim › Kullanıcılar ve politika, 390 (düzenleme sayfası, bağlantı gönderme, politika)'>
+<title>Yönetim › Kullanıcılar ve politika, 390 (düzenleme sayfası, bağlantı gönderme, politika)</title>
+<rect width='1170' height='844' fill='#F4F6F9'/>
+<rect x='0' y='0' width='390' height='844' rx='0' fill='#F4F6F9' fill-opacity='1'/>
+<text x='20' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<rect x='0' y='90' width='390' height='754' rx='22' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='171' y='100' width='48' height='5' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<text x='16' y='140' font-size='22' font-weight='700' fill='#0F172A' text-anchor='start'>A. Yılmaz</text>
+<text x='16' y='186' font-size='15' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş ve güvenlik</text>
+<text x='16' y='216' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Yöntem</text>
+<text x='120' y='216' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Yerel (kullanıcı adı ve parola)</text>
+<text x='16' y='242' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>2FA</text>
+<text x='120' y='242' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>Açık · uygulama + 2 geçiş anahtarı</text>
+<text x='16' y='268' font-size='13' font-weight='600' fill='#475569' text-anchor='start'>Son giriş</text>
+<text x='120' y='268' font-size='13' font-weight='500' fill='#0F172A' text-anchor='start'>3 saat önce</text>
+<rect x='16' y='300' width='358' height='48' rx='24.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='195.0' y='329.04' font-size='14' font-weight='600' fill='#0F172A' text-anchor='middle'>Parola sıfırlama bağlantısı gönder</text>
+<rect x='16' y='360' width='358' height='48' rx='24' fill='#FFFFFF' fill-opacity='1' stroke='#B91C1C' stroke-width='1'/>
+<text x='195' y='389' font-size='14' font-weight='600' fill='#B91C1C' text-anchor='middle'>2FA'yı sıfırla</text>
+<text x='16' y='440' font-size='14' font-weight='600' fill='#2563EB' text-anchor='start'>Sıfırlama kodunu ekranda göster</text>
+<rect x='16' y='480' width='358' height='92' rx='12' fill='#F1F5F9' fill-opacity='1'/>
+<text x='28' y='504' font-size='12' font-weight='700' fill='#7C3AED' text-anchor='start'>Microsoft hesabında bu blok:</text>
+<text x='28' y='524' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>"Bu hesap Microsoft ile giriş yapıyor. Parola ve</text>
+<text x='28' y='544' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>iki aşamalı doğrulama orada yönetilir."</text>
+<rect x='390' y='0' width='390' height='844' rx='0' fill='#F4F6F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='390' y='0' width='390' height='844' rx='0' fill='#0F172A' fill-opacity='0.3'/>
+<rect x='390' y='440' width='390' height='404' rx='22' fill='#FFFFFF' fill-opacity='1'/>
+<rect x='561' y='450' width='48' height='5' rx='3' fill='#CBD5E1' fill-opacity='1'/>
+<text x='406' y='492' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>A. Yılmaz adına parola sıfırlama</text>
+<text x='406' y='514' font-size='18' font-weight='700' fill='#0F172A' text-anchor='start'>bağlantısı gönderilsin mi?</text>
+<text x='406' y='546' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>a•••@ornek.edu.tr adresine 24 saat geçerli bir</text>
+<text x='406' y='565' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>bağlantı gönderilir. Mevcut parolası, bağlantı</text>
+<text x='406' y='584' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>kullanılana kadar çalışır. İki aşamalı</text>
+<text x='406' y='603' font-size='13' font-weight='400' fill='#475569' text-anchor='start'>doğrulaması değişmez.</text>
+<rect x='406' y='640' width='358' height='48' rx='24.0' fill='#2563EB' fill-opacity='1'/>
+<text x='585.0' y='669.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Bağlantıyı gönder</text>
+<rect x='406' y='698' width='358' height='48' rx='24.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='585.0' y='727.4' font-size='15' font-weight='600' fill='#0F172A' text-anchor='middle'>Vazgeç</text>
+<text x='406' y='776' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Alt sayfa (pattern 4, springs.sheet). Yönetici bağlantıyı görmez.</text>
+<rect x='780' y='0' width='390' height='844' rx='0' fill='#F4F6F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<text x='800' y='30' font-size='14' font-weight='600' fill='#0F172A' text-anchor='start'>9:41</text>
+<text x='796' y='84' font-size='26' font-weight='700' fill='#0F172A' text-anchor='start'>Giriş güvenliği</text>
+<rect x='796' y='108' width='358' height='44' rx='22' fill='#E2E8F0' fill-opacity='1'/>
+<text x='856' y='135' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>Kapalı</text>
+<text x='975' y='135' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>İsteğe bağlı</text>
+<rect x='1036' y='110' width='117' height='40' rx='20' fill='#FFFFFF' fill-opacity='1'/>
+<text x='1094' y='135' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Zorunlu</text>
+<text x='796' y='184' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Hangi roller için?</text>
+<rect x='796' y='196' width='83' height='36' rx='18.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='837.5' y='218.32' font-size='12' font-weight='600' fill='#2563EB' text-anchor='middle'>Yönetici</text>
+<rect x='885' y='196' width='97' height='36' rx='18.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='933.5' y='218.32' font-size='12' font-weight='600' fill='#2563EB' text-anchor='middle'>Planlamacı</text>
+<rect x='988' y='196' width='97' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='1036.5' y='218.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Onaylayıcı</text>
+<rect x='796' y='240' width='132' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='862.0' y='262.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Öğretim elemanı</text>
+<rect x='934' y='240' width='97' height='36' rx='18.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='982.5' y='262.32' font-size='12' font-weight='500' fill='#0F172A' text-anchor='middle'>Tüm roller</text>
+<text x='796' y='316' font-size='13' font-weight='700' fill='#0F172A' text-anchor='start'>Kurulum için süre</text>
+<rect x='796' y='328' width='65' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='828.5' y='354.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>7 gün</text>
+<rect x='867' y='328' width='73' height='44' rx='22.0' fill='#EFF6FF' fill-opacity='1' stroke='#2563EB' stroke-width='2'/>
+<text x='903.5' y='354.68' font-size='13' font-weight='600' fill='#2563EB' text-anchor='middle'>14 gün</text>
+<rect x='946' y='328' width='73' height='44' rx='22.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='982.5' y='354.68' font-size='13' font-weight='500' fill='#0F172A' text-anchor='middle'>30 gün</text>
+<rect x='796' y='392' width='358' height='60' rx='10' fill='#EFF6FF' fill-opacity='1'/>
+<text x='808' y='416' font-size='12' font-weight='600' fill='#2563EB' text-anchor='start'>Bu ayarla 12 kişi 1 Kasım'a kadar kurmalı;</text>
+<text x='808' y='436' font-size='12' font-weight='600' fill='#2563EB' text-anchor='start'>3 kişi zaten kurdu.</text>
+<text x='796' y='488' font-size='14' font-weight='700' fill='#0F172A' text-anchor='start'>Geçiş anahtarları</text>
+<rect x='1102' y='470' width='52' height='30' rx='15' fill='#15803D' fill-opacity='1'/>
+<circle cx='1139' cy='485' r='11' fill='#FFFFFF'/>
+<rect x='796' y='514' width='20' height='20' rx='5' fill='#2563EB' fill-opacity='1' stroke='#2563EB' stroke-width='1.5'/>
+<polyline points='801,524 805,528 811,520' fill='none' stroke='#FFFFFF' stroke-width='2' stroke-linejoin='round'/>
+<text x='826' y='529' font-size='14' font-weight='500' fill='#0F172A' text-anchor='start'>Parolasız girişe de izin ver</text>
+<text x='796' y='574' font-size='14' font-weight='600' fill='#2563EB' text-anchor='start'>Gelişmiş  ⌄</text>
+<rect x='780' y='700' width='390' height='60' rx='0' fill='#FFFFFF' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='796' y='708' width='358' height='44' rx='22.0' fill='#2563EB' fill-opacity='1'/>
+<text x='975.0' y='735.4' font-size='15' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Kaydet</text>
+<text x='796' y='790' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Kaydet çubuğu sekme çubuğunun üstünde yapışkan (M-05).</text>
+</svg>

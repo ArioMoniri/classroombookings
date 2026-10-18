@@ -197,3 +197,29 @@ api_router.include_router(welcome_api.router)
 from app.api.v1 import seasons as seasons_api  # noqa: E402
 
 api_router.include_router(seasons_api.router)
+
+# voice VO-03: speech to text for the AI fields (POST /ai/voice/transcribe, GET /ai/voice/status; app/ai/voice/**)
+from app.api.v1 import voice as voice_api  # noqa: E402
+
+api_router.include_router(voice_api.router)
+
+# AI helper "Yardımcı" HB-01…HB-09: no-AI search, card contract, action cards, confirm / undo, memory (app/ai/helper)
+from app.api.v1 import helper as helper_api  # noqa: E402
+
+api_router.include_router(helper_api.router)
+
+# AI helper HB-06: the turn loop (POST /helper/turn, SSE; app/ai/helper_turn.py, lane HB-B)
+from app.api.v1 import helper_turn as helper_turn_api  # noqa: E402
+
+api_router.include_router(helper_turn_api.router)
+
+# AI HB-11: faculty quota managers (GET /ai/faculty/usage, PUT /ai/faculty/allocations; lane HB-B)
+from app.api.v1 import ai_faculty as ai_faculty_api  # noqa: E402
+
+api_router.include_router(ai_faculty_api.router)
+
+# AU-B two-step sign-in, passkeys, trusted devices, admin MFA reset / reset link (app/api/v1/mfa.py)
+from app.api.v1 import mfa as mfa_api  # noqa: E402
+
+api_router.include_router(mfa_api.router)
+api_router.include_router(mfa_api.admin_router)

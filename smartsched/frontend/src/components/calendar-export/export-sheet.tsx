@@ -42,7 +42,7 @@ import {
   type ScopeChoice,
   type Step,
 } from "./model";
-import { ApproveStep, HowStep, LinkResult, StepHeading, WhatStep, providerName, scopeName } from "./steps";
+import { ApproveStep, HowStep, LinkResult, StepHeading, WhatStep, backendText, providerName, scopeName } from "./steps";
 
 type Result = { kind: "link"; urls: SubscriptionUrls } | { kind: "file"; name: string } | { kind: "push"; provider: string } | { kind: "redirect"; provider: string };
 
@@ -55,7 +55,9 @@ function refusalText(e: unknown, t: ReturnType<typeof useI18n>["t"], locale: str
     return domain ? t("calendarExport.manage.notVerified", { domain }) : t("calendarExport.manage.notVerifiedPlain");
   }
   if (w.code === "department_not_allowed" && !(locale === "tr" ? w.messageTr : null)) return t("calendarExport.reason.department_not_allowed");
-  return t("calendarExport.failed", { message: errorText(w, locale) });
+  // a coded refusal carries its own sentence (API.md: message_tr first, never the code)
+  if (w.code && (w.messageTr || typeof w.data.message_en === "string")) return locale === "tr" ? (w.messageTr ?? String(w.data.message_en)) : String(w.data.message_en ?? w.message);
+  return t("calendarExport.failed", { message: backendText(e, locale) });
 }
 
 export function CalendarExportSheet({ open, onOpenChange, resume }: { open: boolean; onOpenChange: (open: boolean) => void; resume?: PendingPush | null }) {
@@ -117,6 +119,21 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
     else setError(refusalText(e, t, locale));
   };
 
+  /** the provider's OAuth round trip with the scopes; resumed on /profile (calendar-export-section.tsx) */
+  const redirectToProvider = async (provider: string, scopes: string[]) => {
+    if (!choice) return;
+    const pending: PendingPush = { provider: provider as PendingPush["provider"], kind: choice.kind, departmentId: choice.departmentId, at: Date.now() };
+    try {
+      window.sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+    } catch {
+      /* private mode: the backend applies the scopes it got with the connect call anyway */
+    }
+    const { authorize_url } = await calendarExportApi.connect(provider, RETURN_PATH, scopes);
+    setResult({ kind: "redirect", provider });
+    setStep("done");
+    window.location.assign(authorize_url);
+  };
+
   const approve = async () => {
     if (!choice || !channel) return;
     if (needsConsent && !tick) {
@@ -140,19 +157,18 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
         if (channel.connected) {
           const current = pushAccounts(o, connections).find((p) => p.provider === channel.provider)?.scopes ?? [];
           setSince(Date.now());
-          await calendarExportApi.pushScopes(channel.provider, [...new Set([...current, scope])]);
-          setResult({ kind: "push", provider: channel.provider });
-        } else {
-          const pending: PendingPush = { provider: channel.provider, kind: choice.kind, departmentId: choice.departmentId, at: Date.now() };
           try {
-            window.sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-          } catch {
-            /* private mode: the backend applies the scopes it got with the connect call */
+            await calendarExportApi.pushScopes(channel.provider, [...new Set([...current, scope])]);
+            setResult({ kind: "push", provider: channel.provider });
+          } catch (e) {
+            // an old broad connection cannot take classes (409 reconnect_required): reconnect with fewer permissions,
+            // the approval already given covers it
+            if (wave1Error(e).code !== "reconnect_required") throw e;
+            await redirectToProvider(channel.provider, [...new Set([...current, scope])]);
+            return;
           }
-          const { authorize_url } = await calendarExportApi.connect(channel.provider, RETURN_PATH, [scope]);
-          setResult({ kind: "redirect", provider: channel.provider });
-          setStep("done");
-          window.location.assign(authorize_url);
+        } else {
+          await redirectToProvider(channel.provider, [scope]);
           return;
         }
       }
@@ -220,6 +236,7 @@ function Flow({ onClose, resume }: { onClose: () => void; resume: PendingPush | 
         {o?.enabled && step === "how" ? (
           <HowStep
             channels={channels}
+            domain={o.push_verification?.required ? (o.push_verification.domain ?? null) : null}
             onPick={(c) => {
               setChannel(c);
               goto("approve");

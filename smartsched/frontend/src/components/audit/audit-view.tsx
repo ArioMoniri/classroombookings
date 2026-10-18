@@ -126,28 +126,27 @@ export function AuditView() {
     <div className="flex flex-col gap-5" data-testid="audit">
       {/* phones (T-R1-32, R1-M-30): the filter trigger ("Filtreler · n") and the export sit beside the title, the lead
           is left out, so the first event starts above 200 px */}
+      {/* mobile-b phase 2 (CLS 1.32 at 390 with filters): the phone / desktop split is CSS (max-sm), not useIsPhone,
+          which reads false until hydration and painted the six-field desktop form first on every phone */}
       <PageTitle
-        className={phone ? "max-sm:mb-1 max-sm:flex-row max-sm:items-center max-sm:justify-between" : undefined}
+        className="max-sm:mb-1 max-sm:flex-row max-sm:items-center max-sm:justify-between max-sm:[&>div>p]:hidden"
         title={t("wave1.audit.title")}
-        subtitle={phone ? undefined : t("wave1.audit.lead")}
+        subtitle={t("wave1.audit.lead")}
         actions={
           <>
-            {phone ? (
-              <Button variant="outline" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" aria-label={activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")} data-testid="audit-filters-open">
-                <SlidersHorizontal aria-hidden />
-                {activeFilters ? String(activeFilters) : null}
-              </Button>
-            ) : null}
-            <Button variant="outline" size={phone ? "icon" : "default"} render={<a href={exportHref} download data-testid="audit-export" aria-label={phone ? t("wave1.audit.export") : undefined} title={phone ? t("wave1.audit.export") : undefined} />} nativeButton={false}>
+            <Button variant="outline" className="sm:hidden" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" aria-label={activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")} data-testid="audit-filters-open">
+              <SlidersHorizontal aria-hidden />
+              {activeFilters ? String(activeFilters) : null}
+            </Button>
+            <Button variant="outline" className="max-sm:size-11 max-sm:px-0" render={<a href={exportHref} download data-testid="audit-export" />} nativeButton={false}>
               <Download aria-hidden />
-              {phone ? null : t("wave1.audit.export")}
+              <span className="max-sm:sr-only">{t("wave1.audit.export")}</span>
             </Button>
           </>
         }
       />
-      {phone ? (
-        activeFilters ? (
-          <div className="flex items-center gap-2">
+      {activeFilters ? (
+          <div className="flex items-center gap-2 sm:hidden">
             <Button className="pointer-coarse:h-11"
               variant="ghost"
               size="sm"
@@ -160,10 +159,8 @@ export function AuditView() {
               {t("wave1.audit.reset")}
             </Button>
           </div>
-        ) : null
-      ) : (
-        <Card className="gap-3 px-4 py-4">{filterForm}</Card>
-      )}
+      ) : null}
+      {phone ? null : <Card className="gap-3 px-4 py-4 max-sm:hidden">{filterForm}</Card>}
       <Sheet open={phone && filtersOpen} onOpenChange={setFiltersOpen}>
         <SheetContent side="bottom" className="gap-0 data-[side=bottom]:max-h-[92dvh]" data-testid="audit-filters-sheet">
           <SheetHeader className="px-5 pt-5">
@@ -176,7 +173,10 @@ export function AuditView() {
 
       <Card className="gap-0 overflow-hidden py-0">
         {log.isLoading ? (
-          <Loading className="px-4" />
+          // the first page of events fills the screen: hold that height, not a one-line spinner (CLS)
+          <div className="min-h-[70dvh] px-4 py-3" aria-busy="true" data-testid="audit-loading">
+            <Loading />
+          </div>
         ) : log.isError ? (
           <Alert tone="error" className="m-4">
             {errorText(wave1Error(log.error), locale)}

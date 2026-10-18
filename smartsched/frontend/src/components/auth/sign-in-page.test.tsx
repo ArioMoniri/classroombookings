@@ -231,7 +231,8 @@ describe("SignInPage (docs/design/v2/sign-in.md)", () => {
     expect(screen.getByTestId("login-password")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByTestId("login-password")).toHaveValue("");
     expect(screen.getByTestId("login-identifier")).toHaveValue("ayilmaz");
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/login", expect.objectContaining({ method: "POST" }));
+    // AUX-04: the password goes through the sign-in route handler (second step / enrolment, tokens in httpOnly cookies)
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/mfa/login", expect.objectContaining({ method: "POST" }));
   });
 
   it("a 429 shows the minutes and disables submit; a network failure the offline string (§15 #14)", async () => {

@@ -77,8 +77,18 @@ APPROVAL_FIRST_PERMISSIONS: tuple[tuple[str, str], ...] = (
 CALENDAR_PERMISSIONS: tuple[tuple[str, str], ...] = (
     ("calendar.department_feed", "Export the class calendar of any department"),
 )
+#: faculty AI quota managers (HB-11, docs/research/2026-10-17-ai-helper-architecture.md §5.9): see their faculty's AI
+#: usage by department and split the faculty's allocation across its departments. Administrator only by default.
+AI_FACULTY_PERMISSIONS: tuple[tuple[str, str], ...] = (
+    ("ai.usage_faculty", "See my faculty's AI usage and split its allocation"),
+)
 ALL_PERMISSIONS: tuple[tuple[str, str], ...] = (
-    CRBS_PERMISSIONS + SMARTSCHED_PERMISSIONS + WAVE1_PERMISSIONS + APPROVAL_FIRST_PERMISSIONS + CALENDAR_PERMISSIONS
+    CRBS_PERMISSIONS
+    + SMARTSCHED_PERMISSIONS
+    + WAVE1_PERMISSIONS
+    + APPROVAL_FIRST_PERMISSIONS
+    + CALENDAR_PERMISSIONS
+    + AI_FACULTY_PERMISSIONS
 )
 PERMISSION_NAMES: frozenset[str] = frozenset(n for n, _ in ALL_PERMISSIONS)
 
@@ -122,6 +132,7 @@ PERMISSION_TR: dict[str, str] = {
     "book_recur.request": "Yinelenen rezervasyon talep etme",
     SKIP_APPROVAL: "Onaysız doğrudan rezervasyon",
     "calendar.department_feed": "Bölüm ders takvimini dışa aktarma",
+    "ai.usage_faculty": "Fakültemin yapay zekâ kullanımını görme ve paylaştırma",
 }
 PERMISSION_EN: dict[str, str] = dict(ALL_PERMISSIONS)
 

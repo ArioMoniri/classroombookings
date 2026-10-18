@@ -79,7 +79,15 @@ export function DatePicker({ value, onChange, dates, weeks, termStart, termEnd, 
     >
       <PopoverTrigger render={<Button variant="outline" className={cn("min-w-0 justify-start", className)} data-testid="date-picker-trigger" />}>
         <CalendarDays aria-hidden />
-        <span className="truncate">{compact ? fmt.weekday(value) : fmt.long(value)}</span>
+        {compact ? (
+          <>
+            {/* mobile-a fix 14: below 360 px (22.5rem, so large text too) the chip drops the weekday and the year */}
+            <span className="truncate max-[22.5rem]:hidden">{fmt.weekday(value)}</span>
+            <span className="hidden truncate max-[22.5rem]:inline" data-slot="date-chip-short">{formatPattern(value, "d MMM", locale)}</span>
+          </>
+        ) : (
+          <span className="truncate">{fmt.long(value)}</span>
+        )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[19.5rem] p-3">
         <div className="mb-2 flex items-center justify-between">

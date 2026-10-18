@@ -44,17 +44,22 @@ export function WelcomeSheet({ open, model, state, tourEnabled, checklistEnabled
   const phone = useMediaQuery(PHONE_SHEET);
   const reduce = useReduce();
   const titleRef = useRef<HTMLHeadingElement>(null);
-  // the element that had focus before the sheet opened (focus returns there, else the page's h1)
-  const opener = useRef<HTMLElement | null>(null);
+  // the element that had focus before the sheet opened (focus returns there, else the page's h1); read while
+  // rendering the opening frame, before the dialog's own effects move focus to the title
+  const [wasOpen, setWasOpen] = useState(false);
+  const [opener, setOpener] = useState<HTMLElement | null>(null);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      const a = typeof document === "undefined" ? null : document.activeElement;
+      setOpener(a instanceof HTMLElement && a !== document.body && !a.closest("[data-welcome]") ? a : null);
+    }
+  }
   const chosen = useRef<SheetAction | null>(null);
   const [page, setPage] = useState(0);
   const [dir, setDir] = useState(1);
   useEffect(() => {
-    if (open) {
-      const a = document.activeElement;
-      opener.current = a instanceof HTMLElement && a !== document.body ? a : null;
-      chosen.current = null;
-    }
+    if (open) chosen.current = null;
   }, [open]);
 
   const cards = model.cards;
@@ -71,9 +76,11 @@ export function WelcomeSheet({ open, model, state, tourEnabled, checklistEnabled
     const a = chosen.current;
     // a card or the tour moves on to its own place (the page heading / the step card); Sonra, ✕, Esc return focus
     if (a && (a.type === "card" || a.type === "start" || a.type === "checklist")) return false;
-    const back = opener.current;
-    if (back && back.isConnected && back.offsetParent !== null) return back;
-    return document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("#main");
+    const back = opener;
+    if (back && back.isConnected && !back.closest("[hidden]")) return back;
+    const h1 = document.querySelector<HTMLElement>("main h1");
+    if (h1 && !h1.hasAttribute("tabindex")) h1.setAttribute("tabindex", "-1");
+    return h1 ?? document.querySelector<HTMLElement>("#main");
   };
 
   const reveal = (i: number) =>

@@ -1,0 +1,838 @@
+{
+  "note": "AU-B OpenAPI subset (generated from smartsched/backend app.openapi(), 2026-10-18, aux-f); regenerate when the routes change (regenerated 2026-10-18 with the AU-15 session and AU-16 idp-mfa routes)",
+  "paths": {
+    "/api/v1/admin/auth/mfa-policy": [
+      "GET",
+      "PUT"
+    ],
+    "/api/v1/admin/users/{user_id}/mfa": [
+      "GET"
+    ],
+    "/api/v1/admin/users/{user_id}/mfa/reset": [
+      "POST"
+    ],
+    "/api/v1/admin/users/{user_id}/password-reset-link": [
+      "POST"
+    ],
+    "/api/v1/auth/login": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa": [
+      "GET"
+    ],
+    "/api/v1/auth/mfa/disable": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/passkey/options": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/passkey/verify": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/recovery-codes": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/setup/passkey/options": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/setup/passkey/verify": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/setup/totp/confirm": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/setup/totp/start": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/totp/confirm": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/totp/start": [
+      "POST"
+    ],
+    "/api/v1/auth/mfa/verify": [
+      "POST"
+    ],
+    "/api/v1/auth/passkey/options": [
+      "POST"
+    ],
+    "/api/v1/auth/passkey/verify": [
+      "POST"
+    ],
+    "/api/v1/auth/passkeys": [
+      "GET"
+    ],
+    "/api/v1/auth/passkeys/register/options": [
+      "POST"
+    ],
+    "/api/v1/auth/passkeys/register/verify": [
+      "POST"
+    ],
+    "/api/v1/auth/passkeys/{passkey_id}": [
+      "PATCH"
+    ],
+    "/api/v1/auth/passkeys/{passkey_id}/remove": [
+      "POST"
+    ],
+    "/api/v1/auth/sign-ins": [
+      "GET"
+    ],
+    "/api/v1/auth/trusted-devices": [
+      "DELETE",
+      "GET"
+    ],
+    "/api/v1/auth/trusted-devices/{device_id}": [
+      "DELETE"
+    ],
+    "/api/v1/auth/sessions": [
+      "GET"
+    ],
+    "/api/v1/auth/sessions/{session_id}": [
+      "DELETE"
+    ],
+    "/api/v1/auth/sessions/revoke-others": [
+      "POST"
+    ],
+    "/api/v1/admin/users/{user_id}/sessions/revoke": [
+      "POST"
+    ],
+    "/api/v1/admin/auth/providers/idp-mfa": [
+      "GET"
+    ],
+    "/api/v1/admin/auth/providers/{provider_id}/idp-mfa": [
+      "PUT"
+    ]
+  },
+  "schemas": {
+    "AIPolicyIn": {
+      "description": "``PUT /ai/policy`` (admin). Turning a switch on needs ``kvkk_ack`` (the KVKK officer signed off).",
+      "properties": {
+        "intake_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Intake Enabled"
+        },
+        "kvkk_ack": {
+          "default": false,
+          "title": "Kvkk Ack",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "vision_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Vision Enabled"
+        }
+      },
+      "title": "AIPolicyIn",
+      "type": "object"
+    },
+    "AdminResetIn": {
+      "properties": {
+        "identity_check": {
+          "enum": [
+            "in_person",
+            "video_call",
+            "phone_callback",
+            "other"
+          ],
+          "title": "Identity Check",
+          "type": "string"
+        },
+        "keep_passkeys": {
+          "default": false,
+          "title": "Keep Passkeys",
+          "type": "boolean"
+        },
+        "reason": {
+          "maxLength": 500,
+          "minLength": 10,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "identity_check"
+      ],
+      "title": "AdminResetIn",
+      "type": "object"
+    },
+    "CredentialIn": {
+      "properties": {
+        "challenge_token": {
+          "maxLength": 2048,
+          "title": "Challenge Token",
+          "type": "string"
+        },
+        "credential": {
+          "additionalProperties": true,
+          "title": "Credential",
+          "type": "object"
+        },
+        "trust_device": {
+          "default": false,
+          "title": "Trust Device",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "challenge_token",
+        "credential"
+      ],
+      "title": "CredentialIn",
+      "type": "object"
+    },
+    "DisableIn": {
+      "properties": {
+        "code": {
+          "default": "",
+          "maxLength": 64,
+          "title": "Code",
+          "type": "string"
+        },
+        "password": {
+          "default": "",
+          "maxLength": 256,
+          "title": "Password",
+          "type": "string"
+        }
+      },
+      "title": "DisableIn",
+      "type": "object"
+    },
+    "RegisterIn": {
+      "properties": {
+        "challenge_token": {
+          "maxLength": 2048,
+          "title": "Challenge Token",
+          "type": "string"
+        },
+        "credential": {
+          "additionalProperties": true,
+          "title": "Credential",
+          "type": "object"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Name"
+        }
+      },
+      "required": [
+        "challenge_token",
+        "credential"
+      ],
+      "title": "RegisterIn",
+      "type": "object"
+    },
+    "RelaxationPolicyIn": {
+      "properties": {
+        "policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Policy"
+        }
+      },
+      "required": [
+        "policy"
+      ],
+      "title": "RelaxationPolicyIn",
+      "type": "object"
+    },
+    "RenameIn": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "RenameIn",
+      "type": "object"
+    },
+    "ResetLinkIn": {
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "title": "ResetLinkIn",
+      "type": "object"
+    },
+    "SsoTokenOut": {
+      "description": "``TokenOut`` plus where to go: ``welcome`` is ``self`` / ``invited`` / ``bound`` on the sign-in that created\nor bound the account (the panel shows ``/welcome``), else ``None``.",
+      "properties": {
+        "access_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Access Token"
+        },
+        "challenge_expires_in": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Challenge Expires In"
+        },
+        "challenge_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Challenge Token"
+        },
+        "expires_in": {
+          "title": "Expires In",
+          "type": "integer"
+        },
+        "inviter_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Inviter Name"
+        },
+        "mfa_grace_until": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Grace Until"
+        },
+        "mfa_methods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Methods"
+        },
+        "mfa_required": {
+          "default": false,
+          "title": "Mfa Required",
+          "type": "boolean"
+        },
+        "mfa_setup_methods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Setup Methods"
+        },
+        "mfa_setup_required": {
+          "default": false,
+          "title": "Mfa Setup Required",
+          "type": "boolean"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Next"
+        },
+        "password_change_required": {
+          "default": false,
+          "title": "Password Change Required",
+          "type": "boolean"
+        },
+        "token_type": {
+          "default": "bearer",
+          "title": "Token Type",
+          "type": "string"
+        },
+        "welcome": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Welcome"
+        }
+      },
+      "required": [
+        "access_token",
+        "expires_in"
+      ],
+      "title": "SsoTokenOut",
+      "type": "object"
+    },
+    "TokenOut": {
+      "description": "The sign-in answer. AU-B: when a second factor is needed ``access_token`` is ``None`` and ``mfa_required`` /\n``challenge_token`` / ``mfa_methods`` say how to go on (``POST /auth/mfa/verify``); when the policy requires\nenrolment first, ``mfa_setup_required`` (with ``challenge_token`` once the grace period is over).",
+      "properties": {
+        "access_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Access Token"
+        },
+        "challenge_expires_in": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Challenge Expires In"
+        },
+        "challenge_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Challenge Token"
+        },
+        "expires_in": {
+          "title": "Expires In",
+          "type": "integer"
+        },
+        "mfa_grace_until": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Grace Until"
+        },
+        "mfa_methods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Methods"
+        },
+        "mfa_required": {
+          "default": false,
+          "title": "Mfa Required",
+          "type": "boolean"
+        },
+        "mfa_setup_methods": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Setup Methods"
+        },
+        "mfa_setup_required": {
+          "default": false,
+          "title": "Mfa Setup Required",
+          "type": "boolean"
+        },
+        "password_change_required": {
+          "default": false,
+          "title": "Password Change Required",
+          "type": "boolean"
+        },
+        "token_type": {
+          "default": "bearer",
+          "title": "Token Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "access_token",
+        "expires_in"
+      ],
+      "title": "TokenOut",
+      "type": "object"
+    },
+    "VerifyIn": {
+      "properties": {
+        "challenge_token": {
+          "maxLength": 2048,
+          "title": "Challenge Token",
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 64,
+          "title": "Code",
+          "type": "string"
+        },
+        "method": {
+          "default": "totp",
+          "enum": [
+            "totp",
+            "recovery"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "trust_device": {
+          "default": false,
+          "title": "Trust Device",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "challenge_token",
+        "code"
+      ],
+      "title": "VerifyIn",
+      "type": "object"
+    },
+    "app__api__v1__booking_policies__PolicyIn": {
+      "properties": {
+        "blackouts": {
+          "items": {
+            "$ref": "#/components/schemas/Blackout"
+          },
+          "title": "Blackouts",
+          "type": "array"
+        },
+        "buffer_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Buffer Minutes"
+        },
+        "effect": {
+          "default": "refuse",
+          "title": "Effect",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "max_active_bookings": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Active Bookings"
+        },
+        "max_advance_days": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Advance Days"
+        },
+        "max_duration_minutes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Duration Minutes"
+        },
+        "min_notice_workdays": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Min Notice Workdays"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Note"
+        },
+        "quiet_hours": {
+          "items": {
+            "$ref": "#/components/schemas/QuietWindow"
+          },
+          "title": "Quiet Hours",
+          "type": "array"
+        },
+        "role_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Role Codes",
+          "type": "array"
+        },
+        "scope_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Scope Id"
+        },
+        "scope_type": {
+          "default": "all",
+          "title": "Scope Type",
+          "type": "string"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tag"
+        },
+        "term_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Term Id"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "PolicyIn",
+      "type": "object"
+    },
+    "app__schemas__mfa__PolicyIn": {
+      "properties": {
+        "mfa_grace_days": {
+          "anyOf": [
+            {
+              "maximum": 90.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Grace Days"
+        },
+        "mfa_policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "off",
+                "optional",
+                "required_for_roles"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Policy"
+        },
+        "mfa_roles": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "ADMIN",
+                  "PLANNER",
+                  "TEACHER",
+                  "VIEWER",
+                  "CUSTOM"
+                ],
+                "type": "string"
+              },
+              "maxItems": 5,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mfa Roles"
+        },
+        "passkey_first_factor": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Passkey First Factor"
+        },
+        "passkeys_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Passkeys Enabled"
+        },
+        "trusted_device_days": {
+          "anyOf": [
+            {
+              "enum": [
+                0,
+                7,
+                30
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Trusted Device Days"
+        }
+      },
+      "title": "PolicyIn",
+      "type": "object"
+    }
+  }
+}

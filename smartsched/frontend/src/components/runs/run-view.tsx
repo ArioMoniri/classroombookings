@@ -36,6 +36,7 @@ import { CancelRunButton } from "./cancel-run";
 import { MissingWeeks } from "./missing-weeks";
 import { BaselineRunCard } from "./baseline-card";
 import { RunPolicyLine } from "./relaxation";
+import { RunProfileLine } from "./run-profile";
 import { ResolveRunButton } from "./resolve-run";
 import { isBaselineRun } from "@/lib/api/council";
 import { PublishRunButton } from "./publish-run";
@@ -292,6 +293,8 @@ export function RunView({ id }: { id: number }) {
   // the truth lists ('398 kabul edilmiş istisna' -> Sorun 398); the data notes are a labelled second line. Without a
   // truth (an imported board, an old run) the data notes stay the count
   const problems = truth ? problemCount(truth) : dataNotes;
+  // the report tab waits for the summary and the data checks together (each one changes which cards show)
+  const reportPending = reportable && (summary.isPending || issues.isPending);
   const exceptions = verdictExceptions({
     waiver: waiverOf(r.stats_detail ?? r.stats, r.diagnosis),
     counts: index.data ? runIssueCounts(index.data.assignments) : { conflicts: 0, overCapacity: 0 },
@@ -364,12 +367,14 @@ export function RunView({ id }: { id: number }) {
                 ) : null}
                 <MissingWeeks runId={r.id} stats={r.stats_detail ?? r.stats} />
                 <RunPolicyLine r={r} />
+                <RunProfileLine r={r} />
                 {canPlan && finished && PUBLISHABLE.has(r.status) ? (
                   // round-1 R1-S-06: ERROR / FAILED / INFEASIBLE runs have nothing to publish
                   // phones: the same button becomes a capsule above the tab bar (MOBILE.md M-05; round-1 R1-S-16: "Yayınla"
                   // sat outside the bottom 40 %); one element, one test id, on every viewport
-                  <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4" data-testid="run-publish-row">
-                    <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5">
+                  // mobile-b phase 2: touch tablets (768, coarse pointer, below lg) get the same capsule
+                  <div className="mt-3 flex flex-wrap items-center gap-2 max-sm:pointer-events-none max-sm:fixed max-sm:inset-x-0 max-sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-sm:z-30 max-sm:mt-0 max-sm:justify-end max-sm:px-4 max-lg:pointer-coarse:pointer-events-none max-lg:pointer-coarse:fixed max-lg:pointer-coarse:inset-x-0 max-lg:pointer-coarse:bottom-[calc(5.25rem+env(safe-area-inset-bottom))] max-lg:pointer-coarse:z-30 max-lg:pointer-coarse:mt-0 max-lg:pointer-coarse:justify-end max-lg:pointer-coarse:px-4" data-testid="run-publish-row">
+                    <div className="max-sm:pointer-events-auto max-sm:rounded-full max-sm:bg-(--mat-thick-solid) max-sm:p-1 max-sm:shadow-elev-3 max-sm:edge-hairline max-sm:[&_button]:min-h-11 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5 max-lg:pointer-coarse:pointer-events-auto max-lg:pointer-coarse:rounded-full max-lg:pointer-coarse:bg-(--mat-thick-solid) max-lg:pointer-coarse:p-1 max-lg:pointer-coarse:shadow-elev-3 max-lg:pointer-coarse:edge-hairline max-lg:pointer-coarse:[&_button]:min-h-11 max-lg:pointer-coarse:[&_button]:rounded-full max-lg:pointer-coarse:[&_button]:px-5">
                       <PublishRunButton run={r} published={publishedId} exceptions={truth ? [] : exceptions} truth={truth} />
                     </div>
                   </div>
@@ -393,6 +398,10 @@ export function RunView({ id }: { id: number }) {
                           <span aria-label={locale === "tr" ? "çizelge yok" : "no timetable"}>—</span>
                         )}
                       </dd>
+                      {x.k === t("glass.report.problems") && reportable && summary.isPending ? (
+                        // the "Veri notları N" line arrives with the summary: keep its line (CLS)
+                        <p className="type-footnote" aria-hidden="true" data-testid="kpi-data-notes-pending">&nbsp;</p>
+                      ) : null}
                       {x.k === t("glass.report.problems") && truth && outcome.kind !== "cancelled" ? (
                         <p className="type-footnote text-label-2" data-testid="kpi-data-notes">
                           {locale === "tr" ? `Veri notları ${n(dataNotes)}` : `Data notes ${n(dataNotes)}`}
@@ -446,6 +455,15 @@ export function RunView({ id }: { id: number }) {
               </TabsList>
               </div>
               <TabsContent value="report" keepMounted className="space-y-5 pt-4 data-[hidden]:hidden">
+                {/* mobile-b phase 2 (CLS 0.48 at 390): the cards depend on the summary and the data checks; until both
+                    answer, one placeholder of the list's height holds the place instead of cards that reshuffle */}
+                {reportPending ? (
+                  <div className="min-h-[60dvh] space-y-3" aria-busy="true" data-testid="run-report-loading">
+                    <Skeleton className="h-24 rounded-2xl" />
+                    <Skeleton className="h-40 rounded-2xl" />
+                  </div>
+                ) : (
+                <>
                 {problems === 0 && !reportable ? (
                   // a cancelled run: no "İhlal yok" (there is nothing to have violations), just why the list is empty
                   <Card>
@@ -502,6 +520,8 @@ export function RunView({ id }: { id: number }) {
                     </CardContent>
                   </Card>
                 ) : null}
+                </>
+                )}
               </TabsContent>
               <TabsContent value="grid" className="pt-4">
                 {/* the calendar lives on its own page (owned by the calendar view); deep-link run + week */}

@@ -11,6 +11,7 @@
 import { Ban, Building2, CalendarClock, CalendarX, CheckCircle2, ChevronDown, CircleDashed, History, Hourglass, Loader2, PackageX, Search, ShieldAlert, SlidersHorizontal, Stamp, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { PolicyWhy } from "@/components/policies/policy-why";
+import { PeakChip } from "./peak-chip";
 import { useApprovalFirst, type EffectiveQuery } from "@/lib/api/booking-policies";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState, type ReactNode } from "react";
@@ -432,6 +433,8 @@ export function FindRoomView() {
                   </p>
                 ) : null}
               </div>
+              {/* AS-17: a hint when the searched time is a peak hour (the results are unchanged) */}
+              <PeakChip termId={termId} slot={result.slots[0]} />
               {result.closed_dates.length ? (
                 <Alert tone="warning" title={t("wave1.find.closedTitle", { n: result.closed_dates.length })}>
                   {result.closed_dates
@@ -554,7 +557,7 @@ export function FindRoomView() {
       {/* T-R2-10 (R2-A-04, MOBILE M-05): on phones and tablets "Ara" is a capsule fixed above the tab bar, so it stays in
           thumb reach while the form and the results scroll (the sticky wrapper inside the form card left with the card) */}
       {compact ? (
-        <div className="fixed inset-x-4 bottom-[calc(var(--shell-bottom-h)+0.75rem)] z-20 rounded-2xl glass-chrome p-1.5 shadow-elev-2" data-testid="fr-search-capsule">
+        <div className="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[calc(var(--shell-bottom-h)+0.75rem)] left-[max(1rem,env(safe-area-inset-left))] z-20 rounded-2xl glass-chrome p-1.5 shadow-elev-2" data-testid="fr-search-capsule">
           <Button type="submit" form="fr-form" {...busyProps(busy, !dated)} className="w-full" data-testid="fr-search">
             <BusyLabel busy={busy} label={t("busy.searching")} icon={<Search aria-hidden />}>
             {busy ? t("wave1.find.searching") : t("wave1.find.search")}</BusyLabel>
@@ -723,7 +726,7 @@ function ResultRow({ row: r, rank, multi, headcount, opening, onReserve, why, ow
           {t("wave1.find.openRequest")}
         </Button>
       ) : onReserve && r.action !== "none" ? (
-        <Button size="sm" variant="outline" className="min-h-11 self-start sm:min-h-0" onClick={onReserve} disabled={opening} aria-label={t(request ? "wave1.find.requestRoom" : "wave1.find.reserveRoom", { room: r.name })} data-testid={`fr-reserve-${r.code}`}>
+        <Button size="sm" variant="outline" className="min-h-11 self-start sm:pointer-fine:min-h-0" onClick={onReserve} disabled={opening} aria-label={t(request ? "wave1.find.requestRoom" : "wave1.find.reserveRoom", { room: r.name })} data-testid={`fr-reserve-${r.code}`}>
           {opening ? <Loader2 className="animate-spin" aria-hidden /> : request ? <Stamp aria-hidden /> : <CalendarClock aria-hidden />}
           {t(request ? "wave1.find.request" : "wave1.find.reserve")}
         </Button>

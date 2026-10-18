@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import shutil
 from typing import Any
 
@@ -59,8 +60,10 @@ from app.schemas.council import (
     ReviewOut,
     RowDecisionsIn,
 )
-from app.services import term_lock
+from app.services import seasons, term_lock
 from app.workers.queue import get_queue, worker_id
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/council", tags=["council"])
 
@@ -406,14 +409,33 @@ async def post_commit(job_id: int, body: CommitIn, db: DB, user: Planner) -> dic
             return await dry_run(get_session_factory(), job.id, **kwargs)
         code = await _commit_term_code(db, job, body)
         if code is None:  # no term to lock: commit() refuses with the reason
-            return await commit(db, job, actor=user, **kwargs)
-        key = term_lock.term_key(code)
-        async with term_lock.term_write_lock(key, f"council-commit:{job.id}"):
-            return await commit(db, job, actor=user, **kwargs)
+            result = await commit(db, job, actor=user, **kwargs)
+        else:
+            key = term_lock.term_key(code)
+            async with term_lock.term_write_lock(key, f"council-commit:{job.id}"):
+                result = await commit(db, job, actor=user, **kwargs)
     except term_lock.TermLocked as exc:
         raise locked_409(exc) from exc  # the imports' 409: holder and since when, TR + EN
     except CommitError as exc:
         raise HTTPException(409, exc.detail or str(exc)) from exc  # coded refusals carry message_tr (T-R2-21)
+    await _propose_segments(db, result)
+    return result
+
+
+async def _propose_segments(db: DB, result: dict[str, Any]) -> None:
+    """AS-18: after a real commit (already committed), propose draft period segments from the term's week / sheet
+    names (``seasons.after_import``). Best effort: a failure is logged and rolled back, never fails the import."""
+    term_id = result.get("term_id")
+    if not term_id:
+        return
+    try:
+        term = await db.get(Term, int(term_id))
+        if term is not None:
+            await seasons.after_import(db, term)
+            await db.commit()
+    except Exception:
+        log.warning("seasons.after_import failed after council commit (term %s)", term_id, exc_info=True)
+        await db.rollback()
 
 
 @router.post("/jobs/{job_id}/rerun", response_model=CouncilJobOut, status_code=202)

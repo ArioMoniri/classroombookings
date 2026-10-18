@@ -74,9 +74,9 @@ function takeScene(def, fmt) {
         out.push(layer(v.L, c.tf, c.alpha));
         c.preload.push(...v.nexts);
         const cap = c.captionFor(this, p, v.recT);
-        if (cap) { c.caps.push(cap); out.push(c.captionLayer(cap, c.alpha, g)); }
+        if (cap) { c.caps.push(cap); out.push(c.captionLayer(cap, c.textAlpha, g)); }
         const k = c.keysFor(p, v.recT);
-        if (k) out.push(html("keys", k.html, { left: `${g.card.x + 28}px`, top: `${g.card.y + g.card.h - 76}px`, opacity: String(k.a * c.alpha) }));
+        if (k) out.push(html("keys", k.html, { left: `${g.card.x + 28}px`, top: `${g.card.y + g.card.h - 76}px`, opacity: String(k.a * c.textAlpha) }));
       } else if (layout === "phone") {
         const p = this.parts[0];
         const box = { ...g.phone };
@@ -86,17 +86,17 @@ function takeScene(def, fmt) {
         const cap = c.captionFor(this, p, v.recT);
         if (fmt === "landscape") {
           const t = g.phoneText;
-          out.push(titleBlock(t.x, t.y, t.w, def.headline, def.subline, 64, c.alpha));
+          out.push(titleBlock(t.x, t.y, t.w, def.headline, def.subline, 64, c.textAlpha));
           if (cap) {
             c.caps.push(cap);
-            out.push({ ...c.captionLayer(cap, c.alpha, g), style: { ...c.captionLayer(cap, c.alpha, g).style, left: `${t.x}px`, transform: "none", top: `${t.y + 260}px` } });
+            out.push({ ...c.captionLayer(cap, c.textAlpha, g), style: { ...c.captionLayer(cap, c.textAlpha, g).style, left: `${t.x}px`, transform: "none", top: `${t.y + 260}px` } });
           }
         } else if (cap) {
           c.caps.push(cap);
-          out.push(c.captionLayer(cap, c.alpha, { ...g, capY: g.phoneCapY, capWrap: true, capW: g.capW ?? 940 }));
+          out.push(c.captionLayer(cap, c.textAlpha, { ...g, capY: g.phoneCapY, capWrap: true, capW: g.capW ?? 940 }));
         }
       }
-      const chip = c.chipLayer(this, c.alpha, g);
+      const chip = c.chipLayer(this, c.textAlpha, g);
       if (chip) out.push(chip);
       return out;
     },
@@ -132,8 +132,8 @@ export function buildStory({ format = "landscape", story = "launch", take, steps
       const lift = (1 - c.easeOut(c.local / 600)) * 24;
       return [
         { kind: "lottie", name, frame: fr, box: g.lottie, opacity: a, transform: `translateY(${lift.toFixed(1)}px) ${c.tf}` },
-        titleBlock(t.x, t.y + lift, t.w, title, sub, format === "vertical" ? 72 : 60, a),
-        c.chipLayer(this, a, g),
+        titleBlock(t.x, t.y + lift, t.w, title, sub, format === "vertical" ? 72 : 60, c.textAlpha),
+        c.chipLayer(this, c.textAlpha, g),
       ];
     },
   });
@@ -143,7 +143,7 @@ export function buildStory({ format = "landscape", story = "launch", take, steps
       render(c) {
         const a = c.alpha;
         const u = c.local / 1000;
-        const fr = Math.min(179, u * 30 * 1.35);
+        const fr = Math.min(150, u * 30 * 1.35); // the loop resets after ~frame 165: hold its solved state
         const logoA = c.easeOut((u - 0.15) / 0.6) * a;
         const tagA = c.easeOut((u - 0.9) / 0.7) * a;
         const L = format === "vertical"
@@ -213,6 +213,7 @@ export const CLIPS = [
   { id: "calendar-move", journey: "calendar-move", clip: "calendar-move", device: "desktop" },
   { id: "precheck-fix", journey: "studio-rule-fix", clip: "precheck-fix", device: "desktop" },
   { id: "reserve-phone", journey: "launch-reserve", clip: null, device: "phone" },
+  { id: "find-room-phone", journey: "find-room", clip: null, device: "phone" },
   { id: "approval-request", journey: "approval-flow", clip: "approval-request", device: "desktop" },
   { id: "approval-approve", journey: "approval-flow", clip: "approval-approve", device: "desktop" },
 ];

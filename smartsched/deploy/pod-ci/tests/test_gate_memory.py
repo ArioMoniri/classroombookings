@@ -56,7 +56,7 @@ def test_e2e_real_caps_side_containers_and_runs_one_playwright_worker(tmp_path: 
 
 def test_vitest_ci_caps_workers_heap_and_timeout() -> None:
     cfg = (REPO / "smartsched/frontend/vitest.config.mts").read_text()
-    for needle in ("maxWorkers: 2", '"--max-old-space-size=1536"', "testTimeout: 30_000", "process.env.CI"):
+    for needle in ("maxWorkers: TINY ? 1 : 2", '"--max-old-space-size=1536"', "cgroupLimitBytes", "testTimeout: 30_000", "process.env.CI"):
         assert needle in cfg, needle
     assert "workers: 1," in (REPO / "smartsched/frontend/playwright.config.ts").read_text()
 

@@ -16,13 +16,14 @@ vi.mock("next/navigation", () => ({
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), message: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
-const api = vi.hoisted(() => ({ sync: null as unknown, calls: [] as { path: string; method: string; body?: unknown }[], connect: vi.fn() }));
+const api = vi.hoisted(() => ({ options: null as unknown, sync: null as unknown, calls: [] as { path: string; method: string; body?: unknown }[], connect: vi.fn() }));
 vi.mock("@/lib/api/client", async (orig) => ({
   ...(await orig<typeof import("@/lib/api/client")>()),
   request: async (path: string, opts: { method?: string; body?: unknown } = {}) => {
     const method = opts.method ?? "GET";
     api.calls.push({ path, method, body: opts.body });
     if (path === "/calendar/sync") return api.sync;
+    if (path === "/calendar/export/options" && api.options) return api.options;
     if (path.endsWith("/connect")) return api.connect(path, opts.body);
     if (path === "/me/consents/calendar_sync") return [{ purpose: "calendar_sync", label_tr: "Takvim", label_en: "Calendar", granted: true }];
     if (path === "/calendar/connectors/google/calendars") return [{ id: "primary", name: "ayse@uni.edu.tr", primary: true }, { id: "c2", name: "Dersler" }];
@@ -33,7 +34,8 @@ vi.mock("@/lib/api/client", async (orig) => ({
   },
 }));
 
-import { CalendarConnectionsSection, connectResult } from "./calendar-connections";
+import { translate } from "@/lib/i18n";
+import { CalendarConnectionsSection, connectErrorText, connectResult } from "./calendar-connections";
 
 const google = { provider: "google", label: "Google Calendar", configured: true, connected: false };
 const microsoft = { provider: "microsoft", label: "Microsoft 365", configured: false, connected: false };
@@ -53,6 +55,7 @@ function renderSection(locale: "en" | "tr" = "en") {
 const assign = vi.fn();
 beforeEach(() => {
   api.calls = [];
+  api.options = null;
   api.connect.mockReset();
   nav.params = new URLSearchParams();
   nav.replace.mockReset();
@@ -90,7 +93,7 @@ describe("CalendarConnectionsSection", () => {
     expect(within(ms).queryByRole("button")).toBeNull();
     await user.click(screen.getByTestId("calendar-connect-google"));
     await waitFor(() => expect(assign).toHaveBeenCalledWith(url));
-    expect(api.connect).toHaveBeenCalledWith("/calendar/connectors/google/connect", { return_path: "/profile" });
+    expect(api.connect).toHaveBeenCalledWith("/calendar/connectors/google/connect", { return_path: "/profile", scopes: ["my_bookings"] });
   });
 
   it("shows the backend's refusal with a link to Privacy when consent is missing", async () => {
@@ -153,5 +156,33 @@ describe("CalendarConnectionsSection", () => {
     renderSection();
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Could not connect: access was not granted"));
     expect(nav.replace).toHaveBeenCalledWith("/profile", { scroll: false });
+  });
+
+  it("says which account to use when the provider's account is not the institution's verified one (CAL-07)", async () => {
+    nav.params = new URLSearchParams("calendar=error&provider=google&reason=account_not_verified&domain=uni.edu.tr");
+    api.sync = sync([google]);
+    renderSection("tr");
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Bu hesap kurumunuzun doğrulanmış hesabı değil. uni.edu.tr uzantılı hesabınızla bağlanın."));
+  });
+
+  it("is the older panel, closed under Gelişmiş, once the new export options answer", async () => {
+    api.options = { enabled: true, scopes: [], channels: { link: true, file: true, push: [] } };
+    api.sync = sync([google]);
+    renderSection("tr");
+    const adv = await screen.findByTestId("calendar-connections-advanced");
+    expect(adv).not.toHaveAttribute("open");
+    expect(within(adv).getByTestId("calendar-connections-advanced-toggle")).toHaveTextContent("Gelişmiş");
+    expect(await within(adv).findByTestId("calendar-connect-google")).toBeInTheDocument();
+    expect(screen.getByTestId("calendar-connections")).toHaveTextContent("Takvimime ekle");
+  });
+});
+
+describe("connectErrorText", () => {
+  const t = (k: Parameters<typeof translate>[1], v?: Record<string, string | number>) => translate("tr", k, v);
+  it("never shows a code: known reasons in words, the refused account with its domain or 'kurumsal'", () => {
+    expect(connectErrorText(new URLSearchParams("calendar=error&reason=account_not_verified&domain=uni.edu.tr"), t)).toBe("Bu hesap kurumunuzun doğrulanmış hesabı değil. uni.edu.tr uzantılı hesabınızla bağlanın.");
+    expect(connectErrorText(new URLSearchParams("calendar=error&reason=account_not_verified&domain="), t)).toBe("Bu hesap kurumunuzun doğrulanmış hesabı değil. Kurumsal hesabınızla bağlanın.");
+    expect(connectErrorText(new URLSearchParams("calendar=error&reason=denied"), t)).toBe("Bağlanılamadı: izin verilmedi");
+    expect(connectErrorText(new URLSearchParams("calendar=error&reason=weird_code"), t)).not.toMatch(/weird_code/);
   });
 });

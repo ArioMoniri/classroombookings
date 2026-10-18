@@ -103,6 +103,8 @@ async def republish(env, p, *, move_week5: bool = False, drop_week6: bool = Fals
                               json={"confirm_forced_breaks": True, "confirm_scope_reduction": True}, headers=env.planner)  # fmt: skip
     assert r.status_code == 200, r.text
     await worker.wait_idle()
+    await worker.drain()  # whatever the after-commit kick has not reached yet (the drain is idempotent)
+    await worker.wait_idle()
 
 
 async def test_cal_06_google_publish_inserts_a_move_patches_a_removal_deletes_disconnect_drops_the_calendar(
@@ -140,7 +142,11 @@ async def test_cal_06_google_publish_inserts_a_move_patches_a_removal_deletes_di
     fake.requests.clear()
     await republish(env, p, move_week5=True)
     patches = fake.calls("PATCH")
-    assert len(patches) == 1 and not fake.calls("POST", "/events") and not fake.calls("DELETE")
+    async with dbmod.get_session_factory()() as s:
+        seen = [
+            (j.kind, j.status, j.attempts, j.last_error) for j in (await s.execute(select(CalendarSyncJob))).scalars()
+        ]
+    assert len(patches) == 1 and not fake.calls("POST", "/events") and not fake.calls("DELETE"), seen
     moved = fake.body(patches[0])
     assert moved["start"]["dateTime"] == "2026-03-03T10:10:00" and moved["location"] == "A 101"
     # a removed meeting: one DELETE

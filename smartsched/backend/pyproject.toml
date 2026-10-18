@@ -48,6 +48,9 @@ dependencies = [
   # Exact versions in requirements.lock; saml.py still degrades to "kütüphane gerekli" if signxml is missing.
   "signxml>=5.1,<6",
   "lxml>=6.1,<7",
+  # AU-B passkeys (owner request 2026-10-18; docs/research/2026-10-18-auth-backend.md §3): py_webauthn by Duo Labs,
+  # BSD-3-Clause, pure Python (cbor2 ships aarch64 + x86_64 wheels). TOTP is a stdlib RFC 6238 (app/core/totp.py).
+  "webauthn>=3.0.1,<4",
 ]
 
 [project.optional-dependencies]

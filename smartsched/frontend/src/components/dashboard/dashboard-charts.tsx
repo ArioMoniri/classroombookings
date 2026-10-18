@@ -1,17 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { EvilAreaChart } from "@/components/ui/evilcharts/charts/recharts-area-chart";
+import { ChartCard } from "@/components/charts/chart-card";
+import type { ChartColumn } from "@/components/charts/chart-csv";
+import { useChartFormat } from "@/components/charts/chart-format";
+import { LazyAreaChart } from "@/components/charts/chart-lazy";
+import { chartSummary } from "@/components/charts/chart-summary";
+import { singleConfig } from "@/components/charts/chart-tokens";
 import { BarList } from "@/components/ui/bar-list";
 import type { DashboardSummary } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-/* Data marks use the sequential ramp, never the accent (G3: one tint for actions/selection only).
-   No grow-in or stagger on load (A9, motion.md §0.3): animationType="none". Every chart has a text twin
-   (sr-only table) because a chart is not accessible on its own. */
-const SEQ = { light: ["var(--seq-4)"], dark: ["var(--seq-4)"] };
+/* Data marks use the sequential ramp, never the accent (G3: one tint for actions/selection only). The period chart
+   sits in the shared ChartCard (CH-04, docs/design/v3/charts.md): no grow-in (A9), the table twin, CSV, keyboard. */
 
 /** Weighted mean utilisation per period across buildings (rooms as weights). */
 export function periodSeries(d: DashboardSummary): { period: string; index: number; util: number }[] {
@@ -24,40 +27,45 @@ export function periodSeries(d: DashboardSummary): { period: string; index: numb
   });
 }
 
-export function PeriodArea({ data, className }: { data: DashboardSummary; className?: string }) {
+type PeriodRow = { period: string; util: number };
+
+/** CH-04 (charts.md §4 row 8): one series on the shared ChartCard + EvilCharts ECharts area (`--seq-4`, SVG). */
+export function PeriodArea({ data }: { data: DashboardSummary | undefined }) {
   const { t } = useI18n();
-  const series = useMemo(() => periodSeries(data), [data]);
-  const config = useMemo(() => ({ util: { label: t("glass.dashboard.occupied"), colors: SEQ } }), [t]);
-  const peak = series.reduce((a, b) => (b.util > a.util ? b : a), series[0] ?? { period: "", index: 0, util: 0 });
-  // an empty week draws no axes or frame, only the sentence (review 2026-10-15 §3 Dashboard)
-  if (!series.some((s) => s.util > 0)) return <p className={cn("flex items-center type-callout text-label-2", className, "h-auto")}>{t("common.noData")}</p>;
+  const f = useChartFormat();
+  const series = useMemo(() => (data ? periodSeries(data) : []), [data]);
+  // the table and CSV hold ratios (%86 / 86); the plot keeps percent points 0…100
+  const rows = useMemo<PeriodRow[]>(() => series.map((s) => ({ period: s.period, util: s.util / 100 })), [series]);
+  const columns = useMemo<ChartColumn<PeriodRow>[]>(
+    () => [
+      { key: "period", label: t("common.period") },
+      { key: "util", label: t("glass.dashboard.occupied"), kind: "percent" },
+    ],
+    [t],
+  );
+  const config = useMemo(() => singleConfig("util", t("glass.dashboard.occupied")), [t]);
+  const empty = !series.some((s) => s.util > 0);
+  const summary = empty ? "" : chartSummary({ t, f, points: rows.map((r) => ({ label: r.period, value: r.util })), kind: "slot", total: false, formatValue: f.pct });
+  const pct = (v: number) => f.pct(v / 100);
   return (
-    <figure className={cn("relative", className)}>
-      <div aria-hidden className="size-full">
-        <EvilAreaChart config={config} data={series} curveType="monotone" animationType="none" className="aspect-auto size-full">
-          <EvilAreaChart.Grid />
-          <EvilAreaChart.XAxis dataKey="period" interval={2} />
-          <EvilAreaChart.YAxis width={32} tickFormatter={(v: number) => `${v}`} domain={[0, 100]} ticks={[0, 50, 100]} />
-          <EvilAreaChart.Tooltip variant="frosted-glass" />
-          <EvilAreaChart.Area dataKey="util" variant="gradient" strokeVariant="solid" strokeWidth={2} />
-        </EvilAreaChart>
-      </div>
-      <figcaption className="sr-only">
-        {t("glass.dashboard.peakAt", { time: peak.period, pct: peak.util })}
-        <table>
-          <tbody>
-            {series.map((s) => (
-              <tr key={s.index}>
-                <th scope="row">{s.period}</th>
-                <td>{s.util}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </figcaption>
-    </figure>
+    <ChartCard<PeriodRow>
+      id="dashboard-periods"
+      title={t("glass.dashboard.byPeriod")}
+      hint={`${t("glass.dashboard.byPeriodHint")}.`}
+      summary={summary}
+      state={!data ? "loading" : empty ? "empty" : "ready"}
+      empty={{ reason: t("common.noData") }}
+      columns={columns}
+      rows={rows}
+      series={1}
+      height={180}
+    >
+      {(ctx) => <LazyAreaChart {...ctx} valueFormatter={pct} tickFormatter={pct} data={series} config={config} xKey="period" series={SERIES} />}
+    </ChartCard>
   );
 }
+
+const SERIES = ["util"] as const;
 
 export function BuildingBars({ data, className }: { data: DashboardSummary; className?: string }) {
   const { t, n } = useI18n();

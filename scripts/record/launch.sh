@@ -64,8 +64,8 @@ do_encode() {
   # 1. the launch video: 1920x1080 60 fps H.264 High (plays everywhere), <= 25 MB
   h264 "$L" "$DIST/smartsched-launch.mp4" 25000000 "scale=1920:1080:flags=lanczos" 60
   # 2. AV1 in WebM (SVT-AV1, 10-bit): the same picture at a fraction of the bytes, for browsers that play AV1
-  $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$L" -vf "format=yuv420p10le" -c:v libsvtav1 -preset 5 -crf 34 -g 240 \
-    -svtav1-params "tune=0" -an "$DIST/smartsched-launch-av1.webm"
+  $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$L" -vf "format=yuv420p10le" -c:v libsvtav1 -preset 6 -crf 34 -g 240 \
+    -svtav1-params "tune=0:lp=2" -an "$DIST/smartsched-launch-av1.webm"
   log "smartsched-launch-av1.webm: $(mb "$DIST/smartsched-launch-av1.webm")"
   # 3. a copy for a GitHub user-attachments upload on a free plan (10 MB limit): 1920x1080 at 30 fps
   h264 "$L" "$DIST/smartsched-launch-attach.mp4" 9800000 "scale=1920:1080:flags=lanczos" 30
@@ -112,8 +112,8 @@ do_clips() {
   local CL="$OUT/clips" CT="$OUT/clip-takes" list
   mkdir -p "$CL" "$CT"
   list="$(node --input-type=module -e "import { CLIPS } from '$HERE/launch/story.mjs'; for (const c of CLIPS) console.log([c.id, c.journey, c.clip ?? '-', c.device].join(' '))")"
-  # 1. one take per journey
-  while read -r id journey clip device; do
+  # 1. one take per journey (LAUNCH_CLIPS_STAGE=render skips to step 2)
+  [[ "${LAUNCH_CLIPS_STAGE:-all}" == render ]] || while read -r id journey clip device; do
     local name="$journey-light"; [[ "$UI_LANG" != en ]] && name="$name-$UI_LANG"; [[ "$device" == phone ]] && name="$name-phone"
     [[ -n "${LAUNCH_ONLY:-}" && " $LAUNCH_ONLY " != *" $journey "* ]] && continue
     if [[ ! -f "$CT/$name.take.json" ]]; then
@@ -123,13 +123,14 @@ do_clips() {
         $N node "$HERE/record.mjs" --journey "$journey" --lang "$UI_LANG" --engine frames --out "$CT" </dev/null || { log "take $journey failed"; continue; }
     fi
   done <<<"$list"
-  # 2. renders + encodes
+  [[ "${LAUNCH_CLIPS_STAGE:-all}" == record ]] && return 0
+  # 2. renders + encodes (LAUNCH_CLIPS_STAGE=record stops before this, so the stack can go down first)
   while read -r id journey clip device; do
     local name="$journey-light"; [[ "$UI_LANG" != en ]] && name="$name-$UI_LANG"; [[ "$device" == phone ]] && name="$name-phone"
     [[ -f "$CT/$name.take.json" ]] || continue
     local fmt=clip take="$journey"; [[ "$device" == phone ]] && fmt=phone-clip take="$journey-phone"
     if [[ ! -f "$CL/$take.mp4" ]]; then
-      [[ -f "$CT/$take.full.mkv" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --out "$CT/$take.full.mkv" </dev/null
+      [[ -f "$CT/$take.full.mkv" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --out "$CT/$take.full.mkv" </dev/null || { log "render of $take failed"; continue; }
       local vf="scale=1600:960:flags=lanczos"; [[ "$device" == phone ]] && vf="scale=720:1280:flags=lanczos"
       h264 "$CT/$take.full.mkv" "$CL/$take.mp4" 12000000 "$vf" 60
       $N ffmpeg -nostdin -hide_banner -loglevel error -y -sseof -2.5 -i "$CT/$take.full.mkv" -frames:v 1 -vf "scale=1200:-2:flags=lanczos" "$CL/$take-poster.png"
@@ -137,7 +138,7 @@ do_clips() {
     local src="$CT/$take.full.mkv"
     if [[ "$clip" != - ]]; then
       src="$CT/$id.clip.mkv"
-      [[ -f "$src" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --clip "$clip" --out "$src" </dev/null
+      [[ -f "$src" ]] || $N node "$HERE/launch/render.mjs" --takes "$CT" --story clip --format "$fmt" --take "$name" --clip "$clip" --out "$src" </dev/null || { log "render of clip $id failed"; continue; }
     fi
     local w=1280 q fps=30; [[ "$device" == phone ]] && w=540
     for q in 82 74 66 58 50; do
@@ -145,14 +146,16 @@ do_clips() {
         -compression_level 6 -preset picture -loop 0 -an "$CL/$id.webp"
       [[ $(size "$CL/$id.webp") -le 4000000 ]] && break
     done
-    # GIF fallback: 25 fps (an exact 4/100 s delay), diff palette, a width ladder until <= 9 MB
-    local gw; for gw in 1120 1040 960 880 800; do
+    # GIF fallback: 25 fps (an exact 4/100 s delay) or 20 fps (5/100 s), diff palette, a width ladder until <= 9 MB
+    local gw gfps spec
+    for spec in "1120 25" "1040 25" "960 25" "880 25" "800 25" "960 20" "880 20" "800 20" "720 20"; do
+      read -r gw gfps <<<"$spec"
       [[ "$device" == phone ]] && gw=$((gw * 45 / 100))
-      $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$src" -vf "fps=25,scale=$gw:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=256:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
+      $N ffmpeg -nostdin -hide_banner -loglevel error -y -i "$src" -vf "fps=$gfps,scale=$gw:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=256:stats_mode=diff[p];[b][p]paletteuse=dither=sierra2_4a:diff_mode=rectangle" \
         -loop 0 "$CL/$id.gif"
       [[ $(size "$CL/$id.gif") -le 9000000 ]] && break
     done
-    log "clip $id: webp ${w}px/${fps}fps q$q $(mb "$CL/$id.webp"), gif ${gw}px/25fps $(mb "$CL/$id.gif"), take $(mb "$CL/$take.mp4")"
+    log "clip $id: webp ${w}px/${fps}fps q$q $(mb "$CL/$id.webp"), gif ${gw}px/${gfps}fps $(mb "$CL/$id.gif"), take $(mb "$CL/$take.mp4")"
   done <<<"$list"
 }
 

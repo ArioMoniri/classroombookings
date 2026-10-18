@@ -56,9 +56,9 @@ from app.models import (
     ScheduleRun,
     Setting,
     User,
-    UserChannel,
 )
 from app.models.base import utcnow
+from app.models.channels import UserChannel
 from app.models.sso import SsoInvite
 from app.models.welcome import WelcomeContent, WelcomeProgress
 from app.services import audit
@@ -110,8 +110,13 @@ AUDIENCE_LABELS: dict[str, dict[str, str]] = {
 #: audiences that book rooms (median days to the first booking in the stats)
 BOOKING_AUDIENCES = frozenset({"academician", "staff", "dept_admin"})
 DEPT_ADMIN_PERMS = frozenset(
-    {"book_single.set_user", "book_recur.set_user", "book_single.set_department", "book_recur.set_department",
-     "book_recur.create"}
+    {
+        "book_single.set_user",
+        "book_recur.set_user",
+        "book_single.set_department",
+        "book_recur.set_department",
+        "book_recur.create",
+    }
 )
 BOOKER_PERMS = frozenset({"book_single.create", "book_single.request"})
 
@@ -324,21 +329,21 @@ class Settings:
         v = self.raw.get(PREFIX + key)
         return SWITCHES[key] if v is None else v.strip().lower() in _TRUE
 
-    def int(self, key: str, default: int = 0) -> int:
+    def number(self, key: str, default: int = 0) -> int:
         try:
             return int(self.raw.get(PREFIX + key) or default)
         except ValueError:
             return default
 
     def content_version(self, aud: str) -> int:
-        return self.int(f"content_version.{aud}")
+        return self.number(f"content_version.{aud}")
 
     def text_version(self, aud: str) -> int:
-        return self.int(f"text_version.{aud}")
+        return self.number(f"text_version.{aud}")
 
     @property
     def min_cohort(self) -> int:
-        return max(MIN_COHORT, self.int("min_cohort", MIN_COHORT))
+        return max(MIN_COHORT, self.number("min_cohort", MIN_COHORT))
 
     @property
     def hints_for_all_at(self) -> datetime | None:
@@ -543,9 +548,7 @@ async def _rows(session: AsyncSession, uid: int) -> dict[str, WelcomeProgress]:
     return {r.guide_key: r for r in (await session.execute(q)).scalars()}
 
 
-def _sheet_trigger(
-    row: WelcomeProgress | None, auds: list[str], st: Settings, now: datetime
-) -> dict[str, Any] | None:
+def _sheet_trigger(row: WelcomeProgress | None, auds: list[str], st: Settings, now: datetime) -> dict[str, Any] | None:
     """T1 / T3 / T4 / T2 for the sheet, or None."""
     if not auds:
         return None
@@ -568,9 +571,7 @@ def _sheet_trigger(
     return None
 
 
-async def _overrides(
-    session: AsyncSession, auds: list[str], locale: str, st: Settings
-) -> dict[str, dict[str, str]]:
+async def _overrides(session: AsyncSession, auds: list[str], locale: str, st: Settings) -> dict[str, dict[str, str]]:
     wanted = [a for a in auds if st.text_version(a) > 0]
     if not wanted:
         return {}
@@ -613,8 +614,10 @@ async def payload(
         suppressed = "embed"
     else:
         suppressed = route_suppression(first_route)
-    if suppressed is None and st.get("org.maintenance_mode") in ("1", "true") and (
-        "system.bypass_maintenance_mode" not in perms
+    if (
+        suppressed is None
+        and st.get("org.maintenance_mode") in ("1", "true")
+        and ("system.bypass_maintenance_mode" not in perms)
     ):
         suppressed = "maintenance"
     trigger = _sheet_trigger(rows.get("sheet"), auds, st, now)
@@ -633,7 +636,8 @@ async def payload(
         )
     if show is None and due_hints:
         show = {"kind": "hint", "key": due_hints[0].key, "audiences": [], "updated": False}
-    if show is None and suppressed is None and (not st.switch("enabled") or (trigger is not None and not enabled["sheet"])):
+    switched_off = not st.switch("enabled") or (trigger is not None and not enabled["sheet"])
+    if show is None and suppressed is None and switched_off:
         suppressed = "disabled"
     if suppressed is not None:
         show = None
@@ -1026,7 +1030,8 @@ def clean_text(value: str | None, *, field: str, locale: str, limit: int) -> str
         if inner not in PLACEHOLDERS:
             raise _refuse(
                 "placeholder",
-                f"{field} ({locale}): only {{ad}}, {{name}}, {{bölüm}} and {{department}} may be used, not {{{m.group(1)}}}",
+                f"{field} ({locale}): only {{ad}}, {{name}}, {{bölüm}} and {{department}} may be used, "
+                f"not {{{m.group(1)}}}",
                 f"{field} ({locale}): yalnızca {{ad}}, {{name}}, {{bölüm}} ve {{department}} kullanılabilir; "
                 f"{{{m.group(1)}}} kullanılamaz",
                 field=field,
@@ -1158,7 +1163,12 @@ async def put_content(
         elif row is None:
             session.add(
                 WelcomeContent(
-                    audience=a, locale=loc, field=field, text=text, version=new_version, updated_by_id=actor.id,
+                    audience=a,
+                    locale=loc,
+                    field=field,
+                    text=text,
+                    version=new_version,
+                    updated_by_id=actor.id,
                     updated_at=now,
                 )
             )
@@ -1185,7 +1195,7 @@ async def put_content(
 
 
 async def reshow(session: AsyncSession, actor: User, aud: str) -> dict[str, Any]:
-    """"Show again" to the audience: its ``content_version`` +1, so everyone of it gets the sheet with "Güncellendi"."""
+    """'Show again' to the audience: its ``content_version`` +1, so all of it gets the sheet with 'Güncellendi'."""
     a = check_audience(aud)
     st = await load_settings(session)
     old = st.content_version(a)
@@ -1223,23 +1233,25 @@ async def stats(session: AsyncSession, days: int) -> dict[str, Any]:
     since = now - timedelta(days=days)
     st = await load_settings(session)
     k = st.min_cohort
-    cohort = (
-        select(WelcomeProgress.user_id)
-        .where(WelcomeProgress.guide_key == "sheet", WelcomeProgress.first_shown_at >= since)
+    cohort = select(WelcomeProgress.user_id).where(
+        WelcomeProgress.guide_key == "sheet", WelcomeProgress.first_shown_at >= since
     )
     async with rls.system_scope(session):
         sheets = (
             await session.execute(
                 select(
-                    WelcomeProgress.user_id, WelcomeProgress.audience, WelcomeProgress.state,
+                    WelcomeProgress.user_id,
+                    WelcomeProgress.audience,
+                    WelcomeProgress.state,
                     WelcomeProgress.first_shown_at,
                 ).where(WelcomeProgress.guide_key == "sheet", WelcomeProgress.first_shown_at >= since)
             )
         ).all()
         others = (
             await session.execute(
-                select(WelcomeProgress.user_id, WelcomeProgress.guide_key, WelcomeProgress.state, WelcomeProgress.items)
-                .where(WelcomeProgress.guide_key.in_(("tour", "checklist")), WelcomeProgress.user_id.in_(cohort))
+                select(
+                    WelcomeProgress.user_id, WelcomeProgress.guide_key, WelcomeProgress.state, WelcomeProgress.items
+                ).where(WelcomeProgress.guide_key.in_(("tour", "checklist")), WelcomeProgress.user_id.in_(cohort))
             )
         ).all()
         first_booking = dict(
@@ -1334,7 +1346,9 @@ async def erase(session: AsyncSession, user_id: int) -> int:
     """Delete the person's guide state (KVKK erasure); the number of rows deleted."""
     async with rls.system_scope(session):
         res = await session.execute(
-            delete(WelcomeProgress).where(WelcomeProgress.user_id == user_id).execution_options(synchronize_session=False)
+            delete(WelcomeProgress)
+            .where(WelcomeProgress.user_id == user_id)
+            .execution_options(synchronize_session=False)
         )
     return int(getattr(res, "rowcount", 0) or 0)
 

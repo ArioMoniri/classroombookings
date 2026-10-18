@@ -7,12 +7,17 @@ Everything lives in the ``settings`` table, so every call path reads one table:
 ``anthropic_api_key``                           the Anthropic key (historic row, encrypted; env fallback)
 ``ai.provider.<p>.<secret>``                    other providers' secrets (encrypted, ``is_secret``; never returned)
 ``ai.provider.<p>.config``                      plain config JSON (``base_url``, ``region``, ``enabled``)
-``ai.provider.<p>.models``                      synced models ``{"fetched_at", "models": [...], "error"}``
+``ai.provider.<p>.models``                      synced models ``{"fetched_at", "models": [...], "error"}``; each
+                                                model carries its sync-time ``capabilities`` (HB-12)
+``ai.provider.<p>.probe``                       probe results per model (``Test`` with ``probe=true``; HB-12)
+``ai.provider.<p>.cap_overrides``               the admin's capability overrides per model (audited; HB-12)
 ``ai.provider.<p>.test``                        the last test call ``{"at", "ok", "detail", "model"}``
 ``ai.provider.<p>.transfer``                    the KVKK transfer record (region, retention, mechanism, dates)
 ``ai.routes``                                   ``{"default": Route, "features": {feature: Route}}``
 ``ai.limits``                                   org budget, per-user / per-role / per-user-override limits
 ``ai.guardrails``                               guard switches
+``ai.voice``                                    voice input settings (VO-03: on/off, language, clip length,
+                                                vocabulary, live captions, per-minute prices)
 ==============================================  ============================================================
 
 With nothing configured the gateway behaves as before the gateway: provider ``anthropic``, the model from
@@ -22,16 +27,14 @@ Every change is audited by the admin API (``app/api/v1/ai_admin.py``).
 
 from __future__ import annotations
 
-import ipaddress
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.context import FEATURES
+from app.ai.context import FEATURES, VOICE_FEATURES
 from app.ai.providers import PROVIDERS, has_credentials
 from app.core.security import decrypt_secret, encrypt_secret, mask_secret
 from app.models import Setting
@@ -41,11 +44,14 @@ DEFAULT_PROVIDER = "anthropic"
 ROUTES_KEY = "ai.routes"
 LIMITS_KEY = "ai.limits"
 GUARD_KEY = "ai.guardrails"
+VOICE_KEY = "ai.voice"
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
 #: features whose requests can carry personal data (names in files, chat about people): a provider abroad needs a
 #: KVKK transfer record for them (R-AI-03); the Anthropic intake path keeps its own sign-off (``app/ai/policy.py``)
-PERSONAL_FEATURES = frozenset({"intake", "vision", "chat", "rules", "booking_nl"})
+#: a voice recording is personal data (KVKK; research 2026-10-17-voice-ai.md §2.5), so ``voice_stt`` is one of them
+#: the helper reads names and booking data through its actions (HB-06), so it is one of them too
+PERSONAL_FEATURES = frozenset({"intake", "vision", "chat", "rules", "booking_nl", "voice_stt", "helper"})
 KVKK_MECHANISMS = ("adequacy", "standard_contract", "binding_rules", "explicit_consent", "incidental", "domestic")
 
 #: per-feature caps (OWASP LLM10 unbounded consumption): applied when the route does not set its own
@@ -56,6 +62,10 @@ DEFAULT_CAPS: dict[str, dict[str, Any]] = {
     "vision": {"max_tokens": 64000, "max_tool_rounds": 20, "timeout_s": 300},
     "explain": {"max_tokens": 16000, "max_tool_rounds": 4, "timeout_s": 120},
     "booking_nl": {"max_tokens": 8000, "max_tool_rounds": 4, "timeout_s": 60},
+    #: the in-app helper (HB-06): short answers, at most 4 model calls per turn, a minute per call
+    "helper": {"max_tokens": 4000, "max_tool_rounds": 4, "timeout_s": 60},
+    #: one clip: at most 120 s and 5 MB, answered within 60 s
+    "voice_stt": {"timeout_s": 60, "max_audio_s": 120, "max_bytes": 5_000_000},
 }
 
 DEFAULT_GUARDRAILS: dict[str, Any] = {
@@ -84,6 +94,37 @@ DEFAULT_LIMITS: dict[str, Any] = {
     "max_concurrent": 2,
     #: audited one-off additions to this month's org budget: [{"month", "tokens", "cost_usd", "by", "at", "reason"}]
     "topups": [],
+    #: voice input (VO-02), in seconds of audio: 10 min a day and 100 min a month per person by default; a role or a
+    #: person can be raised with ``audio_daily`` / ``audio_monthly`` in ``roles`` / ``users``; 0 = no limit
+    "user_daily_audio_s": 600,
+    "user_monthly_audio_s": 6000,
+    "org_monthly_audio_s": 0,
+    #: the quota chain (HB-10; research §5.9), all monthly and optional: a unit without an entry draws from the org
+    #: budget unrestricted. ``faculties``: faculty id -> {monthly_tokens, monthly_cost_usd, managers, show_people};
+    #: ``departments``: programme id -> {monthly_tokens, monthly_cost_usd} (their sum fits the faculty's);
+    #: ``features``: feature -> cap; ``unassigned``: accounts without a faculty; ``strict``: the faculties may not
+    #: allocate more than the org budget (otherwise overbooking is a warning)
+    "faculties": {},
+    "departments": {},
+    "features": {},
+    "unassigned": {},
+    "strict": False,
+}
+
+#: hard ceiling of one clip (owner 2026-10-18); the admin may only lower it
+VOICE_MAX_SECONDS = 120
+VOICE_LANGUAGES = ("tr", "en")
+DEFAULT_VOICE: dict[str, Any] = {
+    "enabled": False,
+    #: the default spoken language (the UI sends its locale; Turkish first)
+    "language": "tr",
+    "max_seconds": VOICE_MAX_SECONDS,
+    #: ``catalog``: room, building and course codes bias the recogniser; never people's names. ``off``: nothing
+    "vocabulary": "catalog",
+    #: ``on_device``: the browser may show interim captions only from its on-device recogniser; ``off``: none
+    "live_captions": "on_device",
+    #: USD per audio minute by ``provider:model`` (overrides ``app.ai.client.STT_PRICE_TABLE``)
+    "prices_per_min": {},
 }
 
 
@@ -233,28 +274,27 @@ async def store_synced_models(
     return record
 
 
-def is_local_url(url: str | None) -> bool:
-    """A loopback / private address: the data does not leave the institution (no transfer record needed)."""
-    host = urlparse(url or "").hostname or ""
-    if host in {"localhost"} or host.endswith(".local"):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return ip.is_loopback or ip.is_private
+def is_local_url(url: str | None, *, resolver: Any | None = None) -> bool:
+    """Every address the host resolves to is loopback / private: the data does not leave the institution (no transfer
+    record needed). Decided from the **resolved addresses**, never from the name (HB-13, the KVKK finding of the
+    architecture doc §1.4): ``gpu.local`` resolving to a public address is not local, ``llm.uni.edu.tr`` resolving
+    to 10.x is. A name that does not resolve is not local (the record is then required)."""
+    from app.ai.providers.url_guard import resolved_local
+
+    return resolved_local(url, resolver=resolver)
 
 
 async def transfer_record(session: AsyncSession, provider: str) -> dict[str, Any]:
     return dict(await get_json(session, f"ai.provider.{provider}.transfer", {}))
 
 
-def transfer_ok(provider: str, config: dict[str, Any], record: dict[str, Any]) -> bool:
-    """Whether personal data may go to ``provider``: a local server, or a transfer record with a KVKK mechanism.
-    The historic Anthropic path is governed by the intake sign-off (``app/ai/policy.py``) and stays as it was."""
+def transfer_ok(provider: str, config: dict[str, Any], record: dict[str, Any], *, local: bool | None = None) -> bool:
+    """Whether personal data may go to ``provider``: a local server (by its resolved addresses; ``local`` when the
+    caller already resolved it off the event loop), or a transfer record with a KVKK mechanism. The historic
+    Anthropic path is governed by the intake sign-off (``app/ai/policy.py``) and stays as it was."""
     if provider == DEFAULT_PROVIDER:
         return True
-    if provider == "openai_compatible" and is_local_url(config.get("base_url")):
+    if provider == "openai_compatible" and (is_local_url(config.get("base_url")) if local is None else local):
         return True
     return bool(record.get("kvkk_mechanism")) and record.get("kvkk_mechanism") != "none"
 
@@ -277,6 +317,10 @@ async def resolve_route(session: AsyncSession, feature: str) -> ResolvedRoute:
     data = await get_routes(session)
     caps = dict(DEFAULT_CAPS.get(feature, DEFAULT_CAPS["chat"]))
     feat = Route.from_dict(data["features"].get(feature)) if feature in FEATURES else None
+    if feature in VOICE_FEATURES:  # a speech route of its own; the (Claude) text default cannot transcribe
+        if feat is not None and feat.model:
+            return ResolvedRoute(feature, feat, "feature", caps)
+        return ResolvedRoute(feature, Route(provider="", model=""), "none", caps)
     if feature == "vision" and feat is None:
         feat = Route.from_dict(data["features"].get("intake"))  # scans follow intake unless set
     if feat is not None and feat.model:
@@ -288,20 +332,90 @@ async def resolve_route(session: AsyncSession, feature: str) -> ResolvedRoute:
 
 
 async def all_routes(session: AsyncSession) -> dict[str, ResolvedRoute]:
-    return {f: await resolve_route(session, f) for f in (*FEATURES, "other", "guard")}
+    """The text routes the chat / tools client binds (voice routes are resolved by :mod:`app.ai.voice.run`)."""
+    text_features = [f for f in FEATURES if f not in VOICE_FEATURES]
+    return {f: await resolve_route(session, f) for f in (*text_features, "other", "guard")}
 
 
 async def provider_usable(session: AsyncSession, provider: str) -> bool:
     cfg = await provider_config(session, provider)
     if provider != DEFAULT_PROVIDER and not cfg.get("enabled", True):
         return False
-    if provider == "vertex" and not cfg.get("project_id"):
+    if provider in ("vertex", "google_stt") and not cfg.get("project_id"):
         return False
     return has_credentials(provider, await provider_secrets(session, provider))
 
 
-def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[dict[str, str]]:
-    """Errors of a route change: unknown provider, a model that was not synced, an invalid effort / cap."""
+_NOT_SPEECH = (
+    "Bu model sesi yazıya dökemez; ses için konuşmayı yazıya döken bir model seçin (ör. gpt-transcribe, Chirp 3, "
+    "Nova-3).",
+    "This model cannot transcribe speech; choose a speech-to-text model (e.g. gpt-transcribe, Chirp 3, Nova-3).",
+)
+
+
+async def model_capabilities(session: AsyncSession, provider: str) -> dict[str, dict[str, Any]]:
+    """Effective capabilities per synced model of ``provider``: sync ⊕ probe ⊕ admin override (HB-12)."""
+    from app.ai import capabilities as caps
+
+    synced = await synced_models(session, provider)
+    probes = await get_json(session, f"ai.provider.{provider}.probe", {})
+    overrides = await get_json(session, f"ai.provider.{provider}.cap_overrides", {})
+    out: dict[str, dict[str, Any]] = {}
+    for m in synced.get("models") or []:
+        mid = str(m.get("id") or "")
+        if not mid:
+            continue
+        sync_layer = m.get("capabilities")
+        if not isinstance(sync_layer, dict) and m.get("context_window"):
+            sync_layer = {"context_window": m.get("context_window"), "source": "provider"}
+        if PROVIDERS[provider].claude and not isinstance(sync_layer, dict):
+            sync_layer = caps.claude(m.get("context_window"))
+        out[mid] = caps.merge(sync_layer, probes.get(mid), overrides.get(mid))
+    return out
+
+
+async def all_capabilities(session: AsyncSession) -> dict[str, dict[str, dict[str, Any]]]:
+    return {p: await model_capabilities(session, p) for p in PROVIDERS if "text" in PROVIDERS[p].capabilities}
+
+
+def _route_models(route: dict[str, Any]) -> list[tuple[str, str, str]]:
+    out = []
+    for prov_field, model_field in (("provider", "model"), ("fallback_provider", "fallback_model")):
+        prov, model = route.get(prov_field), route.get(model_field)
+        if prov in PROVIDERS and model:
+            out.append((model_field, str(prov), str(model)))
+    return out
+
+
+def route_warnings(
+    route: dict[str, Any], *, feature: str | None, capabilities: dict[str, dict[str, dict[str, Any]]] | None
+) -> list[dict[str, str]]:
+    """Warnings of a route (HB-12): a capability the feature needs is unknown (probe it) or degrades the feature."""
+    from app.ai import capabilities as caps
+
+    out: list[dict[str, str]] = []
+    if capabilities is None or feature is None:
+        return out
+    for fld, prov, model in _route_models(route):
+        _, warns = caps.route_issues(feature, (capabilities.get(prov) or {}).get(model))
+        out.extend({**w, "field": fld} for w in warns)
+    return out
+
+
+def validate_route(
+    route: dict[str, Any],
+    synced: dict[str, set[str]],
+    *,
+    feature: str | None = None,
+    speech: dict[str, set[str]] | None = None,
+    capabilities: dict[str, dict[str, dict[str, Any]]] | None = None,
+) -> list[dict[str, str]]:
+    """Errors of a route change: unknown provider, a model that was not synced, an invalid effort / cap. With
+    ``feature`` and ``speech`` (synced model ids whose modalities include ``stt``, per provider): a voice feature
+    accepts only speech models (``model_not_speech``), a text feature no speech model (``model_not_text``). With
+    ``capabilities`` (provider -> model -> record, :func:`all_capabilities`; HB-12) a model that lacks what the
+    feature needs is refused (``model_lacks_capability``, ``context_too_small``); unknown is only a warning
+    (:func:`route_warnings`)."""
     errors: list[dict[str, str]] = []
 
     def err(fld: str, code: str, tr: str, en: str) -> None:
@@ -315,8 +429,11 @@ def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[d
         if prov not in PROVIDERS:
             err(prov_field, "unknown_provider", "Bilinmeyen sağlayıcı.", "Unknown provider.")
             continue
+        voice = feature in VOICE_FEATURES
         if not model:
             err(model_field, "model_required", "Model seçin.", "Choose a model.")
+        elif speech is not None and voice and "stt" not in PROVIDERS[str(prov)].capabilities:
+            err(model_field, "model_not_speech", *_NOT_SPEECH)
         elif model not in synced.get(str(prov), set()):
             err(
                 model_field,
@@ -324,6 +441,17 @@ def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[d
                 "Bu model sağlayıcıdan eşitlenmedi; önce Sağlayıcılar sekmesinde Eşitle'ye basın.",
                 "This model was not synced from the provider; press Sync on the Providers tab first.",
             )
+        elif feature is not None and speech is not None:
+            is_speech = model in speech.get(str(prov), set())
+            if voice and not is_speech:
+                err(model_field, "model_not_speech", *_NOT_SPEECH)
+            elif not voice and (is_speech or "text" not in PROVIDERS[str(prov)].capabilities):
+                err(
+                    model_field,
+                    "model_not_text",
+                    "Bu bir konuşmayı yazıya dökme modeli; bu özellik için bir metin modeli seçin.",
+                    "This is a speech-to-text model; choose a text model for this feature.",
+                )
     if route.get("effort") not in (None, "", *EFFORTS):
         err("effort", "invalid_effort", "Geçersiz çaba düzeyi.", "Invalid effort level.")
     temp = route.get("temperature")
@@ -338,6 +466,15 @@ def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[d
         v = route.get(cap)
         if v not in (None, "") and not (isinstance(v, int | float) and 0 < float(v) <= hi):
             err(cap, f"invalid_{cap}", f"{cap} 1 ile {hi} arasında olmalı.", f"{cap} must be between 1 and {hi}.")
+    if capabilities is not None and feature not in (None, *VOICE_FEATURES):
+        from app.ai import capabilities as caps
+
+        bad_fields = {e["field"] for e in errors}
+        for fld, prov, model in _route_models(route):
+            if fld in bad_fields:
+                continue
+            found, _ = caps.route_issues(feature, (capabilities.get(prov) or {}).get(model))
+            errors.extend({**e, "field": fld} for e in found)
     return errors
 
 
@@ -347,6 +484,22 @@ def validate_route(route: dict[str, Any], synced: dict[str, set[str]]) -> list[d
 async def get_limits(session: AsyncSession) -> dict[str, Any]:
     data = await get_json(session, LIMITS_KEY, {})
     return {**json.loads(json.dumps(DEFAULT_LIMITS)), **data}
+
+
+async def get_voice(session: AsyncSession) -> dict[str, Any]:
+    """The voice settings (``ai.voice``) over the defaults; ``max_seconds`` never above the 120 s ceiling."""
+    data = await get_json(session, VOICE_KEY, {})
+    out = {**json.loads(json.dumps(DEFAULT_VOICE)), **{k: v for k, v in data.items() if k in DEFAULT_VOICE}}
+    try:
+        out["max_seconds"] = max(5, min(int(out["max_seconds"]), VOICE_MAX_SECONDS))
+    except (TypeError, ValueError):
+        out["max_seconds"] = VOICE_MAX_SECONDS
+    if out["language"] not in VOICE_LANGUAGES:
+        out["language"] = DEFAULT_VOICE["language"]
+    if not isinstance(out["prices_per_min"], dict):
+        out["prices_per_min"] = {}
+    out["enabled"] = bool(out["enabled"])
+    return out
 
 
 async def get_guardrails(session: AsyncSession) -> dict[str, Any]:
@@ -360,6 +513,7 @@ def masked(value: str | None) -> dict[str, Any]:
 
 __all__ = [
     "DEFAULT_CAPS",
+    "DEFAULT_VOICE",
     "DEFAULT_GUARDRAILS",
     "DEFAULT_LIMITS",
     "DEFAULT_PROVIDER",
@@ -369,21 +523,28 @@ __all__ = [
     "LIMITS_KEY",
     "PERSONAL_FEATURES",
     "ROUTES_KEY",
+    "VOICE_KEY",
+    "VOICE_LANGUAGES",
+    "VOICE_MAX_SECONDS",
     "ResolvedRoute",
     "Route",
+    "all_capabilities",
     "all_routes",
     "get_guardrails",
     "get_json",
     "get_limits",
+    "get_voice",
     "get_routes",
     "is_local_url",
     "legacy_model",
     "masked",
+    "model_capabilities",
     "provider_config",
     "provider_secrets",
     "provider_usable",
     "put_json",
     "resolve_route",
+    "route_warnings",
     "set_provider_secret",
     "store_synced_models",
     "synced_models",

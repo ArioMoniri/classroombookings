@@ -32,6 +32,7 @@ import { useMyRequests } from "@/lib/api/wave1";
 import { StatusPill } from "@/components/approvals/request-parts";
 import { addDays } from "./date-format";
 import { BookingDetailSheet } from "./booking-detail-sheet";
+import { useDeepLinkedBooking } from "./deep-link";
 import { CalendarSyncPanel } from "./calendar-sync";
 import { CancelManyDialog } from "./cancel-many-dialog";
 import { RoomInfoSheet } from "./room-info-sheet";
@@ -46,7 +47,8 @@ type Tab = "upcoming" | "past" | "cancelled";
 /** MOBILE.md M-02 (loop-r1-laneB2, lane-A2 ask): a row stacks a 16 px checkbox, the room chip and the date line; on
  *  coarse pointers the row keeps 20 px between the checkbox (its 44 px zone reaches 14 px past the box) and the
  *  text, and each text control is at least 44 × 44, so no tap zone is cut by its neighbour. */
-export const BOOKING_ROW_CLASS = "flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b pointer-coarse:gap-5";
+/** mobile-a fix 5: `content-visibility: auto` skips layout and paint of the rows off screen (a term of bookings is a long list) */
+export const BOOKING_ROW_CLASS = "flex items-center gap-3 px-4 py-2.5 not-last:edge-hairline-b pointer-coarse:gap-5 [content-visibility:auto] [contain-intrinsic-size:auto_4rem]";
 export const BOOKING_ROW_CONTROL_CLASS = "pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:py-1";
 
 export function MyBookingsView() {
@@ -63,6 +65,7 @@ export function MyBookingsView() {
   const dash = useBookingDashboard();
   const owned = useOwnedRooms();
   const [detail, setDetail] = useState<number | null>(null);
+  useDeepLinkedBooking(setDetail, list.data); // RF-11: an e-mail's ?booking=<id> or ?series=<id> opens its detail sheet
   const [roomInfo, setRoomInfo] = useState<{ id: number; date: string } | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [cancelOpen, setCancelOpen] = useState(false);

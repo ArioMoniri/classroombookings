@@ -106,9 +106,9 @@ export function CompareView() {
           <Summary data={data} />
           <div className="flex flex-wrap items-end gap-3">
             {term && term.week_count > 1 && (data.a.horizon === "TERM" || data.b.horizon === "TERM" || week !== null) ? (
-              <label className="flex flex-col gap-1">
+              <label className="flex min-w-0 flex-col gap-1 max-sm:w-full">
                 <span className="type-footnote font-medium text-label-2">{t("compare.week")}</span>
-                <NativeSelect size="sm" className="w-44" value={week ?? ""} onChange={(e) => setParams({ week: e.target.value || null })} data-testid="compare-week">
+                <NativeSelect size="sm" className="w-44 max-sm:w-full" value={week ?? ""} onChange={(e) => setParams({ week: e.target.value || null })} data-testid="compare-week">
                   <option value="">{t("compare.allWeeks")}</option>
                   {Array.from({ length: term.week_count }, (_, i) => i + 1).map((w) => (
                     <option key={w} value={w}>{t("compare.weekN", { n: w })}</option>
@@ -171,7 +171,8 @@ function RunCard({ side, run }: { side: "a" | "b"; run: RunBrief }) {
   return (
     <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-card p-3 edge-hairline" data-testid={`compare-run-${side}`}>
       <span className="type-caption font-semibold tracking-wide text-label-2 uppercase">{t(side === "a" ? "compare.sideA" : "compare.sideB")}</span>
-      <Link href={`/runs/${run.id}`} className="truncate type-headline text-label-1 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)">
+      {/* a 44 px line on touch (mobile-b phase 2: the title link measured 333×20) */}
+      <Link href={`/runs/${run.id}`} className="block truncate type-headline text-label-1 pointer-coarse:leading-11 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)">
         {runText({ ...run, label: run.label })}
       </Link>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-footnote text-label-2">

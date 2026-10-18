@@ -529,7 +529,8 @@ def _unsent_q(since: datetime) -> Any:
     return select(NotificationOutbox).where(
         NotificationOutbox.status == "UNSENT",
         NotificationOutbox.to_email.is_not(None),
-        NotificationOutbox.kind.not_in(("password_reset", TEST_KIND)),  # a reset code is never stored
+        # a reset code is never stored (AU-B: nor the admin-sent reset link)
+        NotificationOutbox.kind.not_in(("password_reset", "password_reset_link_by_admin", TEST_KIND)),
         NotificationOutbox.created_at >= since,
     )
 

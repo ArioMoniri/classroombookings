@@ -1,0 +1,19 @@
+[Unit]
+Description=SmartSched: nightly backup (pg_dump + uploads volume, 7 days kept on the pod disk; backup.sh)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=smartsched-ci
+Group=smartsched-ci
+SupplementaryGroups=docker
+WorkingDirectory=/opt/smartsched/src/smartsched/deploy
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+# same disk as the data: protects against a bad migration or a deletion, not against losing the volume
+# (docs/deploy/ONE-CLICK.md "Backups"); the textfile metric feeds the SmartSchedBackupStale alert
+Environment=BACKUP_DIR=/var/lib/smartsched-ci/backups BACKUP_KEEP_DAYS=7 TEXTFILE_DIR=/var/lib/smartsched/textfile
+ExecStart=/opt/smartsched/src/smartsched/deploy/backup.sh
+TimeoutStartSec=1800

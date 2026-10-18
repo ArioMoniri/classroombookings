@@ -12,6 +12,11 @@
  * - Consent gates (2026-10-16): while `GET /calendar/sync` `consent` is required and not granted, Connect opens the
  *   inline calendar-sync consent step (`privacy/calendar-consent.tsx`) and connects once it is given; a 409
  *   `consent_required` shows the backend's sentence with a link to its `grant_path`.
+ * - CAL-08 (2026-10-18): connect always sends `scopes` (`["my_bookings"]`, what this panel pushes), so the backend makes
+ *   a least-privilege grant into its own "SmartSched" calendar instead of the legacy broad one. A refused account
+ *   (`reason=account_not_verified&domain=…`) reads as a sentence, never as the code; on /profile the "Takvimime ekle"
+ *   section already shows it, so no second toast. When the new export options answer, this panel is the older one and
+ *   sits closed under "Gelişmiş" (the simplicity principle: one primary action per screen).
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck2, RefreshCw, Unplug } from "lucide-react";
@@ -25,6 +30,8 @@ import { BusyLabel } from "@/components/ui/busy-label";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { CalendarConsentStep, ConsentRefusal, consentRefusal } from "@/components/privacy/calendar-consent";
+import { Advanced } from "@/components/calendar-export/steps";
+import { calendarExportApi, useExportOptions } from "@/lib/api/calendar-export";
 import { crbs, type SyncConnector } from "@/lib/api/crbs";
 import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
@@ -32,13 +39,25 @@ import { useI18n } from "@/lib/i18n/provider";
 export const SYNC_KEY = ["crbs", "calendar-sync"] as const;
 /** where the provider's redirect lands (a panel path; `app/api/v1/calendar_sync.py` ConnectIn) */
 export const RETURN_PATH = "/profile";
-const REASONS = new Set(["denied", "state", "exchange", "disabled", "not_configured"]);
+const REASONS = new Set(["denied", "state", "exchange", "disabled", "not_configured", "account_not_verified"]);
+/** what this panel pushes; sent on every connect (API.md: without `scopes` the grant is the legacy broad one) */
+export const CONNECT_SCOPES = ["my_bookings"] as const;
 
 /** `?calendar=…&provider=…&reason=…` after the OAuth round trip, or null. */
 export function connectResult(params: URLSearchParams): { ok: boolean; provider: string | null; reason: string | null } | null {
   const v = params.get("calendar");
   if (v !== "connected" && v !== "error") return null;
   return { ok: v === "connected", provider: params.get("provider"), reason: params.get("reason") };
+}
+
+/** The error toast's sentence: a known reason in words, the refused account with its domain (CAL-07), never a code. */
+export function connectErrorText(params: URLSearchParams, t: ReturnType<typeof useI18n>["t"]): string {
+  const reason = params.get("reason");
+  if (reason === "account_not_verified") {
+    const domain = (params.get("domain") ?? "").trim();
+    return domain ? t("calendarExport.manage.notVerified", { domain }) : t("calendarExport.manage.notVerifiedCorporate");
+  }
+  return reason && REASONS.has(reason) ? t("calendarPush.me.connectError", { reason: t(`calendarPush.me.reason.${reason as "denied"}`) }) : t("calendarPush.me.connectFailed");
 }
 
 function providerName(p: string, t: ReturnType<typeof useI18n>["t"], fallback: string): string {
@@ -64,7 +83,8 @@ function useConnectResult() {
     done.current = true;
     const name = r.provider ? providerName(r.provider, t, r.provider) : "";
     if (r.ok) toast.success(t("calendarPush.me.connectedToast", { provider: name }));
-    else toast.error(t("calendarPush.me.connectError", { reason: r.reason && REASONS.has(r.reason) ? t(`calendarPush.me.reason.${r.reason as "denied"}`) : (r.reason ?? "") }));
+    // the "Takvimime ekle" section on the same page shows the refused account as a lasting alert already
+    else if (!(r.reason === "account_not_verified" && document.querySelector('[data-testid="cal-section"]'))) toast.error(connectErrorText(new URLSearchParams(params.toString()), t));
     void qc.invalidateQueries({ queryKey: SYNC_KEY });
     document.getElementById("calendar-push")?.scrollIntoView?.({ block: "start" });
     router.replace(path || RETURN_PATH, { scroll: false });
@@ -104,7 +124,7 @@ function Connection({ c, needsConsent }: { c: SyncConnector; needsConsent: boole
   };
   const connect = () =>
     run("connect", async () => {
-      const { authorize_url } = await crbs.calendar.connect(c.provider, RETURN_PATH);
+      const { authorize_url } = await calendarExportApi.connect(c.provider, RETURN_PATH, CONNECT_SCOPES);
       window.location.assign(authorize_url);
     });
   const disconnect = () =>
@@ -231,6 +251,37 @@ export function CalendarConnectionsSection() {
   const status = useQuery({ queryKey: SYNC_KEY, queryFn: crbs.calendar.sync, retry: false, staleTime: 30_000 });
   const s = status.data;
   const needsConsent = !!s?.consent?.required && !s.consent.granted;
+  // the new export options answer: this is the older panel, closed under "Gelişmiş" (shares the section's cache)
+  const older = useExportOptions().isSuccess;
+  const body = (
+    <>
+      <p className="type-callout text-label-2">{t("calendarPush.me.lead")}</p>
+      {status.isLoading ? <Loading /> : null}
+      {status.isError ? <Alert tone="error">{errorText(wave1Error(status.error), locale)}</Alert> : null}
+      {/* round 2 sweeper 3: a quiet note, not a role=status live region: screen readers heard the Alert announced like a
+          toast on every /profile visit (the state is the organisation's, nothing on this page changed it) */}
+      {s && !s.enabled ? (
+        <p data-testid="calendar-connections-off" className="type-callout text-label-2">
+          {t("calendarPush.me.off")}
+        </p>
+      ) : null}
+      {s?.enabled && needsConsent ? (
+        <Alert tone="info" testId="calendar-connections-consent">
+          {t("calendarPush.me.needsConsent")}{" "}
+          <Link href="/profile#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
+            {t("calendarPush.me.consentLink")}
+          </Link>
+        </Alert>
+      ) : null}
+      {s?.enabled ? (
+        <ul className="grid gap-2">
+          {s.connectors.map((c) => (
+            <Connection key={c.provider} c={c} needsConsent={needsConsent} />
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
   return (
     <section aria-labelledby="pf-calendar-push" id="calendar-push" className="scroll-mt-20" data-testid="calendar-connections">
       <Suspense fallback={null}>
@@ -243,31 +294,14 @@ export function CalendarConnectionsSection() {
         </span>
       </SectionTitle>
       <Card variant="glass" className="gap-3 px-4">
-        <p className="type-callout text-label-2">{t("calendarPush.me.lead")}</p>
-        {status.isLoading ? <Loading /> : null}
-        {status.isError ? <Alert tone="error">{errorText(wave1Error(status.error), locale)}</Alert> : null}
-        {/* round 2 sweeper 3: a quiet note, not a role=status live region: screen readers heard the Alert announced like a
-            toast on every /profile visit (the state is the organisation's, nothing on this page changed it) */}
-        {s && !s.enabled ? (
-          <p data-testid="calendar-connections-off" className="type-callout text-label-2">
-            {t("calendarPush.me.off")}
-          </p>
-        ) : null}
-        {s?.enabled && needsConsent ? (
-          <Alert tone="info" testId="calendar-connections-consent">
-            {t("calendarPush.me.needsConsent")}{" "}
-            <Link href="/profile#privacy" className="font-medium text-tint-text underline-offset-4 hover:underline">
-              {t("calendarPush.me.consentLink")}
-            </Link>
-          </Alert>
-        ) : null}
-        {s?.enabled ? (
-          <ul className="grid gap-2">
-            {s.connectors.map((c) => (
-              <Connection key={c.provider} c={c} needsConsent={needsConsent} />
-            ))}
-          </ul>
-        ) : null}
+        {older ? (
+          <>
+            <p className="type-callout text-label-2">{t("calendarPush.me.advancedHint")}</p>
+            <Advanced testId="calendar-connections-advanced">{body}</Advanced>
+          </>
+        ) : (
+          body
+        )}
       </Card>
     </section>
   );

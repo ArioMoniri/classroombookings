@@ -79,7 +79,7 @@ describe("16 px text on phones", () => {
       </NativeSelect>,
     );
     const select = screen.getByRole("combobox", { name: "Bina" });
-    expect(select).toHaveClass("max-md:pointer-coarse:text-base", "w-40");
+    expect(select).toHaveClass("pointer-coarse:text-base", "w-40");
   });
 
   it("DateField: the input has it, the calendar trigger has the hit area, Today / Clear are ui Buttons", async () => {

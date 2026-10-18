@@ -34,6 +34,7 @@ from app.solver.constraints import (
     no_cohort_overlap,
     no_instructor_overlap,
     no_room_overlap,
+    peak_smoothing,
     room_closed,
     room_forbid,
     room_pin,
@@ -47,6 +48,7 @@ from app.solver.context import ModelContext
 from app.solver.domains import Domains
 from app.solver.evaluate import Evaluation
 from app.solver.model import Constraint, SolverInput
+from app.solver.weights import base_weight
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,9 @@ class Handler:
     implicit: bool = False  # always active even without an explicit Constraint
     may_soften: bool = True  # hard=False accepted
     default_hard: bool = True  # hardness of the implicit default
+    may_harden: bool = True  # hard=True accepted (False: always soft; a hard request is kept soft and reported)
+    #: implicit default only when the kind's base weight is > 0 (an opt-in rule: weight 0 = not in the model)
+    off_at_zero_weight: bool = False
 
 
 HANDLERS: dict[str, Handler] = {
@@ -123,6 +128,15 @@ HANDLERS: dict[str, Handler] = {
             evening_programs_in_buildings.score,
             evening_programs_in_buildings.prune,
         ),
+        Handler(
+            "peak_smoothing",
+            peak_smoothing.apply,
+            peak_smoothing.score,
+            implicit=True,
+            default_hard=False,
+            may_harden=False,
+            off_at_zero_weight=True,
+        ),
     )
 }
 
@@ -146,6 +160,9 @@ def effective_constraints(inp: SolverInput) -> tuple[list[Constraint], list[str]
         if not c.hard and not h.may_soften:
             warnings.append(f"constraint kind '{c.kind}' (id={c.id}) cannot be soft; kept hard")
             c = Constraint(c.kind, c.params, True, c.weight, c.id)
+        if c.hard and not h.may_harden:
+            warnings.append(f"constraint kind '{c.kind}' (id={c.id}) cannot be hard; kept soft")
+            c = Constraint(c.kind, c.params, False, c.weight, c.id)
         if h.implicit and not _common.is_targeted(c):
             if c.kind in configured:
                 warnings.append(f"duplicate default configuration for '{c.kind}' (id={c.id}); last one wins")
@@ -156,6 +173,8 @@ def effective_constraints(inp: SolverInput) -> tuple[list[Constraint], list[str]
         if not h.implicit:
             continue
         default = configured.get(kind)
+        if default is None and h.off_at_zero_weight and base_weight(inp.weights, kind) <= 0:
+            continue
         out.append(default if default is not None else Constraint(kind, {}, hard=h.default_hard, weight=1, id=None))
     soft_structural = frozenset(
         c.kind for c in out if c.kind in STRUCTURAL and not c.hard and not _common.is_targeted(c)

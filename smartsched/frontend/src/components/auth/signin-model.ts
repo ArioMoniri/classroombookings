@@ -4,10 +4,11 @@
  */
 
 import { ADMIN_SECTIONS } from "@/lib/permissions";
+import { readMfaNotice, type MfaNotice } from "./mfa-model";
 
 /** SSO callback codes the page renders (§6.3, §14). Anything else renders `failed` (no enumeration, §15 #16).
  *  `not_enabled` (T-R1-35 / T-R1-09): Microsoft sign-in is switched off: a state, shown without a support code. */
-export const SSO_ERROR_CODES = ["tenant", "cancelled", "failed", "unavailable", "not_enabled", "signup_closed", "invite_expired", "invite_invalid", "invite_mismatch", "domain", "invite_provider"] as const;
+export const SSO_ERROR_CODES = ["tenant", "cancelled", "failed", "unavailable", "not_enabled", "signup_closed", "invite_expired", "invite_invalid", "invite_mismatch", "domain", "invite_provider", "idp_mfa_required"] as const;
 export type SsoErrorCode = (typeof SSO_ERROR_CODES)[number];
 
 /** `/profile?error=` codes after a profile link (§14): the sign-in codes plus `already_linked`. */
@@ -84,6 +85,9 @@ export interface SignInParams {
   methodLocal: boolean;
   invitedMasked: string | null;
   signedIn: string | null;
+  /** AUX-04: back from the second step (`?mfa=tooMany|expired|locked`, `&min=` for the lock) */
+  mfa?: MfaNotice | null;
+  mfaMinutes?: number | null;
 }
 
 export function readSignInParams(sp: URLSearchParams | Record<string, Raw>): SignInParams {
@@ -98,7 +102,16 @@ export function readSignInParams(sp: URLSearchParams | Record<string, Raw>): Sig
     methodLocal: first(get("method")) === "local",
     invitedMasked: safeMasked(get("invited_masked")),
     signedIn: safeMasked(get("signed_in")),
+    ...mfaParams(get),
   };
+}
+
+/** `?mfa=` / `&min=` only when present, so the contract object is unchanged without them. */
+function mfaParams(get: (k: string) => Raw): Pick<SignInParams, "mfa" | "mfaMinutes"> {
+  const mfa = readMfaNotice(get("mfa"));
+  if (!mfa) return {};
+  const n = Number(first(get("min")));
+  return { mfa, mfaMinutes: Number.isFinite(n) && n > 0 && n <= 1440 ? Math.ceil(n) : null };
 }
 
 /** The Microsoft start URL: a real navigation (`<a href>`, §4.2), never `fetch`. */

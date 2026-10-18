@@ -18,6 +18,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { FadePanel } from "./fade-panel";
 import { readHeatUrl, type HeatTab, type HeatUrlState } from "./heat-model";
 import { InstructorsHeat } from "./instructors-heat";
+import { PeaksView } from "./peaks-view";
 import { RoomsHeat } from "./rooms-heat";
 
 export function HeatmapView() {
@@ -52,14 +53,24 @@ export function HeatmapView() {
         options={[
           { value: "rooms", label: t("analytics.tab.rooms"), controls: "heat-panel-rooms", testId: "heat-tab-rooms" },
           { value: "instructors", label: t("analytics.tab.instructors"), controls: "heat-panel-instructors", testId: "heat-tab-instructors" },
+          { value: "peaks", label: t("adaptive.peaks.tab"), controls: "heat-panel-peaks", testId: "heat-tab-peaks" },
         ]}
         value={s.tab}
         onValueChange={(v) => set({ tab: v === "rooms" ? null : v, g: null })}
         className="self-start"
       />
+      {s.tab === "peaks" ? (
+        // AS-16 Yoğun saatler: its own controls (group, period kind, term), no source / week / bookings switches
+        <div id="heat-panel-peaks" role="tabpanel" aria-label={t("adaptive.peaks.tab")} className="flex min-w-0 flex-col gap-4">
+          <PeaksView />
+        </div>
+      ) : (
+      <>
       <section aria-label={t("analytics.controls")} className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-xl bg-card p-3 edge-hairline" data-testid="heat-controls">
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 max-w-full flex-col gap-1 max-sm:w-full">
           <span className="type-footnote font-medium text-label-2" id="heat-source-label">{t("analytics.sourceLabel")}</span>
+          {/* 200 % text (mobile-b phase 2): the segment scrolls in its own row instead of the page */}
+          <div className="max-w-full overflow-x-auto [scrollbar-width:none]">
           <SegmentedControl
             size="sm"
             semantics="radiogroup"
@@ -71,9 +82,10 @@ export function HeatmapView() {
             value={runId !== null || s.source === "run" ? "run" : "live"}
             onValueChange={(v) => set({ source: v === "live" ? null : "run", run: v === "run" ? String(s.run ?? runChoices[0]?.id ?? "") || null : null, g: null })}
           />
+          </div>
         </div>
         {s.source === "run" ? (
-          <label className="flex min-w-0 flex-col gap-1">
+          <label className="flex min-w-0 flex-col gap-1 max-sm:w-full">
             <span className="type-footnote font-medium text-label-2">{t("analytics.run")}</span>
             <NativeSelect size="sm" className="w-72 max-w-full" value={runId ?? ""} onChange={(e) => set({ run: e.target.value || null, g: null })} data-testid="heat-run">
               {runId === null ? <option value="">{t("analytics.chooseRun")}</option> : null}
@@ -84,17 +96,19 @@ export function HeatmapView() {
           </label>
         ) : null}
         {s.tab === "rooms" ? (
-          <label className="flex flex-col gap-1">
+          <label className="flex min-w-0 flex-col gap-1 max-sm:w-full">
             <span className="type-footnote font-medium text-label-2">{t("analytics.groupBy")}</span>
-            <NativeSelect size="sm" className="w-44" value={s.group} onChange={(e) => set({ group: e.target.value === "building" ? null : e.target.value, g: null })} data-testid="heat-group">
+            <NativeSelect size="sm" className="w-44 max-sm:w-full" value={s.group} onChange={(e) => set({ group: e.target.value === "building" ? null : e.target.value, g: null })} data-testid="heat-group">
               {GROUP_BY.map((g: GroupBy) => (
                 <option key={g} value={g}>{t(`analytics.group.${g}`)}</option>
               ))}
             </NativeSelect>
           </label>
         ) : null}
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 max-w-full flex-col gap-1 max-sm:w-full">
           <span className="type-footnote font-medium text-label-2" id="heat-scope-label">{t("analytics.scopeLabel")}</span>
+          {/* 200 % text (mobile-b phase 2): the segment scrolls in its own row instead of the page */}
+          <div className="max-w-full overflow-x-auto [scrollbar-width:none]">
           <SegmentedControl
             size="sm"
             semantics="radiogroup"
@@ -106,11 +120,12 @@ export function HeatmapView() {
             value={s.scope}
             onValueChange={(v) => set({ scope: v === "week" ? null : v, week: null })}
           />
+          </div>
         </div>
         {s.scope === "week" && weekCount > 0 ? (
-          <label className="flex flex-col gap-1">
+          <label className="flex min-w-0 flex-col gap-1 max-sm:w-full">
             <span className="type-footnote font-medium text-label-2">{t("analytics.week")}</span>
-            <NativeSelect size="sm" className="w-36" value={s.week ?? ""} onChange={(e) => set({ week: e.target.value || null })} data-testid="heat-week">
+            <NativeSelect size="sm" className="w-36 max-sm:w-full" value={s.week ?? ""} onChange={(e) => set({ week: e.target.value || null })} data-testid="heat-week">
               <option value="">{t("analytics.weekAuto")}</option>
               {Array.from({ length: weekCount }, (_, i) => i + 1).map((w) => (
                 <option key={w} value={w}>{t("analytics.weekN", { n: w })}</option>
@@ -154,6 +169,8 @@ export function HeatmapView() {
             )}
           </div>
         </FadePanel>
+      )}
+      </>
       )}
     </div>
   );

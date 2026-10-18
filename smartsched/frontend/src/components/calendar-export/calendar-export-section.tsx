@@ -2,38 +2,43 @@
 /**
  * Profil › Takvim (CAL-08): the "Takvimime ekle" button, the sheet and the manage list. Also resumes a push approval
  * after the provider's OAuth round trip: the sheet stored the scope in sessionStorage before leaving; back on
- * /profile?calendar=connected the scope is applied (PUT /calendar/connectors/{p}/scopes, idempotent) and the sheet
- * reopens on its progress state. `?calendar=error` drops the stored scope.
+ * /profile?calendar=connected the backend has applied the scopes it got with the connect call, and the sheet reopens
+ * on its progress state. `?calendar=error` drops the stored scope; `reason=account_not_verified&domain=…` says which
+ * account to use instead (CAL-07). `?calendar=1` (the helper's "Takvime ekle" hand-over, ROADMAP HX-06) opens the sheet.
  */
 import { CalendarPlus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/admin/kit";
-import { calendarExportApi, useExportOptions, useRefreshCalendar } from "@/lib/api/calendar-export";
+import { Alert } from "@/components/ui/alert";
+import { useExportOptions, useRefreshCalendar } from "@/lib/api/calendar-export";
 import { useI18n } from "@/lib/i18n/provider";
 import { CalendarExportSheet } from "./export-sheet";
 import { CalendarExportManage } from "./manage-list";
-import { PENDING_KEY, pushScope, readPending, type PendingPush } from "./model";
+import { PENDING_KEY, readPending, type PendingPush } from "./model";
 
-/** Reads (and clears) the pending push after the OAuth round trip; null when there is none or it failed. */
-function takePending(): { pending: PendingPush | null; failed: boolean } {
-  if (typeof window === "undefined") return { pending: null, failed: false };
+/** Reads (and clears) the pending push after the OAuth round trip. `notVerified`: the callback refused the account
+ * (`?calendar=error&reason=account_not_verified&domain=…`), with the institution's domain ("" = unknown). */
+function takePending(): { pending: PendingPush | null; notVerified: string | null } {
+  if (typeof window === "undefined") return { pending: null, notVerified: null };
+  const q = new URLSearchParams(window.location.search);
+  const result = q.get("calendar");
+  const notVerified = result === "error" && q.get("reason") === "account_not_verified" ? (q.get("domain") ?? "") : null;
   let raw: string | null = null;
   try {
     raw = window.sessionStorage.getItem(PENDING_KEY);
   } catch {
-    return { pending: null, failed: false };
+    return { pending: null, notVerified };
   }
   const pending = readPending(raw);
-  const result = new URLSearchParams(window.location.search).get("calendar");
-  if (!pending || (result !== "connected" && result !== "error")) return { pending: null, failed: false };
+  if (!pending || (result !== "connected" && result !== "error")) return { pending: null, notVerified };
   try {
     window.sessionStorage.removeItem(PENDING_KEY);
   } catch {
     /* ignore */
   }
-  return result === "connected" ? { pending, failed: false } : { pending: null, failed: true };
+  return { pending: result === "connected" ? pending : null, notVerified };
 }
 
 export function CalendarExportSection() {
@@ -42,23 +47,27 @@ export function CalendarExportSection() {
   const refresh = useRefreshCalendar();
   const [open, setOpen] = useState(false);
   const [resume, setResume] = useState<PendingPush | null>(null);
+  const [refused, setRefused] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const took = useRef(false);
 
   useEffect(() => {
     if (took.current) return;
     took.current = true;
-    const { pending } = takePending();
+    const { pending, notVerified } = takePending();
+    // a URL value read once on mount (an external system), not derived from props or state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (notVerified !== null) setRefused(notVerified);
+    // HX-06 hand-over: /profile?calendar=1 opens the sheet on step 1
+    if (!pending && new URLSearchParams(window.location.search).get("calendar") === "1") {
+      setOpen(true);
+      return;
+    }
     if (!pending) return;
-    const scope = pushScope(pending.kind, pending.departmentId);
-    void calendarExportApi
-      .pushScopes(pending.provider, [scope])
-      .catch(() => undefined)
-      .finally(() => {
-        void refresh();
-        setResume(pending);
-        setOpen(true);
-      });
+    // the backend applied the scopes on the callback (connect sent them); follow the progress
+    void refresh();
+    setResume(pending);
+    setOpen(true);
   }, [refresh]);
 
   const enabled = options.data?.enabled !== false;
@@ -67,6 +76,11 @@ export function CalendarExportSection() {
       <SectionTitle id="pf-calendar-export">{t("calendarExport.section")}</SectionTitle>
       <Card variant="glass" className="gap-3 px-4">
         <p className="type-callout text-label-2">{enabled ? t("calendarExport.lead") : t("calendarExport.off")}</p>
+        {refused !== null ? (
+          <Alert tone="warning" data-testid="cal-not-verified">
+            {refused ? t("calendarExport.manage.notVerified", { domain: refused }) : t("calendarExport.manage.notVerifiedCorporate")}
+          </Alert>
+        ) : null}
         {enabled ? (
           <div>
             <Button ref={buttonRef} onClick={() => setOpen(true)} className="pointer-coarse:min-h-11" data-testid="cal-open">

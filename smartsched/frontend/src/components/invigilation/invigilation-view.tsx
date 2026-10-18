@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { pageActionsCapsule } from "@/components/admin/kit";
 import { PageHeader } from "@/components/common/page-header";
 import { useRunText } from "@/components/compare/run-text";
 import { useActiveTerm } from "@/components/shell/term-switcher";
@@ -82,10 +83,13 @@ export function InvigilationView() {
         title={t("invigilation.title")}
         subtitle={t("invigilation.subtitle")}
         actions={canEdit && run && tab === "plans" ? (
-          <Button onClick={() => setForm("new")} data-testid="invig-new">
-            <Plus aria-hidden />
-            {t("invigilation.newPlan")}
-          </Button>
+          // a capsule above the tab bar below lg (MOBILE.md M-05; mobile-b phase 2: it sat at y 145)
+          <div data-slot="page-actions" className={pageActionsCapsule}>
+            <Button onClick={() => setForm("new")} data-testid="invig-new">
+              <Plus aria-hidden />
+              {t("invigilation.newPlan")}
+            </Button>
+          </div>
         ) : undefined}
       />
       <section aria-label={t("invigilation.examRun")} className="flex flex-wrap items-end gap-3 rounded-xl bg-card p-3 edge-hairline">
@@ -115,7 +119,17 @@ export function InvigilationView() {
           {t("invigilation.boardRunBody")}
         </Alert>
       ) : null}
-      {!runs.isLoading && exams.length === 0 ? (
+      {runs.isLoading || (tab === "plans" && run && plans.isLoading) ? (
+        // mobile-b phase 2 (CLS 0.39–0.56): one placeholder of the panel's height until the runs and the plans are in,
+        // instead of "Plan yok" flashing and the list and the detail pushing each other down
+        <div className="grid min-h-[60dvh] min-w-0 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]" aria-busy="true" data-testid="invig-loading">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <Skeleton className="h-80 w-full rounded-2xl" />
+        </div>
+      ) : !runs.isLoading && exams.length === 0 ? (
         <div className="rounded-xl bg-fill-3 px-4 py-5" data-testid="invig-no-runs">
           <p className="type-headline">{t("invigilation.noExamRunsTitle")}</p>
           <p className="mt-1 type-callout text-label-2">{t("invigilation.noExamRunsBody")}</p>

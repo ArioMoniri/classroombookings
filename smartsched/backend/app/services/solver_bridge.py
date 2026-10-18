@@ -1104,6 +1104,15 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     from app.services.bookings_solver import booking_blocks
 
     blocks.extend(await booking_blocks(session, term, weeks_rows, week_set))
+    if exam:
+        # AS-12: the published class plan of the same term on the exam dates (midterms, early finals)
+        from app.services.exam_class_plan import STATS_KEY as CLASS_PLAN_KEY
+        from app.services.exam_class_plan import course_blocks
+
+        plan_blocks, plan_stats = await course_blocks(session, term, list(weeks_rows), events)
+        blocks.extend(plan_blocks)
+        if plan_stats:
+            run.stats = {**(run.stats or {}), CLASS_PLAN_KEY: plan_stats}
 
     cons = list(
         (
@@ -1267,6 +1276,11 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
     if exam and extra_weeks:
         weeks = sorted(week_set | extra_weeks)
     policy, policy_source, events = await _apply_policy(session, run, events, members, bridge_diags)
+    scenario = params.get("scenario")
+    if isinstance(scenario, dict) and not exam:
+        # AS-10 what-if draft run (server-written, never a client param): scaled sizes and closed rooms
+        events, rooms = await _apply_scenario(session, scenario, events, rooms, members)
+        run.stats = {**(run.stats or {}), "scenario": dict(scenario)}
     inp = sm.SolverInput(
         rooms=rooms,
         events=tuple(events),
@@ -1325,6 +1339,48 @@ async def build_solver_input(session: AsyncSession, run: ScheduleRun) -> tuple[s
         }
     run.stats = {**(run.stats or {}), "bridge_diagnoses": bridge_diags}
     return inp, members
+
+
+async def _apply_scenario(
+    session: AsyncSession,
+    scenario: Mapping[str, Any],
+    events: list[sm.Event],
+    rooms: tuple[sm.Room, ...],
+    members: dict[int, list[int]],
+) -> tuple[list[sm.Event], tuple[sm.Room, ...]]:
+    """``params.scenario`` of a what-if run (``app.services.forecast.queue_scenario_run``): enrolment x (1 + pct/100)
+    for the events of the scope (all / faculty / program name) and the closed rooms left out of the pool."""
+    import math
+
+    from app.importers import normalize as nz
+    from app.models import Faculty, Program
+
+    pct = float(scenario.get("enrolment_pct") or 0.0)
+    scope = str(scenario.get("scope") or "all")
+    want = nz.tr_casefold(str(scenario.get("scope_value") or ""))
+    in_scope: set[int] | None = None
+    if scope in ("faculty", "program") and want:
+        rows = (
+            await session.execute(
+                select(MeetingRequest.id, Program.name, Faculty.name)
+                .join(Section, Section.id == MeetingRequest.section_id)
+                .join(Program, Program.id == Section.program_id, isouter=True)
+                .join(Faculty, Faculty.id == Program.faculty_id, isouter=True)
+            )
+        ).all()
+        in_scope = {
+            int(mid)
+            for mid, pname, fname in rows
+            if nz.tr_casefold((fname if scope == "faculty" else pname) or "") == want
+        }
+    out = []
+    for e in events:
+        ids = members.get(e.id, [e.id])
+        if pct and (in_scope is None or any(i in in_scope for i in ids)):
+            e = replace(e, size=int(math.ceil(round(e.size * (1 + pct / 100.0), 6))))
+        out.append(e)
+    closed = {int(x) for x in scenario.get("rooms_closed") or []}
+    return out, tuple(r for r in rooms if r.id not in closed)
 
 
 #: run param of a moderation draft child (``PUT /moderation/matchings/{id}`` action ``unlock``): request ids whose

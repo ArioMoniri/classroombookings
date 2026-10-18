@@ -20,7 +20,6 @@ import {
   useOpsError,
   useOpsErrors,
   useOpsLogs,
-  useOpsRequests,
   useOpsStatus,
   useSetErrorStatus,
   type CardStatus,
@@ -33,7 +32,8 @@ import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { CARD_ORDER, TONE, cardStatus, chartGeometry, formatBytes, formatUptime, overall, sameOrigin, totals, type CardKey } from "./ops-model";
+import { CARD_ORDER, TONE, cardStatus, formatBytes, formatUptime, overall, sameOrigin, type CardKey } from "./ops-model";
+import { RequestsChart } from "./requests-chart";
 
 const OPS_PERMS = ["setup.settings", "planning.admin"];
 
@@ -74,8 +74,9 @@ function OpsPanelBody() {
 
   return (
     <div className="flex max-w-6xl flex-col gap-6" data-testid="ops-panel">
-      <PageTitle title={t("ops.title")} subtitle={t("ops.lead")} actions={status.data ? <StatusPill status={overall(status.data)} /> : null} />
-      {status.isLoading ? <Loading /> : null}
+      {/* the overall status reads with the lead; as PageTitle actions it became a lone pill in the phone capsule (mobile-b phase 2) */}
+      <PageTitle title={t("ops.title")} subtitle={<span className="flex flex-wrap items-center gap-2"><span>{t("ops.lead")}</span>{status.data ? <StatusPill status={overall(status.data)} /> : null}</span>} />
+      {status.isLoading ? <StatusCardsLoading /> : null}
       {status.isError && !forbidden ? <Alert tone="error">{t("ops.loadError")}</Alert> : null}
       {status.data ? <StatusCards s={status.data} /> : null}
       {status.data?.alerts.length ? <Alerts s={status.data} /> : null}
@@ -89,6 +90,18 @@ function OpsPanelBody() {
 
 /* ------------------------------------------------------------------------------------------------ status cards */
 
+/** mobile-b phase 2 (CLS 0.51 at 390): one placeholder per card in the cards' grid while /ops/status loads */
+function StatusCardsLoading() {
+  const { t } = useI18n();
+  return (
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5" aria-busy="true" aria-label={t("crbs.common.loading")} data-testid="ops-cards-loading">
+      {CARD_ORDER.map((k) => (
+        <li key={k} className="h-24 animate-pulse rounded-2xl bg-fill-3 motion-reduce:animate-none" />
+      ))}
+    </ul>
+  );
+}
+
 function StatusCards({ s }: { s: OpsStatus }) {
   const { t, locale } = useI18n();
   const when = useWhen();
@@ -98,6 +111,9 @@ function StatusCards({ s }: { s: OpsStatus }) {
     queues: [t("ops.card.queues.line", { queued: s.queues.queued, running: s.queues.running }), t("ops.card.queues.failed", { n: s.queues.failed_24h }), ...(s.queues.stalled_runs?.length ? [t("ops.card.queues.stalled", { n: s.queues.stalled_runs.length })] : [])],
     mail: [t("ops.card.mail.line", { pending: s.mail.pending, failed: s.mail.failed }), s.mail.oldest_pending_min != null ? t("ops.card.mail.oldest", { min: Math.round(s.mail.oldest_pending_min) }) : t("ops.card.mail.unsent", { n: s.mail.unsent })],
     disk: s.disk.status === "unknown" ? [t("ops.status.unknown")] : [t("ops.card.disk.used", { pct: s.disk.used_pct ?? 0 }), t("ops.card.disk.free", { free: formatBytes(s.disk.free_bytes, intlLocale(locale)) })],
+    backup: s.backup?.last_success_at
+      ? [t("ops.card.backup.last", { when: when(s.backup.last_success_at) }), ...(s.backup.status === "warn" ? [t("ops.card.backup.stale", { h: s.backup.stale_after_h, age: Math.round(s.backup.age_h ?? 0) })] : [])]
+      : [t("ops.card.backup.none")],
     errors: [t("ops.card.errors.open", { n: s.errors.open }), t("ops.card.errors.day", { n: s.errors.seen_24h })],
     grafana: [probeLine(s.services.grafana)],
     prometheus: [probeLine(s.services.prometheus)],
@@ -158,47 +174,6 @@ function Alerts({ s }: { s: OpsStatus }) {
           </li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-/* ----------------------------------------------------------------------------------------------- mini chart */
-
-const RANGES = ["30", "60", "180"] as const;
-
-function RequestsChart() {
-  const { t, locale } = useI18n();
-  const [range, setRange] = useState<(typeof RANGES)[number]>("60");
-  const q = useOpsRequests(Number(range));
-  const points = q.data?.points ?? [];
-  const W = 600;
-  const H = 120;
-  const g = chartGeometry(points, W, H);
-  const tot = totals(points);
-  const nf = new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 });
-  return (
-    <section aria-labelledby="ops-chart-h" data-testid="ops-chart">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="ops-chart-h" className="type-title-3 text-label-1">
-          {t("ops.chart.title")}
-        </h2>
-        <SegmentedControl aria-label={t("ops.chart.range")} value={range} onValueChange={(v) => setRange(v as (typeof RANGES)[number])} options={RANGES.map((r) => ({ value: r, label: t("ops.chart.minutes", { n: Number(r) }), testId: `ops-range-${r}` }))} />
-      </div>
-      <Card className="gap-2 px-4 py-3">
-        <p className="type-footnote text-label-2" data-testid="ops-chart-summary">
-          {t("ops.chart.summary", { requests: nf.format(tot.requests), errors: nf.format(tot.errors), pct: nf.format(tot.errorPct), p95: tot.p95 == null ? "–" : nf.format(tot.p95) })}
-        </p>
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-28 w-full" role="img" aria-label={t("ops.chart.aria", { requests: tot.requests, errors: tot.errors })} preserveAspectRatio="none">
-          {g.bars.map((b) => (
-            <g key={b.t}>
-              <rect x={b.x + 1} y={H - b.h} width={Math.max(1, W / Math.max(1, points.length) - 2)} height={b.h} className="fill-tint/40" />
-              {b.err > 0 ? <rect x={b.x + 1} y={H - b.err} width={Math.max(1, W / Math.max(1, points.length) - 2)} height={b.err} className="fill-status-infeasible-solid" /> : null}
-            </g>
-          ))}
-          {g.line ? <polyline points={g.line} fill="none" strokeWidth={2} className="stroke-status-warning-solid" vectorEffect="non-scaling-stroke" /> : null}
-        </svg>
-        <p className="type-caption text-label-3">{q.data?.source === "prometheus" ? t("ops.chart.sourceProm") : t("ops.chart.sourceProcess")}</p>
-      </Card>
     </section>
   );
 }

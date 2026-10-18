@@ -41,3 +41,8 @@ export async function loadInvite(token: string | null): Promise<InviteState> {
 export async function lastMethodLocal(): Promise<boolean> {
   return (await cookies()).get(LAST_METHOD_COOKIE)?.value === "local";
 }
+
+/** AUX-03 (auth.md §4.2): `passkey` when the last sign-in on this browser used a passkey (also opens door 2). */
+export async function lastMethodPasskey(): Promise<boolean> {
+  return (await cookies()).get(LAST_METHOD_COOKIE)?.value === "passkey";
+}

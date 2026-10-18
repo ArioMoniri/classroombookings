@@ -19,6 +19,11 @@ export const VOICE_ERRORS = [
   "voice_off",
   "not_configured",
   "ai_transfer_basis_missing",
+  "not_permitted",
+  "unsupported_audio",
+  "rate_limited",
+  "ai_budget_exceeded",
+  "truncated",
   "provider_error",
 ] as const;
 export type VoiceErrorCode = (typeof VOICE_ERRORS)[number];
@@ -63,21 +68,22 @@ export function mediaError(e: unknown, doc?: Document): VoiceError {
   return { code: "provider_error" };
 }
 
+/** `detail.code` of `POST /ai/voice/transcribe` (VO-B API.md §2) → the code shown. */
 const SERVER_CODES: Record<string, VoiceErrorCode> = {
   voice_consent_required: "consent_required",
-  consent_required: "consent_required",
   ai_voice_limit_reached: "ai_voice_limit_reached",
   too_long: "too_long",
   too_large: "too_long",
-  voice_disabled: "voice_off",
-  voice_off: "voice_off",
-  disabled: "voice_off",
-  not_configured: "not_configured",
-  no_route: "not_configured",
-  model_not_speech: "not_configured",
+  voice_not_configured: "not_configured",
+  not_permitted: "not_permitted",
+  unknown_target: "not_permitted",
   ai_transfer_basis_missing: "ai_transfer_basis_missing",
-  empty: "empty",
-  no_speech: "empty",
+  empty_audio: "empty",
+  unsupported_audio: "unsupported_audio",
+  rate_limited: "rate_limited",
+  too_many_concurrent: "rate_limited",
+  ai_budget_exceeded: "ai_budget_exceeded",
+  provider_error: "provider_error",
 };
 
 /** The `{code, …}` of a FastAPI error body, `detail` nested or not. */
@@ -91,19 +97,25 @@ export function serverError(e: unknown, maxSeconds: number): VoiceError {
   if (!(e instanceof HttpError)) return { code: "provider_error" };
   const d = detailOf(e);
   const raw = typeof d.code === "string" ? d.code : "";
-  const code = SERVER_CODES[raw] ?? (e.status === 413 ? "too_long" : e.status === 429 ? "ai_voice_limit_reached" : "provider_error");
+  // nginx answers an oversized body with a 413 page and no JSON
+  const code = SERVER_CODES[raw] ?? (e.status === 413 ? "too_long" : e.status === 429 ? "rate_limited" : "provider_error");
   if (code === "too_long") return { code, params: { n: Number(d.max_seconds ?? maxSeconds) } };
   if (code === "ai_voice_limit_reached") {
-    const used = Number(d.used_min ?? d.used_minutes ?? NaN);
-    const limit = Number(d.limit_min ?? d.limit_minutes ?? NaN);
-    return Number.isFinite(used) && Number.isFinite(limit) ? { code, params: { used, limit } } : { code, params: {} };
+    const used = Number(d.used_min ?? NaN);
+    const limit = Number(d.limit_min ?? NaN);
+    const scope = String(d.scope ?? "user_daily");
+    return Number.isFinite(used) && Number.isFinite(limit) ? { code, params: { used, limit, scope } } : { code, params: { scope } };
   }
   return { code };
 }
 
 /** The message key of a code. The limit without numbers has its own shorter sentence. */
 export function errorKey(err: VoiceError): string {
-  if (err.code === "ai_voice_limit_reached" && (err.params?.used === undefined || err.params?.limit === undefined)) return "voice.error.ai_voice_limit_reached_plain";
+  if (err.code === "ai_voice_limit_reached") {
+    if (err.params?.scope === "org_audio") return "voice.error.ai_voice_limit_reached_org";
+    if (err.params?.used === undefined || err.params?.limit === undefined) return "voice.error.ai_voice_limit_reached_plain";
+    if (err.params?.scope === "user_monthly") return "voice.error.ai_voice_limit_reached_month";
+  }
   return `voice.error.${err.code}`;
 }
 

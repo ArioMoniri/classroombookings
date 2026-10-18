@@ -156,6 +156,29 @@ def check_base_url(
     return Verdict(local=local)
 
 
+def resolved_local(url: str | None, *, resolver: Resolver | None = None) -> bool:
+    """``True`` only when **every** address ``url``'s host resolves to is loopback / private (the KVKK "the data stays
+    inside" test, HB-13). Decided from the resolved addresses, never from the name: ``gpu.local`` resolving to a
+    public address is not local; ``llm.uni.edu.tr`` resolving to 10.x is. Unresolvable, blocked or mixed answers are
+    not local. Never raises."""
+    try:
+        host = urlsplit((url or "").strip()).hostname or ""
+    except ValueError:
+        return False
+    if not host:
+        return False
+    literal = _parse_ip(host)
+    if literal is not None:
+        addresses = [literal]
+    else:
+        try:
+            found = (resolver or _resolve)(host, 0)
+        except (OSError, UnicodeError):
+            return False
+        addresses = [ip for ip in (_parse_ip(a) for a in found) if ip is not None]
+    return bool(addresses) and all(_classify(ip) == "local" for ip in addresses)
+
+
 async def ensure_safe(url: str, *, allow_local: bool) -> None:
     """The call-time check (DNS resolution off the event loop)."""
     import asyncio
@@ -163,4 +186,4 @@ async def ensure_safe(url: str, *, allow_local: bool) -> None:
     await asyncio.to_thread(check_base_url, url, allow_local=allow_local)
 
 
-__all__ = ["METADATA", "UnsafeBaseURL", "Verdict", "check_base_url", "ensure_safe"]
+__all__ = ["METADATA", "UnsafeBaseURL", "Verdict", "check_base_url", "ensure_safe", "resolved_local"]

@@ -4,8 +4,8 @@
  * No React here (vitest: ai-model.test.ts).
  */
 import { HttpError } from "@/lib/api/client";
-import type { AiErrorDetail, AiFeature, Provider, Route, RoutesIn, UsageRow } from "@/lib/api/ai-admin";
-import { AI_FEATURES } from "@/lib/api/ai-admin";
+import type { AiErrorDetail, Provider, Route, RouteFeature, RoutesIn, SyncedModel, UsageRow } from "@/lib/api/ai-admin";
+import { ROUTE_FEATURES } from "@/lib/api/ai-admin";
 
 const TAG: Record<string, string> = { tr: "tr-TR", en: "en-GB" };
 const tag = (locale: string) => TAG[locale] ?? "en-GB";
@@ -102,9 +102,9 @@ function cleanRoute(r: Partial<Route> | null | undefined): Partial<Route> | null
 }
 
 /** Draft (default + per feature, `null` = follow the default) → the `PUT /ai/admin/routes` body. */
-export function routesBody(def: Partial<Route> | null, features: Partial<Record<AiFeature, Partial<Route> | null>>): RoutesIn {
+export function routesBody(def: Partial<Route> | null, features: Partial<Record<RouteFeature, Partial<Route> | null>>): RoutesIn {
   const out: RoutesIn = { default: cleanRoute(def), features: {} };
-  for (const f of AI_FEATURES) {
+  for (const f of ROUTE_FEATURES) {
     const r = cleanRoute(features[f]);
     if (r) out.features[f] = r;
   }
@@ -230,4 +230,94 @@ export function parseLimit(raw: string): number | null {
   if (!t) return 0;
   const n = Number(t);
   return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+}
+
+/* ------------------------------------------------------------------ voice (VO-07) */
+
+export type SpeechKind = "stt" | "tts";
+
+/** A synced model that can do `kind`: its synced modalities when the backend sent them, else its id
+ *  (`*transcribe*`, `whisper*` for speech-to-text; `*tts*` for read-aloud). */
+export function isSpeechModel(m: Pick<SyncedModel, "id" | "modalities">, kind: SpeechKind = "stt"): boolean {
+  if (m.modalities?.length) return m.modalities.includes(kind);
+  return kind === "stt" ? /transcribe|whisper/i.test(m.id) : /(^|[-_])tts([-_]|$)/i.test(m.id);
+}
+
+/** Whether a provider says it can do `kind` (providers from a backend without capabilities: judged by models). */
+export function providerCan(p: Pick<Provider, "capabilities" | "models">, kind: SpeechKind = "stt"): boolean {
+  if (p.capabilities?.length) return p.capabilities.includes(kind);
+  return (p.models ?? []).some((m) => isSpeechModel(m, kind));
+}
+
+/** The providers a speech route may use, each with only its speech-capable models. */
+export function speechProviders(providers: readonly Provider[], kind: SpeechKind = "stt"): Provider[] {
+  return providers.filter((p) => providerCan(p, kind)).map((p) => ({ ...p, models: p.models.filter((m) => isSpeechModel(m, kind)) }));
+}
+
+/** The providers a text route may use, each without its speech-only models (VO-B: text rows offer text models). */
+export function textProviders(providers: readonly Provider[]): Provider[] {
+  return providers
+    .filter((p) => !p.capabilities?.length || p.capabilities.includes("text"))
+    .map((p) => ({ ...p, models: (p.models ?? []).filter((m) => !m.modalities?.length || m.modalities.includes("text")) }));
+}
+
+/** The first speech-capable synced model of a provider (what its voice test transcribes with). */
+export function firstSpeechModel(p: Provider, kind: SpeechKind = "stt"): string | null {
+  if (!providerCan(p, kind)) return null;
+  return p.models.find((m) => isSpeechModel(m, kind))?.id ?? null;
+}
+
+/** Seconds (the backend's unit) ⇄ whole minutes (what the screen shows); empty → undefined. */
+export function minutesOf(seconds: number | undefined): string {
+  return seconds === undefined ? "" : String(Math.round(seconds / 60));
+}
+export function secondsOf(minutes: string): number | null | undefined {
+  if (!minutes.trim()) return undefined;
+  const n = parseLimit(minutes);
+  return n === null ? null : n * 60;
+}
+
+/** Audio minutes per day from `GET /ai/admin/usage?group=day` rows (rows without audio are left out). */
+export function audioDays(rows: readonly UsageRow[], locale: string): { day: string; label: string; minutes: number }[] {
+  const fmt = new Intl.DateTimeFormat(tag(locale), { day: "numeric", month: "short", timeZone: "UTC" });
+  return rows
+    .filter((r) => (r.audio_minutes ?? 0) > 0)
+    .map((r) => {
+      const day = String(r.key ?? "");
+      return { day, label: day ? fmt.format(new Date(`${day}T00:00:00Z`)) : "", minutes: Math.round((r.audio_minutes ?? 0) * 10) / 10 };
+    });
+}
+
+// ── CH-05 (docs/design/v3/charts.md §4 row 1): helpers for "Günlük token kullanımı" on the shared ChartCard ──────
+
+/** Legend entries for the active series, in the fixed order; the colour follows the feature, not the position. */
+export function dailyLegend(series: readonly ChartSeries[], label: (s: ChartSeries) => string): { key: ChartSeries; label: string; color: string }[] {
+  return CHART_SERIES.filter((s) => series.includes(s)).map((s) => ({ key: s, label: label(s), color: SERIES_COLOR[s] }));
+}
+
+/**
+ * Phones (charts.md §7): days → weekly sums, 7-day blocks counted back from the latest day (so the current, unfinished
+ * week is the last column). `day` is the block's first ISO day; `label(from, to)` names the block.
+ */
+export function foldWeeks(points: readonly DayPoint[], label: (from: string, to: string) => string): DayPoint[] {
+  const out: DayPoint[] = [];
+  for (let end = points.length; end > 0; end -= 7) {
+    const block = points.slice(Math.max(0, end - 7), end);
+    const p = { day: block[0]!.day, label: label(block[0]!.day, block.at(-1)!.day), total: 0 } as DayPoint;
+    for (const s of CHART_SERIES) p[s] = 0;
+    for (const d of block) {
+      p.total += d.total;
+      for (const s of CHART_SERIES) p[s] += d[s];
+    }
+    out.unshift(p);
+  }
+  return out;
+}
+
+/** The last point is today in Europe/Istanbul (the day is not over: hatched, and said in the summary). */
+export function lastIsToday(points: readonly DayPoint[], now: Date = new Date()): boolean {
+  const last = points.at(-1);
+  if (!last) return false;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return last.day === today;
 }

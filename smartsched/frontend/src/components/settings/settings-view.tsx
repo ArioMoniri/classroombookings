@@ -33,12 +33,14 @@ import { SsoSettings } from "@/components/identity/sso-settings";
 import { ChannelsAdmin } from "@/components/channels/channels-admin";
 import { SlotDisplaySettings } from "./slot-display";
 import { SecurityContactCard } from "./security-contact";
+import { MailNoticesCard } from "./mail-notices";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
 import { PERIODS } from "@/lib/time";
 import { useUiStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
+import { SigninSecuritySettings } from "./signin-security";
 
 const WEIGHT_KINDS = ["room_preference", "building_preference", "min_capacity_waste", "same_room_across_weeks", "stability", "exam_gap"] as const;
 /** The solver's own defaults (backend app/solver/weights.py DEFAULT_WEIGHTS): what a run uses when the organisation
@@ -371,7 +373,7 @@ export function SettingsView() {
   const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
-  const { can } = usePermissions();
+  const { can, perms } = usePermissions();
   const admin = can(["planning.admin", "setup.settings"]);
   const tabs = [
     { value: "general", label: t("settings.general"), show: true },
@@ -389,6 +391,8 @@ export function SettingsView() {
     // notification channels (setup.settings, as /channels/admin)
     { value: "sso", label: t("sso.admin.tab"), show: can("planning.admin") },
     { value: "channels", label: t("channels.admin.tab"), show: can("setup.settings") },
+    // AUX-11 (docs/design/v3/auth.md §9): the 2FA / passkey policy; GET/PUT /admin/auth/mfa-policy needs setup.authentication
+    { value: "signin-security", label: t("auth.policy.tab"), show: can("setup.authentication") },
     // Phase 19: the learned priors and suggestions (Öğrenme belleği), planning administrators only
     { value: "learning", label: t("settings.learningTab"), show: can("planning.admin") },
     { value: "users", label: t("settings.users"), show: can("setup.users") },
@@ -399,6 +403,16 @@ export function SettingsView() {
   useEffect(() => {
     document.querySelector(`[data-testid="tab-${tab}"]`)?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [tab]);
+  // mobile-b phase 2 (CLS): until /auth/me answers, the tab list and the chosen tab are unknown; a fixed-height
+  // placeholder instead of the fallback tab that would be swapped a moment later (CLS 0.41-0.63 at 390 / 768)
+  if (perms === undefined) {
+    return (
+      <div className="max-w-[960px]" data-testid="settings">
+        <PageHeader title={t("settings.title")} />
+        <div className="min-h-[60dvh] animate-pulse rounded-2xl bg-fill-3" aria-busy="true" data-testid="settings-loading" />
+      </div>
+    );
+  }
   return (
     <div className={tab === "slots" ? "max-w-[1120px]" : "max-w-[960px]"} data-testid="settings">
       <PageHeader title={t("settings.title")} subtitle={admin ? t("settings.subtitle") : t("glass.settings.subtitleUser")} />
@@ -417,6 +431,8 @@ export function SettingsView() {
             <GeneralCard />
             {/* security follow-up wave3-sec2: the institution's security.txt contact (administrators only) */}
             <SecurityContactCard />
+            {/* RF-11: booking reminder lead time and the new-device sign-in mail (PUT /org/settings, setup.settings) */}
+            {can("setup.settings") ? <MailNoticesCard /> : null}
           </div>
         </TabsContent>
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>
@@ -448,6 +464,7 @@ export function SettingsView() {
         {can("planning.admin") ? <TabsContent value="learning"><LearningMemoryPanel /></TabsContent> : null}
         {can("planning.admin") ? <TabsContent value="sso"><SsoSettings /></TabsContent> : null}
         {can("setup.settings") ? <TabsContent value="channels"><ChannelsAdmin /></TabsContent> : null}
+        {can("setup.authentication") ? <TabsContent value="signin-security"><SigninSecuritySettings /></TabsContent> : null}
       </Tabs>
     </div>
   );

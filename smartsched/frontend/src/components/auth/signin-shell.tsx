@@ -156,7 +156,7 @@ export function SignInShell({ children, logoUrl, kvkkUrl, labelledBy = "signin-t
           material="regular"
           radius="2xl"
           render={<section ref={sheet} aria-labelledby={labelledBy} />}
-          className="flex w-full flex-col max-[599px]:min-h-dvh max-[599px]:rounded-none max-[599px]:shadow-none max-[599px]:px-4 max-[599px]:pt-[max(16px,env(safe-area-inset-top))] max-[599px]:pb-[max(8px,env(safe-area-inset-bottom))] min-[600px]:h-[calc(100dvh-16px)] min-[600px]:w-(--signin-sheet-w) min-[600px]:overflow-y-auto min-[600px]:overscroll-contain min-[600px]:px-8 min-[600px]:pt-8 min-[600px]:pb-4 lg:px-10 lg:pb-5 [scroll-padding-block:24px] contrast-more:bg-(--mat-regular-solid) forced-colors:bg-[Canvas] forced-colors:border forced-colors:border-[CanvasText]"
+          className="flex w-full flex-col max-[599px]:min-h-dvh max-[599px]:rounded-none max-[599px]:shadow-none max-[599px]:pl-[max(1rem,env(safe-area-inset-left))] max-[599px]:pr-[max(1rem,env(safe-area-inset-right))] max-[599px]:pt-[max(16px,env(safe-area-inset-top))] max-[599px]:pb-[max(8px,env(safe-area-inset-bottom))] min-[600px]:h-[calc(100dvh-16px)] min-[600px]:w-(--signin-sheet-w) min-[600px]:overflow-y-auto min-[600px]:overscroll-contain min-[600px]:pl-[max(2rem,env(safe-area-inset-left))] min-[600px]:pr-[max(2rem,env(safe-area-inset-right))] min-[600px]:pt-8 min-[600px]:pb-4 lg:pl-[max(2.5rem,env(safe-area-inset-left))] lg:pr-[max(2.5rem,env(safe-area-inset-right))] lg:pb-5 [scroll-padding-block:24px] contrast-more:bg-(--mat-regular-solid) forced-colors:bg-[Canvas] forced-colors:border forced-colors:border-[CanvasText]"
           data-testid="signin-sheet"
         >
           <div className="flex w-full max-w-[400px] flex-1 flex-col">

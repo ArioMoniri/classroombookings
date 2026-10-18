@@ -120,6 +120,21 @@ and the SSM parameter **names**. Secret values are never printed.
 Local equivalent (any machine with credentials): `python infra/aws/smartsched_aws.py up|status|stop|start|cost|down --yes`.
 Offline, no AWS calls: `python infra/aws/smartsched_aws.py plan` and `... render-user-data`.
 
+**Deploy-time settings** (local `up` only; docs/deploy/ONE-CLICK.md). `up --pod universal --org-name "..."
+--smtp-host ... --smtp-user ... --smtp-from ... --security-contact ... --ai-provider ...` plus the secrets in the
+caller's environment (`AI_API_KEY`, `SMTP_PASSWORD`, `GOOGLE_CLIENT_ID`/`_SECRET`, `MICROSOFT_CLIENT_ID`/`_SECRET`/
+`_TENANT`) and `--observability` / `--no-observability`. `up` validates them before any AWS call and stores them
+in SSM `{prefix}/bootstrap/<KEY>` (SecureString for secrets) before the instance launches. The pod's first deploy
+and every pod CI deploy hand them to `deploy.sh` as environment variables, never as arguments, and
+`seed/bootstrap_settings.py` writes each group into the database once. A group already set in the admin panel is
+kept, and later deploys never overwrite panel edits. The pod role already reads `{prefix}/*`, so no IAM change
+is needed, and `down` deletes the parameters with the rest of the prefix. The `POD_ACTION` workflow takes them as
+`key=value` words on the `up` line (quote values with spaces): `org=` `admin=` `acme=` `ai=` `ai-base-url=`
+`smtp-host=` `smtp-port=` `smtp-security=` `smtp-user=` `smtp-from=` `smtp-from-name=` `security=`
+`observability=on|off`, mapped to the flags above (`domain=` is refused: the pod is always on sslip.io). The
+optional repo secrets `AI_API_KEY`, `SMTP_PASSWORD`, `GOOGLE_CLIENT_ID/_SECRET`, `MICROSOFT_CLIENT_ID/_SECRET/_TENANT`
+reach `up` as environment variables; the log shows flag and parameter names only.
+
 ## 4. What the user must provide
 
 1. **AWS credentials for the workflow**, either
@@ -243,10 +258,13 @@ aws ssm get-parameter --region us-east-1 --name /smartsched/admin_password --wit
 | `/smartsched/admin_email`, `/smartsched/admin_password` | String, SecureString | pod |
 | `/smartsched/app/APP_SECRET`, `JWT_SECRET`, `POSTGRES_PASSWORD` | SecureString | pod (backup of `deploy/.env`) |
 | `/smartsched/ci/basic_auth` | SecureString | pod (`ci:<password>` for `/ci/`) |
+| `/smartsched/bootstrap/<KEY>` | String; SecureString for `AI_API_KEY`, `SMTP_PASSWORD`, `*_CLIENT_SECRET` | `up` with deploy-time flags (read by the pod's deploys, written into the database once) |
 
 The password is seeded once; change it in the UI after the first login (SSM keeps the initial value).
 
 - CI results: `https://<panel>/ci/` (log in to SmartSched as an admin first, or use the basic-auth pair).
+- Backups: `smartsched-backup.timer` on the pod runs `backup.sh` nightly at 02:30 Istanbul time (7 days in
+  `/var/lib/smartsched-ci/backups`, same disk as the data; copy them off the pod for disaster recovery).
 - Shell on the pod without SSH: `aws ssm start-session --target <instance-id>` (Session Manager plugin).
   First-boot log: `/var/log/smartsched-bootstrap.log`; stack: `/opt/smartsched/src/smartsched/deploy`.
 

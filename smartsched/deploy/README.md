@@ -5,9 +5,14 @@ nginx), with an optional legacy classroombookings (CRBS) profile and an optional
 
 ```bash
 cd smartsched/deploy
-./deploy.sh                 # creates .env with random secrets, builds, starts, waits for health
-# -> SmartSched is up: http://localhost:8080   admin: ADMIN_EMAIL / ADMIN_PASSWORD from .env
+./deploy.sh --admin-email you@uni.edu.tr   # creates .env with random secrets, builds, starts, waits for health
+# -> SmartSched is up: http://localhost:8080   admin: ADMIN_EMAIL / ADMIN_PASSWORD from .env (shown once on a terminal)
 ```
+
+Both branches deploy with this one command; `profile.env` decides what the first boot loads. Every deploy-time
+value (domain, profile, institution name, AI provider + key, SMTP, security.txt contact, calendar OAuth clients,
+observability, backups) is a flag or an environment variable, and every setting is also editable in the admin
+panel afterwards: [docs/deploy/ONE-CLICK.md](../../docs/deploy/ONE-CLICK.md).
 
 Requirements: Docker Engine 24+ with the Compose v2 plugin (2.24+ for the `--tls` override; 2.17+
 otherwise), 4 CPU / 8 GB RAM recommended (see [Sizing](#sizing)). Nothing else is needed on the host.
@@ -17,7 +22,11 @@ otherwise), 4 CPU / 8 GB RAM recommended (see [Sizing](#sizing)). Nothing else i
 |---|---|
 | `./deploy.sh` | create `.env` if missing (every `__GENERATE__` becomes a random secret), `docker compose build`, `up -d`, wait for `/api/v1/health` through nginx, print the URL and where the admin credentials are |
 | `./deploy.sh --legacy` | also build and start the legacy CRBS app (`php:8.3-apache` + `mysql:8.4`) on `127.0.0.1:8081` |
-| `./deploy.sh --tls` | add the Caddy edge (`docker-compose.caddy.yml`): automatic Let's Encrypt on :80/:443 for `TLS_DOMAIN` |
+| `./deploy.sh --tls` | add the Caddy edge (`docker-compose.caddy.yml`): automatic Let's Encrypt on :80/:443 for `TLS_DOMAIN`. On by itself when `.env` has `TLS_DOMAIN` + `ACME_EMAIL`; `--no-tls` skips it for one run |
+| `./deploy.sh --domain HOST` | write `TLS_DOMAIN`, `PUBLIC_URL`, `CORS_ORIGINS`, `ACME_EMAIL` (default: the admin e-mail; `--acme-email`) into `.env` and turn on the Caddy edge |
+| `./deploy.sh --org-name ... --smtp-host ... --security-contact ... --ai-provider ...` | deploy-time settings, written into the database once through the panel's own validation (`seed/bootstrap_settings.py`); secrets (`AI_API_KEY`, `SMTP_PASSWORD`, `*_CLIENT_SECRET`) from the environment only. A redeploy never overwrites what an administrator changed (`BOOTSTRAP_FORCE=1` does) |
+| `./deploy.sh --profile empty\|institution` | the seed profile for this run (default: `profile.env`) |
+| `./deploy.sh --backups` | install the nightly `backup.sh` as `/etc/cron.d/smartsched-backup` (as root; otherwise the line is printed) |
 | `./deploy.sh --update` | `git pull --ff-only`, pull pinned base images, rebuild, restart; migrations run on start (`--no-pull` skips git) |
 | `./deploy.sh --logs` / `--status` | follow logs / container status + health |
 | `./deploy.sh --down` | stop everything (data volumes kept). `--down --volumes` deletes ALL data after a typed confirmation (`FORCE=1` skips it) |
@@ -81,6 +90,8 @@ All settings live in `deploy/.env`, created from `.env.example` by `deploy.sh`. 
   `ALTER USER` inside the DB, then update `.env`.
 - `.env` is `chmod 600` and git-ignored. Back it up together with the database: `APP_SECRET` also
   encrypts the API keys stored in settings.
+- Deploy-time settings (`ORG_NAME`, `AI_*`, `SMTP_*`, `SECURITY_CONTACT`, `GOOGLE_*` / `MICROSOFT_*`) are **not**
+  `.env` keys: they live in the database (the admin panel), written once from the deploy command line.
 
 ## Seed profile (what the first deploy loads)
 
@@ -212,6 +223,9 @@ decrypts the stored API keys.
 30 2 * * * root /opt/classroombookings/smartsched/deploy/backup.sh >> /var/log/smartsched-backup.log 2>&1
 ```
 
+`./deploy.sh --backups` writes that file (with `ENV_FILE` set to this deploy's `.env`). The AWS pod runs it as
+`smartsched-backup.timer` instead (7 days in `/var/lib/smartsched-ci/backups`, on the pod disk).
+
 (`smartsched_uploads` is `<COMPOSE_PROJECT_NAME>_uploads`. Copy `/var/backups/smartsched` off the
 host. Legacy MySQL: `docker compose exec -T crbs-db sh -c 'mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'`.)
 
@@ -277,9 +291,9 @@ The production frontend build marks the session cookie `Secure`. Browsers accept
 `http://localhost`. From any other host the login therefore only works over HTTPS: a plain-http login
 from another machine fails silently and bounces back to `/login`. Pick one:
 
-**A. Caddy in compose (simplest).** Set `TLS_DOMAIN`, `ACME_EMAIL`, `PUBLIC_URL=https://<domain>` and
-`CORS_ORIGINS=["https://<domain>"]` in `.env`, point DNS at the host, open ports 80/443, then
-`./deploy.sh --tls`. Caddy gets and renews certificates and forwards to nginx (nginx is then bound to
+**A. Caddy in compose (simplest).** Point DNS at the host, open ports 80/443, then
+`./deploy.sh --domain <domain>` (it writes `TLS_DOMAIN`, `ACME_EMAIL`, `PUBLIC_URL=https://<domain>` and
+`CORS_ORIGINS=["https://<domain>"]` into `.env`; later runs keep HTTPS on). Caddy gets and renews certificates and forwards to nginx (nginx is then bound to
 `127.0.0.1` only).
 
 **B. Host Caddy.** `apt install caddy`, set `PROXY_BIND=127.0.0.1`, and use this `/etc/caddy/Caddyfile`:

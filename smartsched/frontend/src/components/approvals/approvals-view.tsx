@@ -132,7 +132,7 @@ export function ApprovalsView() {
             {box === "open" ? t("wave1.approvals.emptyOpen") : t("wave1.approvals.emptyDecided")}
           </p>
         ) : (
-          <ul data-testid="approvals-list" onKeyDown={moveInList}>
+          <ul data-testid="approvals-list" data-tour="approvals-row-actions" onKeyDown={moveInList}>
             {entries.map(({ key, requests }) => {
               const r = requests[0]!;
               return (

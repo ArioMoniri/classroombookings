@@ -46,6 +46,7 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import rls
 from app.core.config import get_settings
 from app.core.export_safety import safe_writer
 from app.core.security import hash_password, revoke_tokens
@@ -92,6 +93,8 @@ PURPOSES: dict[str, tuple[str, str]] = {
     "photo": ("Profil fotoğrafı", "Profile photo"),
     "calendar_sync": ("Takvimimle eşitleme (Google / Microsoft)", "Sync with my calendar (Google / Microsoft)"),
     "ai_personal": ("Kişisel verimin yapay zekâ ile işlenmesi", "Processing of my data by the AI assistant"),
+    #: VO-03: speech to text through the admins' cloud speech provider; the audio is never stored
+    "voice": ("Sesimin yazıya dökülmesi (sesli giriş)", "Transcribing my voice (voice input)"),
 }
 #: the phone-based channels a withdrawn SMS consent removes
 PHONE_CHANNELS = ("sms", "whatsapp")
@@ -184,14 +187,53 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "retention": None,
         "kept": "tutulmaz",
     },
+    # AI helper HB-09 (app/ai/helper/memory.py): notes only on "Bunu hatırla", history 30 days, the helper's writes
+    "helper": {
+        "tr": "Yardımcı: sizin kaydettiğiniz notlar (en fazla 20), son 30 günün konuşmaları, yardımcıyla yaptığınız "
+        "işlemlerin kaydı",
+        "en": "Helper: the notes you saved (at most 20), the last 30 days of conversations, the actions you took "
+        "through the helper",
+        "tables": ["helper_notes", "helper_threads", "helper_messages", "helper_action_invocations", "helper_events"],
+        "legal_basis": "KVKK m.5/1 açık rıza (notlar: 'Bunu hatırla'), m.5/2(f) meşru menfaat (işlem kaydı, geri alma)",
+        "retention": None,
+        "kept": "notlar son kullanımdan 180 gün, konuşmalar 30 gün; kullanım verisinde kişi 90 gün sonra silinir",
+    },
     # welcome guide per role (WG-03, app/services/welcome.py): show / hide the guide; no content, clicks or timings
     "welcome": {
-        "tr": "Karşılama rehberi durumu: rehberin gösterilip gösterilmediği, ertelendiği, turun adımı, tamamlanan maddeler",
+        "tr": "Karşılama rehberi durumu: gösterildi mi, ertelendi mi, turun adımı, tamamlanan maddeler",
         "en": "Welcome guide state: whether the guide was shown, snoozed or finished, the tour step, items done",
         "tables": ["welcome_progress"],
         "legal_basis": "KVKK m.5/2(f) meşru menfaat (rehberi doğru kişiye bir kez göstermek)",
         "retention": None,
         "kept": "hesapla birlikte; silme talebinde silinir",
+    },
+    # AU-B two-step sign-in (app/services/mfa.py): secrets encrypted, codes and device tokens only as hashes
+    "sign_in_security": {
+        "tr": "Giriş güvenliği: doğrulama uygulaması (şifreli), kurtarma kodları (özet), geçiş anahtarları (açık "
+        "anahtar), güvenilir cihazlar (özet), giriş adımları",
+        "en": "Sign-in security: authenticator app (encrypted), recovery codes (hashed), passkeys (public keys), "
+        "trusted devices (hashed), sign-in steps",
+        "tables": [
+            "user_mfa",
+            "mfa_recovery_codes",
+            "webauthn_credentials",
+            "trusted_devices",
+            "auth_challenges",
+            "user_sessions",
+        ],
+        "legal_basis": "KVKK m.12 veri güvenliği tedbiri; m.5/2(c) sözleşmenin ifası (hesaba güvenli giriş)",
+        "retention": None,
+        "kept": "hesapla birlikte; silme talebinde silinir",
+    },
+    # RF-11 new-device sign-in mail (app/services/mail_senders.py): browser + system family and network, as an HMAC
+    "known_devices": {
+        "tr": "Bilinen giriş cihazları: tarayıcı ve sistem türü ile ağın (/24) özeti, ilk ve son görülme zamanı",
+        "en": "Known sign-in devices: a hash of the browser and system family and the network (/24), first and last "
+        "seen",
+        "tables": ["settings (user.<id>.known_devices)"],
+        "legal_basis": "KVKK m.12 veri güvenliği tedbiri (tanınmayan cihazdan girişi bildirmek)",
+        "retention": None,
+        "kept": "son 20 cihaz, hesapla birlikte; silme talebinde silinir",
     },
 }
 FLOORS = {k: v["retention"]["floor_days"] for k, v in DATA_CLASSES.items() if v["retention"]}
@@ -530,6 +572,14 @@ async def purge_expired(session: AsyncSession, now: datetime | None = None) -> d
             p.data_class,
             after={"retain_days": p.retain_days, "action": p.action, "counts": counts},
         )
+    # AS-05: the aggregate find-room / booking demand ledger keeps demand.retention_days (default 400)
+    from app.services import demand
+
+    out["demand"] = await demand.purge(session, now)
+    # HB-09: helper notes (180 days since last use), threads (30 days), telemetry's person id (90 days)
+    from app.ai.helper import memory as helper_memory
+
+    out["helper"] = await helper_memory.purge(session, now)
     await session.flush()
     return out
 
@@ -583,13 +633,16 @@ async def inventory(session: AsyncSession) -> dict[str, Any]:
     classes = []
     for code, spec in DATA_CLASSES.items():
         counts: dict[str, int] = {}
-        for t in spec["tables"]:
-            if "." in t:
-                continue
-            try:
-                counts[t] = int((await session.execute(text(f"select count(*) from {t}"))).scalar_one())  # noqa: S608
-            except Exception:  # noqa: BLE001 - a table of an optional feature may not exist on an old database
-                counts[t] = 0
+        # an org-wide count: on PostgreSQL the owner-only tables (welcome_progress, MFA, helper) would show the admin
+        # only their own rows, so the counts run as system (the route checks setup.settings)
+        async with rls.system_scope(session):
+            for t in spec["tables"]:
+                if "." in t:
+                    continue
+                try:
+                    counts[t] = int((await session.execute(text(f"select count(*) from {t}"))).scalar_one())  # noqa: S608
+                except Exception:  # noqa: BLE001 - a table of an optional feature may not exist on an old database
+                    counts[t] = 0
         p = policies.get(code)
         classes.append(
             {
@@ -700,9 +753,14 @@ async def grant(session: AsyncSession, user: User, purpose: str) -> None:
     if active is not None:
         return
     n = await current_notice(session, user.language)
-    session.add(Consent(user_id=user.id, purpose=purpose, granted_at=utcnow(), notice_id=n.id if n else None))
+    row = Consent(user_id=user.id, purpose=purpose, granted_at=utcnow(), notice_id=n.id if n else None)
+    session.add(row)
     await session.flush()
     await audit.record(session, "kvkk.consent_grant", "consent", purpose, after={"user_id": user.id}, actor=user)
+    if purpose == "calendar_sync":  # RF-11: the person's own record of the consent (e-mail + bell, preferences apply)
+        from app.services import mail_senders
+
+        await mail_senders.calendar_consent(session, user, granted=True, consent_id=row.id)
 
 
 #: what a never-given ``ai_personal`` consent means (ROADMAP batch 3; owner decision 2026-10-17, R1-M-07 / R1-A-24):
@@ -843,8 +901,10 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
         )
     ).scalars()
     was_granted = False
+    withdrawn_ids: list[int] = []
     for r in rows:
         r.withdrawn_at, was_granted = now, True
+        withdrawn_ids.append(r.id)
     if not was_granted and purpose == "ai_personal":
         # the per-person switch is the latest consent row: record the withdrawal even without an earlier grant
         session.add(Consent(user_id=user.id, purpose=purpose, granted_at=now, withdrawn_at=now))
@@ -873,6 +933,10 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
         )
     elif purpose == "calendar_sync":
         feeds, conns = await _withdraw_calendar_sync(session, user)
+        if withdrawn_ids:  # RF-11: only a consent that was in force is announced (withdrawing twice sends nothing)
+            from app.services import mail_senders
+
+            await mail_senders.calendar_consent(session, user, granted=False, consent_id=max(withdrawn_ids))
         counts["revoked_feeds"], counts["disconnected_calendars"] = feeds, conns
         if feeds:
             effects.append(
@@ -907,6 +971,17 @@ async def withdraw(session: AsyncSession, user: User, purpose: str) -> dict[str,
                 "assistant",
                 "bundan sonra yapay zekâ asistanına gönderilen her şeyde adınız ve e-postanız yer tutucuyla "
                 "değiştirilir",
+            )
+        )
+        from app.ai.helper import memory as helper_memory  # HB-09: the helper's notes go, its memory turns off
+
+        k = await helper_memory.on_ai_personal_withdrawn(session, user.id)
+        effects.append(
+            _effect(
+                "helper_notes_deleted",
+                k,
+                f"{k} helper note(s) deleted; the helper no longer remembers anything for you",
+                f"yardımcının {k} notu silindi; yardımcı artık sizin için bir şey hatırlamaz",
             )
         )
     ai_excluded = purpose == "ai_personal"
@@ -1133,6 +1208,15 @@ async def export_data(session: AsyncSession, user: User) -> dict[str, Any]:
     from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
 
     data["welcome_guide"] = await welcome_svc.dsr_rows(session, uid)
+    from app.ai.helper import memory as helper_memory  # HB-09: notes, conversations, helper actions
+
+    data["helper"] = await helper_memory.dsr_rows(session, uid)
+    from app.services import mfa as mfa_svc  # AU-B: what is on and when; never a secret, a code or a key
+
+    data["sign_in_security"] = await mfa_svc.dsr_rows(session, uid)
+    from app.services import mail_senders  # RF-11: the new-device check's hashed devices
+
+    data["known_devices"] = await mail_senders.dsr_rows(session, uid)
     data.update(await _person_records(session, user, rooms))
     return await _scrub_others(session, user, data)
 
@@ -1800,6 +1884,21 @@ EXPORT_FILES: dict[str, tuple[str, str]] = {
         "Karşılama rehberinin sizin için durumu (gösterildi, ertelendi, tur adımı, tamamlanan maddeler).",
         "The welcome guide's state for you (shown, snoozed, tour step, items done).",
     ),
+    "helper": (
+        "Yardımcı: kaydettiğiniz notlar, son 30 günün konuşmaları ve yardımcıyla yaptığınız işlemler.",
+        "Helper: the notes you saved, the last 30 days of conversations and the actions you took through it.",
+    ),
+    "sign_in_security": (
+        "Giriş güvenliğiniz: doğrulama uygulaması açık mı, kalan kurtarma kodu sayısı, geçiş anahtarlarınızın adları "
+        "ve tarihleri, güvenilir cihazlar (gizli anahtarlar ve kodlar dışa aktarılmaz).",
+        "Your sign-in security: whether the authenticator app is on, recovery codes left, your passkeys' names and "
+        "dates, trusted devices (secrets and codes are never exported).",
+    ),
+    "known_devices": (
+        "Hesabınıza giriş yapılan cihazların özeti (ilk ve son görülme); tarayıcı, sistem ve adres saklanmaz.",
+        "A hash of each device that signed in to your account (first and last seen); the browser, system and "
+        "address are not stored.",
+    ),
 }
 
 
@@ -2189,6 +2288,9 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     )
     await session.execute(update(ApprovalRequest).where(ApprovalRequest.requested_by == uid).values(requested_by=None))
     # 3. notifications, delivery ledgers, channel links, identities, calendar links, tokens, personal settings
+    from app.services import mail_senders  # RF-11: counted before the user.<id>.* settings go below
+
+    counts["known_devices"] = await mail_senders.erase(session, uid)
     for name, stmt in (
         ("inapp_notifications", delete(InAppNotification).where(InAppNotification.user_id == uid)),
         ("notification_deliveries", delete(NotificationDelivery).where(NotificationDelivery.user_id == uid)),
@@ -2223,6 +2325,12 @@ async def erase_user(session: AsyncSession, admin: User, subject: User) -> dict[
     from app.services import welcome as welcome_svc  # WG-03: the welcome guide's per-person state
 
     counts["welcome_progress"] = await welcome_svc.erase(session, uid)
+    from app.ai.helper import memory as helper_memory  # HB-09: notes, conversations, helper action rows
+
+    counts["helper"] = await helper_memory.erase(session, uid)
+    from app.services import mfa as mfa_svc  # AU-B: second factors, passkeys, trusted devices, challenges
+
+    counts["sign_in_security"] = await mfa_svc.erase(session, uid)
     counts["profile_photo"] = delete_profile_photo(uid)
     await session.execute(update(Room).where(Room.owner_user_id == uid).values(owner_user_id=None))
     # 4. learned observations of the person (and of their instructor record), then the link

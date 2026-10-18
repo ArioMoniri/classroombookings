@@ -2650,38 +2650,50 @@ R-AI-01…10 (docs/research/2026-10-17-state-of-the-art.md §2.2) folded in wher
 
 ### Calendar export & sync for academicians (owner request 2026-10-17)
 Ledger `calendar-export-res-2026-10-17`. Research, current-state map, design, Turkish copy and the persona test plan: [docs/research/2026-10-17-calendar-export.md](research/2026-10-17-calendar-export.md). Owner: "each academician's own classes or their department's classes, through verified connected accounts, an ICS link or an ICS file; dynamic, easy, approved by the user." Today `mine.ics` and push carry bookings only (P19-T4 open); class UIDs churn on re-publish; any user can pull any department feed; one token opens every scope; push ignores class moves. Lanes: **CAL-B** (backend, CAL-01…07 in order, one migration), **CAL-F** (frontend, CAL-08/09), **CAL-T** (tester, CAL-10). None of the files below is owned by W3-SEC, W3-IDP, W3-HUB, intake lane C, the integrator or the mobile optimisers, except where an "ask" is named. Every new token feed path stays under `/api/v1/calendar/feeds/{token}/….ics`, so the nginx no-log rule (W3-SEC) needs no change.
-- [ ] CAL-01 · backend · **migration (next head, `0039_calendar_classes`; down_revision `0038_email_templates` unless W3-IDP / W3-SEC / others land a later head first)** · Stable class identity and revisions: a run-, assignment- and room-independent class UID (`class-<sha1(term|meeting_request or course+section|date|ordinal)>@host`); new table `calendar_class_revisions` (uid, term_id, fingerprint, sequence, last_modified, ended_at, program_id, instructor_ids, starts_at); SEQUENCE / LAST-MODIFIED bump on a move; vanished occurrences emitted as `STATUS:CANCELLED` for `feed_cancelled_grace_days`; the old `class-{a}-{room}-{date}` UIDs cancelled once in room / department feeds. The same migration also adds `calendar_feed_tokens.scope_kind / scope_id / consent_id / fields`, `calendar_connections.scopes / owned_calendar / account_verified / last_reconciled_at`, `calendar_event_links.item_key` (backfilled `booking:<id>`, unique per connection), `calendar_sync_jobs.item_key`. SQLite + PostgreSQL.
+- [x] CAL-01 · backend · **migration (next head, `0039_calendar_classes`; down_revision `0038_email_templates` unless W3-IDP / W3-SEC / others land a later head first)** · Stable class identity and revisions: a run-, assignment- and room-independent class UID (`class-<sha1(term|meeting_request or course+section|date|ordinal)>@host`); new table `calendar_class_revisions` (uid, term_id, fingerprint, sequence, last_modified, ended_at, program_id, instructor_ids, starts_at); SEQUENCE / LAST-MODIFIED bump on a move; vanished occurrences emitted as `STATUS:CANCELLED` for `feed_cancelled_grace_days`; the old `class-{a}-{room}-{date}` UIDs cancelled once in room / department feeds. The same migration also adds `calendar_feed_tokens.scope_kind / scope_id / consent_id / fields`, `calendar_connections.scopes / owned_calendar / account_verified / last_reconciled_at`, `calendar_event_links.item_key` (backfilled `booking:<id>`, unique per connection), `calendar_sync_jobs.item_key`. SQLite + PostgreSQL.
   accept: pytest `test_cal_01_*`: publish → move week 5 → re-publish a new run → the same UID, SEQUENCE +1, new DTSTART / LOCATION; removing a meeting → CANCELLED tombstone then gone after the grace period; `alembic upgrade head` + downgrade on SQLite and PostgreSQL; one head.
   files: `backend/app/services/calendar_feeds.py` (class_events), new `backend/app/services/calendar_classes.py`, `backend/app/models/integrations.py`, `backend/alembic/versions/0039_calendar_classes.py`, `backend/tests/test_cal_01_*.py`. Ask W3-SEC: RLS for the new columns follows its R4 plan for `calendar_connections`.
-- [ ] CAL-02 · backend · no migration · "Derslerim" scope: classes of the linked instructor(s) (`Instructor.user_id` → `section_instructors` → meeting requests → active-run assignments; board rows by course code fallback); `GET /calendar/feeds/{token}/classes.ics`; published runs only (never drafts); fields: course code, section, title (setting), room, start/end, department; DESCRIPTION with a SmartSched link; no student data, notes or co-instructor names (setting, default off); RFC 7986 `NAME` + `SOURCE`.
+  done (alembic `0039_calendar_classes` after `0038_email_templates`, one head, SQLite + PostgreSQL round trip; new `app/services/calendar_classes.py` (UID `class-<sha1(term|request or course key|teaching week|ordinal)>@smartsched`, revisions with `seen` sets so a room / teacher change also sends a CANCELLED tombstone to the feed it left, legacy UIDs stored once as cancelled `legacy` rows); `build_feed` on the engine; connection column named `export_scopes` because `calendar_connections.scopes` already holds the OAuth grant; tests `test_cal_01_classes.py` 3 + `test_cal_01_migration.py` 3; cal-b-2026-10-17)
+- [x] CAL-02 · backend · no migration · "Derslerim" scope: classes of the linked instructor(s) (`Instructor.user_id` → `section_instructors` → meeting requests → active-run assignments; board rows by course code fallback); `GET /calendar/feeds/{token}/classes.ics`; published runs only (never drafts); fields: course code, section, title (setting), room, start/end, department; DESCRIPTION with a SmartSched link; no student data, notes or co-instructor names (setting, default off); RFC 7986 `NAME` + `SOURCE`.
   accept: pytest `test_cal_02_*` on the Bahar 2026 env: the PSY 262 instructor's feed holds exactly its meetings (Mon 13:30–15:50 A 308, TZID Europe/Istanbul + VTIMEZONE), round-trips through `icalendar`, a PII allow-list test passes, a draft run changes nothing; a not-linked user gets 409 `not_linked` (TR/EN).
   files: `backend/app/services/calendar_classes.py`, `backend/app/services/calendar_feeds.py`, `backend/app/api/v1/calendar_sync.py`, `backend/tests/test_cal_02_*.py`.
-- [ ] CAL-03 · backend · no migration (columns from CAL-01) · Scope-bound links, the department rule, per-scope approval: `POST/GET/DELETE /calendar/subscriptions` (one token per scope; serves only its own path); department scope allowed for the user's own department, a department of a section they teach, or the new permission `calendar.department_feed` ("Bölüm ders takvimini dışa aktarma"), re-checked on every poll and enforced on the legacy `department/{id}.ics` too; each create records the consent id; audit `calendar.subscription_create / _revoke / calendar.scope_denied`; `GET /calendar/export/options` (per scope: available, reason, upcoming count, departments, channels, consent).
+  done (`GET /calendar/feeds/{token}/classes.ics`, fields allow-list with admin switches `integrations.export_field_*` (co-instructors off), DESCRIPTION title / Bölüm / SmartSched link, RFC 7986 NAME + SOURCE via an additive `extra` kwarg on `render_calendar`; tests `test_cal_02_my_classes.py` 3 (PSY 262 instructor feed, PII allow-list, draft unchanged, 409 not_linked TR/EN); cal-b-2026-10-17)
+- [x] CAL-03 · backend · no migration (columns from CAL-01) · Scope-bound links, the department rule, per-scope approval: `POST/GET/DELETE /calendar/subscriptions` (one token per scope; serves only its own path); department scope allowed for the user's own department, a department of a section they teach, or the new permission `calendar.department_feed` ("Bölüm ders takvimini dışa aktarma"), re-checked on every poll and enforced on the legacy `department/{id}.ics` too; each create records the consent id; audit `calendar.subscription_create / _revoke / calendar.scope_denied`; `GET /calendar/export/options` (per scope: available, reason, upcoming count, departments, channels, consent).
   accept: pytest `test_cal_03_*`: the token of scope A is a 404 on scope B; a forged department id → 403 `department_not_allowed` with message_tr; the permission grants it; revoke → 404; consent withdrawal revokes all; legacy tokens keep mine / room feeds.
   files: `backend/app/services/calendar_feeds.py`, `backend/app/api/v1/calendar_sync.py`, `backend/app/services/bookings_perms.py` (append the permission + TR label only), `backend/app/services/kvkk.py` (DSR export lists subscriptions; erasure covers them; small additive change), `backend/tests/test_cal_03_*.py`.
-- [ ] CAL-04 · backend · no migration · One-off `.ics` files from the same engine: `GET /calendar/export/classes.ics`, `/calendar/export/department/{id}.ics`, `/calendar/export/bookings.ics` (JWT, attachment, `derslerim-<term>.ics`), with the same UIDs as the links; fix the planner run export (`format=ics`) to use `render_calendar` (TZID instead of floating times, no board notes in DESCRIPTION).
+  done (`POST/GET/DELETE /calendar/subscriptions` + `POST /calendar/subscriptions/{id}/rotate`, `GET /calendar/export/options`; scope-bound tokens serve only their path; department rule (own, taught, `calendar.department_feed`, plus planning.view holders, who already see every timetable) checked again on every poll and on the legacy `department/{id}.ics`; consent id + field list on each link; audit `calendar.subscription_create/_revoke/_rotate`, `calendar.scope_denied`; KVKK DSR export lists the scopes; tests `test_cal_03_subscriptions.py` 3; `test_calendar_feeds` / `test_a14_class_feeds` updated for the department rule and the new UIDs; cal-b-2026-10-17)
+- [x] CAL-04 · backend · no migration · One-off `.ics` files from the same engine: `GET /calendar/export/classes.ics`, `/calendar/export/department/{id}.ics`, `/calendar/export/bookings.ics` (JWT, attachment, `derslerim-<term>.ics`), with the same UIDs as the links; fix the planner run export (`format=ics`) to use `render_calendar` (TZID instead of floating times, no board notes in DESCRIPTION).
   accept: pytest `test_cal_04_*`: the file and feed have identical UIDs / SEQUENCE; the run export carries `TZID=Europe/Istanbul`; existing `test_api_runs` ics tests still pass.
   files: `backend/app/api/v1/calendar_sync.py`, `backend/app/services/exports.py` (export_ics only), `backend/tests/test_cal_04_*.py`.
-- [ ] CAL-05 · backend · no migration · Cheap conditional GET: a version key (scope, active run ids, newest class / booking revision, settings version, date) checked before rendering → 304 without a build; `Last-Modified` + `If-Modified-Since`; department feeds capped at 1 MB (horizon to term end); `last_used_at` exposed as "en son çekti".
+  done (`/calendar/export/classes.ics`, `/department/{id}.ics`, `/bookings.ics` attachments `derslerim-2026-bahar.ics`; planner run export on `render_calendar` (TZID, no board notes; `test_review_exports` assertion updated since notes are no longer exported); tests `test_cal_04_files.py` 2; cal-b-2026-10-17)
+- [x] CAL-05 · backend · no migration · Cheap conditional GET: a version key (scope, active run ids, newest class / booking revision, settings version, date) checked before rendering → 304 without a build; `Last-Modified` + `If-Modified-Since`; department feeds capped at 1 MB (horizon to term end); `last_used_at` exposed as "en son çekti".
   accept: pytest `test_cal_05_*`: a second poll answers 304 with ≤ 3 queries (count via SQLAlchemy events); a change flips the ETag; a 1 MB guard test.
   files: `backend/app/services/calendar_feeds.py`, `backend/app/api/v1/calendar_sync.py`, `backend/tests/test_cal_05_*.py`.
-- [ ] CAL-06 · backend · no migration (columns from CAL-01) · Push classes to connected accounts: new connections request Google `openid email calendar.app.created` and create a dedicated "SmartSched – Derslerim" calendar (Graph: `POST /me/calendars`, `Calendars.ReadWrite`); `PUT /calendar/connectors/{provider}/scopes`; `class` jobs keyed by `item_key`: diff the desired set against the links → insert (deterministic Google id / Graph `transactionId`), PATCH on a new fingerprint, DELETE on a tombstone; the subscriber in `workers/integrations.register` also listens to `run.delete` and `assignment.*` and queues one job per affected connection after commit; nightly reconcile (03:30 Istanbul) of SmartSched-tagged events (`privateExtendedProperty`), recreating a deleted calendar once; disconnect or scope removal deletes the owned calendar, then revokes; old connections keep working and are flagged "Daha az izinle yeniden bağlan".
+  done (version key = link, scope, newest `audit_events.id`, Istanbul date → 304 with 3 queries; `Last-Modified` + `If-Modified-Since`; 1 MB trim (tombstones first, then farthest); horizon to term end; `last_fetched_tr` "Takviminiz en son çekti: …"; tests `test_cal_05_conditional.py` 2; cal-b-2026-10-17)
+- [x] CAL-06 · backend · no migration (columns from CAL-01) · Push classes to connected accounts: new connections request Google `openid email calendar.app.created` and create a dedicated "SmartSched – Derslerim" calendar (Graph: `POST /me/calendars`, `Calendars.ReadWrite`); `PUT /calendar/connectors/{provider}/scopes`; `class` jobs keyed by `item_key`: diff the desired set against the links → insert (deterministic Google id / Graph `transactionId`), PATCH on a new fingerprint, DELETE on a tombstone; the subscriber in `workers/integrations.register` also listens to `run.delete` and `assignment.*` and queues one job per affected connection after commit; nightly reconcile (03:30 Istanbul) of SmartSched-tagged events (`privateExtendedProperty`), recreating a deleted calendar once; disconnect or scope removal deletes the owned calendar, then revokes; old connections keep working and are flagged "Daha az izinle yeniden bağlan".
   accept: pytest `test_cal_06_*` on `httpx.MockTransport`: publish → N inserts; a move → 1 PATCH; a removal → 1 DELETE; a retried job is idempotent (no duplicates); 429 → backoff honouring Retry-After; disconnect → `calendars.delete` + revoke; the existing `test_calendar_connectors.py` stays green.
   files: `backend/app/services/calendar_connectors.py`, `backend/app/workers/integrations.py` (register + affected ids), `backend/tests/test_cal_06_*.py`. Keep `connectors_out()` / `settings_out()` backward-compatible (W3-HUB reads them).
-- [ ] CAL-07 · backend · no migration · Verified accounts: `integrations.push_verified_only` (default on) accepts a provider account that matches the person's `UserIdentity` subject, the Google Workspace IdP hosted domain (`hd`), the Entra IdP tenant (`tid`, FLE-005) or an admin-allowed e-mail domain; else 403 `account_not_verified` with "Bu hesap kurumunuzun doğrulanmış hesabı değil. {alan} uzantılı hesabınızla bağlanın."; `account_verified` stored and shown; optional `integrations.calendar_client_source = identity | own` (reuse the IdP's OAuth client).
+  done (connect with `scopes` → Google `openid email calendar.app.created` / Graph `Calendars.ReadWrite`, owned calendar "SmartSched – Derslerim" created on first job; `classes` + `nightly` jobs keyed `class:<uid>`; deterministic Google ids, Graph transactionId, PATCH on change, DELETE on removal, Retry-After honoured; subscriber on `run.activate/run.delete/assignment.*` (drafts ignored); nightly loop 03:30 Istanbul in `workers/integrations.on_startup`; disconnect deletes the owned calendar then revokes; `PUT /calendar/connectors/{provider}/scopes` (409 `reconnect_required` for legacy grants); `push_out` in `GET /calendar/subscriptions` with `least_privilege` / "Daha az izinle yeniden bağlan"; `connectors_out()` / `settings_out()` unchanged; tests `test_cal_06_push.py` 5 + `test_calendar_connectors.py` green; cal-b-2026-10-17)
+- [x] CAL-07 · backend · no migration · Verified accounts: `integrations.push_verified_only` (default on) accepts a provider account that matches the person's `UserIdentity` subject, the Google Workspace IdP hosted domain (`hd`), the Entra IdP tenant (`tid`, FLE-005) or an admin-allowed e-mail domain; else 403 `account_not_verified` with "Bu hesap kurumunuzun doğrulanmış hesabı değil. {alan} uzantılı hesabınızla bağlanın."; `account_verified` stored and shown; optional `integrations.calendar_client_source = identity | own` (reuse the IdP's OAuth client).
   accept: pytest `test_cal_07_*`: matching hd / tid / identity → connected; gmail.com → 403 with message_tr; the setting off → allowed and audited.
   files: `backend/app/services/calendar_connectors.py`, `backend/app/api/v1/calendar_sync.py` (settings fields), `backend/tests/test_cal_07_*.py`. **Ask W3-IDP**: a read-only accessor in `services/identity/` (e.g. `identity.calendar_identity_hints(session, user) -> {subjects, google_hd, entra_tenant, client}`); until then read `UserIdentity` / `SsoProvider` rows directly, without writing them.
+  done (`integrations.push_verified_only` default on; verified by UserIdentity subject, Workspace hd, Entra tid, own sign-in e-mail, institution domain of the person's e-mail (never consumer domains), admin-allowed domains; refused at the callback with `reason=account_not_verified&domain=…`, grant revoked, audit `calendar.push_refused`; `account_verified` stored; `calendar_client_source = identity` reuses the enabled IdP client (read only); admin `GET/PUT /calendar/admin/export-settings` (audited `integrations.calendar_export`); tests `test_cal_07_verified.py` 3; cal-b-2026-10-17)
 - [ ] CAL-08 · frontend · no migration · Academician 3-tap sheet "Takvimime ekle" (what → how → approve, Turkish copy from the research doc §3.7): scope cards with reasons, only the configured channels, the approval card with field bullets + a real sample event + the consent tick, done states (push progress, webcal / Google / Outlook / Kopyala, file download), the manage list with "Son eşitleme" / "en son çekti", "Şimdi eşitle", "Bağlantıyı yenile", "Kaldır" (confirm, focus to the next row); phone full-screen one step per screen, desktop 560 px sheet; entry points Profil › Takvim and the academician's own classes / requests view.
   accept: vitest for the sheet model and component; Playwright `e2e/cal-export.spec.ts` at 1440 and 390 touch (tr-TR, Europe/Istanbul): 3 taps to a link, a disabled department card with its reason, revoke; MOBILE M-01/02/03/05 on /profile; `check-design.mjs`, tsc, eslint clean.
   files: new `frontend/src/components/calendar-export/**`, new `frontend/src/lib/api/calendar-export.ts`, `frontend/messages/{tr,en}.json` (namespace `calendarExport.*` only), one mount line in `frontend/src/components/admin/profile-view.tsx` (after mobile optimiser A hands off; ask), optional entry in `components/moderation/**` (ask its owner), `frontend/playwright.config.ts` testMatch `cal-[a-z-]+` (append).
+  part done (sheet what → how → approve in 3 taps, scope cards with reasons, only configured channels, approval card with field bullets + real sample + consent tick, done states, manage list with Son eşitleme / en son çekti; Şimdi eşitle, Bağlantıyı yenile, raw https/webcal, Daha az izinle yeniden bağlan and disconnect behind "Gelişmiş"; every connect sends `scopes` (`connectScopes`, never empty: a bookings-only legacy connection reconnects with `my_bookings`; the older Profil push panel `settings/calendar-connections.tsx` now connects with `["my_bookings"]` and sits closed under "Gelişmiş" once the export options answer); `?calendar=error&reason=account_not_verified&domain=…` → "Bu hesap kurumunuzun doğrulanmış hesabı değil. {domain} uzantılı hesabınızla bağlanın." ("Kurumsal" when no domain), never the code; `crbs.perm.calendar_department_feed` tr/en; files components/calendar-export/**, lib/api/calendar-export.ts, settings/calendar-connections.tsx, messages; vitest 7 files 89 passed, tsc 0 errors, eslint + check:design clean; cal-f-2026-10-18)
+  open: Playwright `e2e/cal-export.spec.ts` at 1440 + 390 and MOBILE M-01/02/03/05 on /profile (resource rule: no stacks; listed for the e2e lane).
 - [ ] CAL-09 · frontend · no migration · Admin settings: scope toggles and who may export the department scope, the field allow-list (title, department, co-instructors off, link), horizon, `push_verified_only` + allowed domains, client source, Google scope mode, status counts and the last nightly reconcile; keep both panels embeddable unchanged in W3-HUB's setup sheet (same exports / props).
   accept: vitest `components/settings/calendar-*.test.tsx` updated; the W3-HUB e2e test 4 (setup-sheet embeds) still passes at 1440 and 390.
   files: `frontend/src/components/settings/calendar-sync-admin.tsx`, `frontend/src/components/settings/calendar-push-admin.tsx`, their tests, `frontend/messages/{tr,en}.json` (`calendarPush.*` / `calendarExport.admin.*`).
+  part done (admin export block `calendar-export/admin-settings.tsx` inside calendar-sync-admin / calendar-push-admin, exports and props unchanged: scope toggles, field allow-list with co-instructors off, horizon, push_verified_only + allowed domains, client source, status counts + last nightly reconcile under "Gelişmiş"; vitest calendar-sync-admin / calendar-push-admin pass; cal-f-2026-10-18)
+  open: W3-HUB e2e test 4 (setup-sheet embeds) and the CAL-09 case of `e2e/cal-export.spec.ts` at 1440 + 390 (e2e lane).
 - [ ] CAL-10 · tester · no migration · Persona academician run of the research doc §6 (T1–T19) on phone 390×844 touch and desktop 1440, with Dr. Ayşe (linked, Psikoloji) and Dr. Mehmet (another department), a mock Google provider and real Apple / Google / Outlook clients where available; the feed validated with `icalendar` and the icalendar.org validator; refresh lag noted, not failed.
   accept: a report under `docs/testing/` with per-step pass / fail, screenshots for both viewports and tickets for the failures.
   files: `docs/testing/2026-10-xx-persona-calendar-export.md`, scratch only otherwise.
 - [ ] CAL-11 · backend · later · CalDAV push (iCloud `caldav.icloud.com`, app-specific password encrypted, `PUT {uid}.ics` with `If-Match`) — deferred: webcal already covers Apple users and app passwords are password-equivalent secrets.
 - [ ] CAL-12 · backend + mail · later · "Takvime ekle" link in the publish digest e-mail (P19-T3) and the W3-MAIL open item (`.ics` add-to-calendar), pointing at the CAL-08 sheet, never at a raw token.
+- [ ] CAL-13 · backend · next (owner default 2026-10-17 (5)) · "Sınav görevlerim" scope on the same engine: the person's duties of the **active** invigilation plan (`invigilation_plans.is_active`, `invigilation_duties.instructor_id` → `Instructor.user_id`) and their own exams from the active EXAM run; UID `exam-<sha1(term|post_key or exam_request ids|date|ordinal)>@smartsched` in `calendar_class_revisions` (term key prefixed), scope kind `my_duties` added to `calendar_classes.SCOPE_KINDS`, `calendar_feeds.SCOPE_FEED_KIND` (`/calendar/feeds/{token}/duties.ics`), the options, the files and the push scopes; tests need a fixture with a solved, activated invigilation plan. Not built by CAL-B (cal-b-2026-10-17): the Bahar fixture has no published plan without a solver run.
 
 ### Wave 3b — W3-IDP identity providers (2026-10-17)
 - [x] Several providers set by admins, shared by all admins: `entra` (tenant pin, every 0026 behaviour kept), `google_workspace` (hd pin, email_verified), `oidc` (discovery; Okta/Keycloak/Auth0/Authentik/ADFS presets), `saml` (Shibboleth/eduGAIN/YETKİM/ADFS; signxml built in since 2026-10-17, "kütüphane gerekli" only if it is missing), LDAP listed beside. Migration `0037_identity_providers` keeps the Entra row losslessly. Per provider: label + /login order, allowed domains, invite-only, eligible sign-up role, group/claim mapping that never grants beyond its creator, write-only encrypted secret, audit, "Son değişiklik" + version conflict (409), disable refused when it strands an admin, delete only when off.
@@ -2696,38 +2708,46 @@ Ledger `calendar-export-res-2026-10-17`. Research, current-state map, design, Tu
 
 ### Welcome guide per role (owner request 2026-10-17)
 Ledger `welcome-guide-res-2026-10-17`. Owner: "a welcome guide showing and explaining the parts for users, admins and the other levels, as in classroombookings, and in the one you built." Research (CRBS and SmartSched today, tour libraries, hosted services and KVKK, animation tooling, transitions.dev free recipes, Mobbin): [docs/research/2026-10-17-welcome-guide.md](research/2026-10-17-welcome-guide.md). Design (sheet, tour, "Başlarken" checklist, Help › Turu yeniden başlat, wave-3 hints, admin control, TR/EN copy per audience, motion, phone layouts, a11y, test ids): [docs/design/v3/welcome-guide.md](design/v3/welcome-guide.md), wireframes `docs/design/v3/wireframes/welcome-*.svg` (generator `welcome-gen.py`). Library: **react-joyride 3.2 (MIT)**, lazy-loaded, controlled, our own card; fallback driver.js 1.10 (MIT). No hosted service (KVKK Art. 9). Lanes: **WG-B** backend (WG-01…03), **WG-F** frontend (WG-04…08), **WG-M** motion (WG-09), **WG-T** tester (WG-10). Every file below is new (`components/welcome/**`, `lib/api/welcome.ts`, `services/welcome.py`, `api/v1/welcome.py`) except the one-line mounts listed as asks; nothing here touches W3-*, CAL-*, round-3 lanes, the integrity guards or the mobile optimisers' files. Testers: academician (`akademisyen.test@`), staff (`personel.test@`, then granted `approvals.decide` for the approver delta), admin (`admin@`); planner helper for the planner audience.
-- [ ] WG-01 · backend · **migration (next head: `0040_welcome_guide`, `down_revision = "0039_calendar_classes"` unless another lane lands a later head first; re-check `alembic heads` before writing it)** · Tables `welcome_progress` (user_id FK cascade, guide_key, audience, audience_hash, content_version, state, step, items JSON, snooze_count, snoozed_until, first_shown_at, updated_at, completed_at; unique user+key) and `welcome_content` (audience, locale, field, text ≤ 200, version, updated_by_id, updated_at; unique audience+locale+field); settings group `welcome` defaults. `services/welcome.py`: audiences from permissions + `Instructor.user_id` (academician, staff, approver, dept_admin, viewer, planner, admin; precedence per spec §5.9; never role codes), `audience_hash`, the `show` decision (T1 first sign-in, T2 snooze 3 days × 2, T3 role change delta, T4 content version; one per call). `api/v1/welcome.py`: `GET /welcome`, `POST /welcome/events` (idempotent; 422 with message_tr/en on unknown keys), `POST /welcome/restart`.
+- [x] WG-01 · backend · **migration (next head: `0040_welcome_guide`, `down_revision = "0039_calendar_classes"` unless another lane lands a later head first; re-check `alembic heads` before writing it)** · Tables `welcome_progress` (user_id FK cascade, guide_key, audience, audience_hash, content_version, state, step, items JSON, snooze_count, snoozed_until, first_shown_at, updated_at, completed_at; unique user+key) and `welcome_content` (audience, locale, field, text ≤ 200, version, updated_by_id, updated_at; unique audience+locale+field); settings group `welcome` defaults. `services/welcome.py`: audiences from permissions + `Instructor.user_id` (academician, staff, approver, dept_admin, viewer, planner, admin; precedence per spec §5.9; never role codes), `audience_hash`, the `show` decision (T1 first sign-in, T2 snooze 3 days × 2, T3 role change delta, T4 content version; one per call). `api/v1/welcome.py`: `GET /welcome`, `POST /welcome/events` (idempotent; 422 with message_tr/en on unknown keys), `POST /welcome/restart`.
   accept: pytest `test_wg_01_*`: new TEACHER linked → audience academician + `show=sheet`; snoozed → none until +3 days, third snooze → never; granting `approvals.decide` → `show=delta` with only approver; revoking → no sheet, approver items gone; two devices (two clients, same user) see the same state; `alembic upgrade head` + downgrade on SQLite and PostgreSQL, one head; ruff + mypy clean.
   files: new `backend/app/models/welcome.py`, `backend/app/services/welcome.py`, `backend/app/api/v1/welcome.py`, `backend/alembic/versions/0040_welcome_guide.py`, `backend/tests/test_wg_01_*.py`; ask the router owner for one `include_router` line in `backend/app/api/v1/router.py` (append); ask W3-SEC: RLS for `welcome_progress` follows its per-user plan.
   testers: academician, staff, admin (API level in WG-10).
-- [ ] WG-02 · backend · no migration · Checklist signals and the feature-hint registry: per item `done` computed in `services/welcome.py` (profile, first_booking, channel, calendar via CAL-03 tables with a `mine.ics` fallback, first_decision, book_for_other, recurring, intake_done, first_run, published, org_ready, rooms_added, users_invited, mail_ready; view-only items via `item_done`); hint registry (key, audiences by permission, release date/version, route, anchor, expiry 60 days, only accounts created before the release, `hints_for_all` override); suppression flags for deep links (`first_route`), kiosk/embed/public and maintenance mode.
+  done (alembic `0040_welcome_guide` (down 0039; `0041_adaptive` now chains on it, one head): `welcome_progress` + `welcome_content`, PG policy `rls_owner` (owner or system only; stats via `rls.system_scope`); `models/welcome.py`, `services/welcome.py` (audiences from permissions + `Instructor.user_id`, `audience_hash`, show T1/T2 3 days × 2 then never/T3 delta/T4, idempotent events, restart, admin `?preview=`), `api/v1/welcome.py` + one router include + models import; tests `test_wg_01_welcome.py` 9 + `test_wg_01_migration.py` 4 (SQLite + PostgreSQL round trip, RLS owner-only) on the real Bahar data; ruff + mypy clean; contract for WG-F in the session scratchpad `welcome/API.md`; wg-b-2026-10-17)
+- [x] WG-02 · backend · no migration · Checklist signals and the feature-hint registry: per item `done` computed in `services/welcome.py` (profile, first_booking, channel, calendar via CAL-03 tables with a `mine.ics` fallback, first_decision, book_for_other, recurring, intake_done, first_run, published, org_ready, rooms_added, users_invited, mail_ready; view-only items via `item_done`); hint registry (key, audiences by permission, release date/version, route, anchor, expiry 60 days, only accounts created before the release, `hints_for_all` override); suppression flags for deep links (`first_route`), kiosk/embed/public and maintenance mode.
   accept: pytest `test_wg_02_*`: a booking flips `first_booking` without a client event; a staff user never gets `hint.admin_ai`; an account created after the release gets no `hint.quick_reserve`; a request with `first_route=/approvals/123` returns `show=null`; ≤ 6 SQL queries for `GET /welcome` (SQLAlchemy event count).
   files: `backend/app/services/welcome.py`, new `backend/app/services/welcome_hints.py`, `backend/tests/test_wg_02_*.py` (read-only use of bookings, approvals, channels, calendar, runs, intake models; no writes to their files).
   testers: academician, staff, admin.
-- [ ] WG-03 · backend · no migration · Admin API: `GET/PUT /welcome/settings`, `GET/PUT /welcome/content/{audience}` (version → 409 `stale` with message_tr "Bu metni siz düzenlerken {ad} değiştirdi…"), `POST /welcome/content/{audience}/reshow`, `GET /welcome/stats?days=` (aggregate SQL; `small_group` under k = 5; no per-user output); permission `setup.settings` or `planning.admin`; audit `welcome.settings_update / content_update / reshow`; KVKK: DSR export lists the user's `welcome_progress`, erasure deletes it.
+  done (`services/welcome.py` `facts_of` = one statement of EXISTS over bookings / series / approval decisions / channels / calendar feed tokens + connections / runs / audit `council.commit`, `run.activate`, `preference.accept|reject` / rooms / users + invites, plus settings rows (org name + timezone, SMTP, notification prefs); done items sticky in the checklist row; `item_done` only for view-only items (422 `not_manual` otherwise); `services/welcome_hints.py` registry (5 wave-3 hints, release 2026-10-17, 60 days, created-before-release, `hints_for_all` once); suppression deep_link / excluded_route / kiosk / embed / maintenance; tests `test_wg_02_signals.py` 8 (a real A 102 booking ticks first_booking, staff never gets admin hints, new accounts no hint, `/approvals/123` → null, 3–6 statements); wg-b-2026-10-17)
+- [x] WG-03 · backend · no migration · Admin API: `GET/PUT /welcome/settings`, `GET/PUT /welcome/content/{audience}` (version → 409 `stale` with message_tr "Bu metni siz düzenlerken {ad} değiştirdi…"), `POST /welcome/content/{audience}/reshow`, `GET /welcome/stats?days=` (aggregate SQL; `small_group` under k = 5; no per-user output); permission `setup.settings` or `planning.admin`; audit `welcome.settings_update / content_update / reshow`; KVKK: DSR export lists the user's `welcome_progress`, erasure deletes it.
   accept: pytest `test_wg_03_*`: a teacher gets 403; a stale PUT gets 409; stats for a 4-person audience return `small_group: true` and no numbers; DSR export contains the rows; erasure removes them; audit rows written.
   files: `backend/app/api/v1/welcome.py`, `backend/app/services/welcome.py`, `backend/tests/test_wg_03_*.py`; ask the `services/kvkk.py` owner for the small additive export/erasure hook (or expose `welcome.dsr_rows(session, user_id)` / `welcome.erase(session, user_id)` for them to call).
   testers: admin.
+  done (`GET/PUT /welcome/settings` (min_cohort ≥ 5), `GET/PUT /welcome/content/{audience}` (NBSP/NFC clean-up, 80/200, `{ad}`/`{name}`/`{bölüm}`/`{department}` only, compare-and-set version → 409 `stale` naming the editor), `POST …/reshow`, `GET /welcome/stats?days=7|30|90` (k ≥ min_cohort, no per-person output); permission `setup.settings` or `planning.admin`; audit `welcome.settings_update / content_update / reshow` + 5 DECISIONS rows in `test_audit_coverage.py`; KVKK additive in `services/kvkk.py`: data class `welcome`, export file `welcome_guide`, erasure count `welcome_progress`; tests `test_wg_03_admin.py` 6 + `test_wave2_kvkk.py` / `test_loop_r1_lane_d.py` green; wg-b-2026-10-17)
 - [ ] WG-04 · frontend · no migration · API client + provider + welcome sheet: `lib/api/welcome.ts` (zod schemas, React Query hooks, events mutation), `WelcomeProvider` (one auto surface per session, never on `/setup`, `/login`, `/welcome`, `/reset-password`, `/public/**`, kiosk/embed/print, never over another dialog), `WelcomeSheet` desktop dialog (640 px, 2-column cards, start / later / never / checklist link) and phone bottom sheet (one card per page, dots, 50 px İleri), admin text overrides rendered over `welcome.*` message keys, copy per spec §5 (TR + EN, `welcome.*` namespace only).
   accept: vitest `components/welcome/welcome-sheet.test.tsx` + `welcome-provider.test.tsx` (audience cards, max 5, focus to title, Esc = snooze event, focus return, no fetch on excluded routes); Playwright `e2e/wg-sheet.spec.ts` at 1440 and 390 touch (tr-TR, Europe/Istanbul): first sign-in shows the sheet once, reload after "Sonra" shows nothing, a second browser context shows nothing; MOBILE M-01/02/03/05 on `/reserve` with the sheet open; tsc, eslint, `check-design.mjs` clean.
   files: new `frontend/src/lib/api/welcome.ts`, `frontend/src/components/welcome/{welcome-provider,welcome-sheet,welcome-card,pager-dots}.tsx` + tests, `frontend/src/components/welcome/index.ts`, `frontend/messages/{tr,en}.json` (`welcome.*` only), `frontend/e2e/wg-sheet.spec.ts`; asks: one mount line `<WelcomeProvider/>` in `components/shell/app-shell.tsx` (shell owner), playwright `testMatch` append `wg-[a-z-]+` in `frontend/playwright.config.ts`.
   testers: academician (phone), staff (desktop), admin.
+  part done (lib/api/welcome.ts zod + hooks + events; WelcomeProvider (one auto surface per session, excluded routes, never over a dialog), WelcomeSheet desktop 640 px / phone pager, ≤ 5 cards, admin overrides over welcome.* keys, TR+EN parity 291 keys; mounted in app-shell; vitest welcome-sheet + welcome-provider + model + shell-mounts green; tsc/eslint/check:design clean; wg-f-2026-10-18) open: e2e/wg-sheet.spec.ts + MOBILE M-01/02/03/05 on a stack (resource rule)
 - [ ] WG-05 · frontend · no migration · Guided tour: `TourEngine` interface + react-joyride 3.2 adapter (lazy `next/dynamic`, `ssr:false`, controlled `stepIndex`, `tooltipComponent` = `TourCard`, library animations and beacons off, `locale` from `welcome.tour.*`), cross-route steps (`router.push`, wait for `[data-tour]` ≤ 3 s, skip + warn when missing), `SpotlightRing` (one element, motion `layout`), phone docked step sheet, shortcuts paused during the tour, steps per audience (spec §5); starts with a 1-day spike against the Liquid Glass shell (backdrop rules, ≤ 3 blur surfaces); if it fails, swap to the driver.js 1.10 adapter + `components/ui/focus-trap.ts`.
   accept: vitest `components/welcome/tour/*.test.tsx` (steps filtered by visible nav, Esc → dismissed event with step, Tab trapped, live region text "Adım 2 / 5: …"); Playwright `e2e/wg-tour.spec.ts` at 1440 and 390 touch: academician completes 5 steps keyboard-only and by touch, Esc at step 2 returns focus to the target, the approver steps appear after the grant; bundle check: the tour chunk is not in the first-load JS of `/reserve`.
   files: new `frontend/src/components/welcome/tour/{engine.ts,joyride-adapter.tsx,tour-card.tsx,spotlight-ring.tsx,steps.ts}` + tests, `frontend/e2e/wg-tour.spec.ts`; asks: `react-joyride@3.2.0` in `frontend/package.json` + lockfile (package owner), and `data-tour` anchors: one generic `data-tour={"nav-" + slug}` on sidebar and tab-bar items (shell owner), `reserve-when` (W3-SLOT), `approvals-row-actions` (approvals owner), `admin-group-*` (admin setup owner), `user-menu` (shell owner).
   testers: academician, staff (+ approver grant), admin.
+  part done (TourEngine + lazy react-joyride 3.2 adapter, TourCard, SpotlightRing, tour-runner with cross-route waits ≤ 3 s, anchors.ts; tours capped at 5 steps (owner simplicity rule); anchors present on sidebar/tab bar/user menu/reserve/approvals/admin overview; vitest tour.test.tsx green; wg-f-2026-10-18) open: e2e/wg-tour.spec.ts + first-load bundle check (resource rule: no build/Playwright)
 - [ ] WG-06 · frontend · no migration · "Başlarken" checklist + Help: sidebar-footer pill + 420 px popover panel, home card on the audience's home, phone first row of "Daha" with a full-screen list, rows navigate (optional mini-tour), "Bitti olarak işaretle" only for view-only items, "Gizle"; user menu › Yardım group (Turu yeniden başlat, Başlarken listesi, Neler yeni, Klavye kısayolları) and ⌘K commands.
   accept: vitest `components/welcome/checklist/*.test.tsx` (progress text, progressbar values, server `done` wins, hide/restore); Playwright `e2e/wg-checklist.spec.ts` at 1440 and 390: a booking made through `/reserve` ticks "İlk rezervasyonunuzu yapın" after refetch on both viewports; Help › Turu yeniden başlat reopens the sheet; MOBILE M-01/02/03/05 on the Daha tab.
   files: new `frontend/src/components/welcome/checklist/{checklist-pill,checklist-panel,checklist-list,checklist-home-card}.tsx` + tests, `frontend/src/components/welcome/help-menu.tsx`, `frontend/e2e/wg-checklist.spec.ts`; asks: mount lines in the sidebar footer, the user menu, the phone "Daha" list and the ⌘K registry (shell owner), and the home pages' card slot (`/dashboard`, `/reserve`, `/admin` owners; one line each).
   testers: academician, staff, admin.
+  part done (checklist pill + panel/sheet + list + home card via WelcomePageSlot, ≤ 5 rows visible, manual-only ticks, Gizle; Help group in user menu + Daha with an `assistant` slot for the AI helper; ⌘K commands; vitest checklist.test.tsx green; wg-f-2026-10-18) open: e2e/wg-checklist.spec.ts (resource rule)
 - [ ] WG-07 · frontend · no migration · Wave-3 feature hints: `FeatureHint` (desktop non-modal popover on a nav entry, inline strip on the feature's page, phone inline card), `NewBadge`, "Tüm yenilikler" → existing "Neler yeni" sheet; keys `hint.quick_reserve`, `hint.calendar_export`, `hint.admin_ai`, `hint.admin_ops`, `hint.admin_integrations`; one auto hint per page view, none while a dialog/sheet/tour is open, focus never moved.
   accept: vitest `components/welcome/hints/*.test.tsx`; Playwright `e2e/wg-hints.spec.ts` at 1440 and 390: an existing staff account sees the quick-reserve hint once, "Anladım" persists across contexts, a staff account never sees admin hints, the admin sees the `/admin/ai` strip once; axe: no new violations on the hinted pages.
   files: new `frontend/src/components/welcome/hints/{feature-hint,hint-strip,new-badge,registry}.tsx` + tests, `frontend/e2e/wg-hints.spec.ts`; asks: one `<HintSlot route=…/>` line at the top of `/admin/ai` (W3-AI), `/admin/ops` (W3-OPS), `/admin/integrations` (W3-HUB), `/my-bookings` and Profil › Takvim (CAL-F); nav badges come from the shell's generic slot (shell owner).
   testers: staff, academician, admin.
+  part done (FeatureHint, HintStrip, NewBadge, registry for the 5 hint.* keys (welcome.hints.<key>), strips via WelcomePageSlot, one auto hint per view, none while sheet/tour open; vitest hints.test.tsx green; wg-f-2026-10-18) open: e2e/wg-hints.spec.ts + axe (resource rule)
 - [ ] WG-08 · frontend · no migration · Admin page Yönetim › Karşılama rehberi (`/admin/welcome`; `setup.settings` or `planning.admin`): Genel (6 switches incl. "Önce kendinizde deneyin" preview), Metinler (audience chips, TR/EN side by side, 80/200 limits, placeholders, "Varsayılana dön", Önizle, Kaydet, "show again" confirm, 409 stale message), Tamamlanma (7/30/90 days, k ≥ 5, no per-person list); phone: chip tabs, one stat card per audience, full-screen text editor per audience with 16 px inputs.
   accept: vitest `components/welcome/admin/*.test.tsx`; Playwright `e2e/wg-admin.spec.ts` at 1440 and 390: switching the sheet off hides it for a fresh academician; a TR edit is shown to that audience; "show again" re-shows with "Güncellendi"; a teacher gets the no-access page; MOBILE M-01/02/03/05 on `/admin/welcome`.
   files: new `frontend/src/app/(app)/admin/welcome/page.tsx`, `frontend/src/components/welcome/admin/{welcome-admin,welcome-texts,welcome-stats}.tsx` + tests, `frontend/e2e/wg-admin.spec.ts`; asks: one `ADMIN_SECTIONS` row in `lib/permissions.ts` + one `SECTION_ICONS` row in `components/admin/nav-items.ts` (their owners).
   testers: admin (+ academician to see the effect).
+  part done (/admin/welcome: Genel switches + preview, Metinler TR/EN with limits/placeholders/Varsayılana dön/reshow confirm/409 stale, Tamamlanma 7/30/90 with k ≥ 5; ADMIN_SECTIONS + SECTION_ICONS rows; permissions.test.ts expectation updated to include "welcome"; vitest welcome-admin.test.tsx + permissions.test.ts green; wg-f-2026-10-18) open: e2e/wg-admin.spec.ts + MOBILE M-01/02/03/05 on /admin/welcome (resource rule)
 - [ ] WG-09 · motion · no migration · Motion and the hero: new Lottie `docs/lottie/quick-reserve-{light,dark}.json` (720×405, 3 s, tokens only, `build/audit.mjs` ≤ 9-frame tweens) + posters in `frontend/src/assets/lottie/`; `WelcomeHero` (plays once to the poster, poster under reduced motion, `aria-hidden`); the §8 moments of the spec on our springs (modal, page-side-by-side, tooltip, checkbox-check, success-check, notification-badge, skeleton-reveal, texts-reveal re-implemented; any pasted CSS in `components/welcome/welcome.css` with the `Transitions.dev — <name>` header + a SOURCES.md row); welcome moments added to the motion audit. **May use the project's one remaining hosted Motion Agent polish fix for this agent, only on the sheet-open + hero moment, and must name it in its report.**
   accept: motion-audit run on the sheet, tour step, checklist tick: ≤ 3 dropped frames per interaction, no animation > 300 ms except the Lottie, reduced motion = end state, reduced transparency = opaque; `check_snippets.py` PASS if the skill changes; rows ready for `docs/design/v2/motion.md` §3.18 (handed to that file's owner).
   files: new `docs/lottie/quick-reserve-{light,dark}.json`, `docs/images/lottie/quick-reserve-*` renders, `frontend/src/assets/lottie/quick-reserve-*-poster.png`, `frontend/src/components/welcome/welcome-hero.tsx`, `frontend/src/components/welcome/welcome.css`; asks: a row in `components/ui/SOURCES.md` (its owner), the `welcome` block in `e2e/motion-audit.spec.ts` (its owner), the motion.md §3.18 rows.
@@ -2741,66 +2761,94 @@ Ledger `welcome-guide-res-2026-10-17`. Owner: "a welcome guide showing and expla
 ### Adaptive scheduling, seasons and predictions (owner request 2026-10-17)
 Ledger `adaptive-scheduling-res-2026-10-17`. Research, code map, fixture measurements, design and backtests: [docs/research/2026-10-17-adaptive-scheduling.md](research/2026-10-17-adaptive-scheduling.md). Owner: "The scheduler should adapt seasonally, during peak hours, exam times and so on, learn from before, and maybe even make predictions, and exams." Today: learning is season-aware and suggest-only (`services/learning*.py`); the solver has one global weight table, ignores holidays and week kinds, and the admin's `solver_weights` setting reaches runs only through the Studio page; exam runs place rooms for fixed dates; find-room demand is not recorded; no forecasting exists. Fixtures: Bahar lecture weeks vary by CV 0.85 %; the P4 / P8 peaks run at 85–92 % of rooms; the period shape transfers Bahar → Güz with r = 0.995; the Final peak day (Wed 3 June, 126 exams) is 1.86× the weekday mean.
 Lanes: **AS-S** (solver), **AS-B** (backend), **AS-F** (frontend), **AS-T** (tester). Every output is a suggestion or a draft that an admin approves, is versioned and can be reverted; aggregates only (KVKK); empty installs answer `confidence: none` with a `needs` text, with no demo data. **Migrations:** AS-03, AS-05 and AS-13 each need one; land them as **one migration at the next head** (`00xx_adaptive`, down_revision = whatever head is current when AS-03 starts) owned by AS-B, so the chain keeps one head. ⚠ = touches files of a running lane (CAL-B `services/calendar_*`; security follow-up `components/settings/settings-view.tsx`, `security_*`; intake lane C `app/council`, intake, onboarding; mobile optimisers on phone routes; SAML lib; welcome guide `/welcome`) or shared `messages/{tr,en}.json`; wait for that lane's hand-off or send the named ask.
-- [ ] AS-01 · AS-B · no migration · Server-side effective weights: the bridge merges `DEFAULT_WEIGHTS` < settings `solver_weights` < active season profile (AS-03, absent = skipped) < `run.params.weights`, and stores `run.stats.weights_effective` + `weights_source` (per key: default / settings / profile:<key>@v / run). Today `solver_bridge.py:1244` reads run params only, so moderation re-solves and API runs ignore the admin's weights.
+- [x] AS-01 · AS-B · no migration · Server-side effective weights: the bridge merges `DEFAULT_WEIGHTS` < settings `solver_weights` < active season profile (AS-03, absent = skipped) < `run.params.weights`, and stores `run.stats.weights_effective` + `weights_source` (per key: default / settings / profile:<key>@v / run). Today `solver_bridge.py:1244` reads run params only, so moderation re-solves and API runs ignore the admin's weights.
   accept: pytest `test_as_01_*`: a setting `{"room_preference": 3}` reaches a run created by the API without weights (the evaluated soft score changes accordingly); run params still win; `weights_source` names each layer; existing `test_api_runs`, `test_relaxation_policy` and moderation tests are green.
   files: `backend/app/services/solver_bridge.py` (the weights line + a helper call), new `backend/app/services/seasons.py` (`effective_weights`), `backend/tests/test_as_01_*.py`.
-- [ ] AS-02 · AS-B · no migration · Holiday- and week-kind-aware planning and analytics: `horizon_weeks` drops HOLIDAY / EXAM / MAKEUP weeks for COURSE runs (a TERM run of a 19-week Bahar no longer plans classes in Final weeks); `utilisation` removes `holidays` dates and HOLIDAY weeks from both occupancy and capacity (`definitions` says so); `seasons.periods(term)` returns dated segments (LECTURE / EXAM / MAKEUP / HOLIDAY / SUMMER + admin segments later) and `season_of()` moves from `learning.py` into `seasons.py` (re-exported).
+  done (seasons.effective_weights + effective_seed: DEFAULT_WEIGHTS < Ayarlar solver_weights < active season profile < run params, and the admin's solver_default_seed (audit RF-02); bridge stores stats.weights_effective / weights_source / profile / season / seed, SolverInput.weights = the overrides only; run param season_profile; files solver_bridge.py, seasons.py, run_params.py; tests test_as_01_weights (4) + test_as_01_paths (4: POST /runs, Studio generate, moderation re-solve, server job run); as-b-2026-10-17)
+- [x] AS-02 · AS-B · no migration · Holiday- and week-kind-aware planning and analytics: `horizon_weeks` drops HOLIDAY / EXAM / MAKEUP weeks for COURSE runs (a TERM run of a 19-week Bahar no longer plans classes in Final weeks); `utilisation` removes `holidays` dates and HOLIDAY weeks from both occupancy and capacity (`definitions` says so); `seasons.periods(term)` returns dated segments (LECTURE / EXAM / MAKEUP / HOLIDAY / SUMMER + admin segments later) and `season_of()` moves from `learning.py` into `seasons.py` (re-exported).
   accept: pytest `test_as_02_*` on the Bahar fixtures: no COURSE assignment in weeks 16–19; a holiday on a Thursday drops that date's room-periods from the heatmap numerator and denominator; `test_utilisation*` and `test_p19_learning*` stay green.
   files: `backend/app/services/solver_bridge.py` (`horizon_weeks`), `backend/app/services/utilisation.py`, `backend/app/services/seasons.py`, `backend/app/services/learning.py` (import only), `backend/tests/test_as_02_*.py`. ⚠ Ask CAL-B: class feeds (`services/calendar_classes.py`) should skip holiday dates through `seasons.periods` once it lands; no change to their files from this lane.
-- [ ] AS-03 · AS-B · **migration (next head, shared `00xx_adaptive`)** · Season profiles: table `season_profiles` (key, name_tr/en, applies_to [{season, period_kind}], solver_weights, booking_overlays, peak_threshold_pct, status draft/active/retired, version, parent_id, created_by, approved_by/at, explanation, evidence); built-in read-only `standard` and `exam_week`; optional admin segments (add/drop, midterm) per term; `GET/POST/PUT /seasons/profiles`, `POST …/{id}/activate`, `POST …/{id}/revert`, `GET /seasons/terms/{id}/periods`; ADMIN only, audited `season_profile.*`; `effective_weights` (AS-01) resolves the active profile for (season, dominant period kind of the run's horizon).
+  done (horizon_weeks(run, term, kinds=) drops HOLIDAY/EXAM/MAKEUP and non-summer SUMMER weeks for COURSE runs and stores stats.horizon_weeks so every later consumer sees the planned weeks; utilisation Occupancy.closed = seasons.closed_days (holiday dates + HOLIDAY weeks out of numerator and denominator, definitions.holidays); seasons.periods / load_periods dated segments; season_of moved to seasons.py and re-exported by learning; tests test_as_02_calendar (6) on the Bahar grid; ask CAL-B below; as-b-2026-10-17)
+- [x] AS-03 · AS-B · **migration (next head, shared `00xx_adaptive`)** · Season profiles: table `season_profiles` (key, name_tr/en, applies_to [{season, period_kind}], solver_weights, booking_overlays, peak_threshold_pct, status draft/active/retired, version, parent_id, created_by, approved_by/at, explanation, evidence); built-in read-only `standard` and `exam_week`; optional admin segments (add/drop, midterm) per term; `GET/POST/PUT /seasons/profiles`, `POST …/{id}/activate`, `POST …/{id}/revert`, `GET /seasons/terms/{id}/periods`; ADMIN only, audited `season_profile.*`; `effective_weights` (AS-01) resolves the active profile for (season, dominant period kind of the run's horizon).
   accept: pytest `test_as_03_*`: draft → activate → a run shows `weights_source` profile:<key>@2; editing an active profile creates v3 as a draft; revert re-activates v2; a profile weight outside 0..MAX_WEIGHT gives 422 with message_tr; upgrade + downgrade on SQLite and PostgreSQL; one head.
   files: `backend/app/models/seasons.py` (new), `backend/app/models/__init__.py` (export), `backend/app/services/seasons.py`, new `backend/app/api/v1/seasons.py`, `backend/app/api/v1/router.py` (one include line), `backend/alembic/versions/00xx_adaptive.py`, `backend/tests/test_as_03_*.py`.
-- [ ] AS-04 · AS-B · no migration (table from AS-03) · Season booking overlays: `booking_policies.enforce` applies the active profile's overlays for the booked date's period kind as extra rules (`source = season_profile`, the reason names the profile and the period, TR/EN); new exam hold mode `slots` (closes or turns into requests only the room-periods the active exam run uses ± `buffer_periods`, instead of whole EXAM weeks); `GET /booking-policies/effective` lists the overlay.
+  done (alembic 0041_adaptive (season_profiles, season_segments, demand_events, learning_versions, learned_prior_snapshots; one head, SQLite + PostgreSQL round trip); models/seasons.py; api/v1/seasons.py profiles CRUD / activate / revert / delete + term periods + admin segments, ADMIN only, audited season_profile.* / season_segment.*; built-in standard + exam_week in code; tests test_as_03_profiles (5) + test_as_03_migration (3); as-b-2026-10-17)
+- [x] AS-04 · AS-B · no migration (table from AS-03) · Season booking overlays: `booking_policies.enforce` applies the active profile's overlays for the booked date's period kind as extra rules (`source = season_profile`, the reason names the profile and the period, TR/EN); new exam hold mode `slots` (closes or turns into requests only the room-periods the active exam run uses ± `buffer_periods`, instead of whole EXAM weeks); `GET /booking-policies/effective` lists the overlay.
   accept: pytest `test_as_04_*`: on Final 2026 (exam run published) a PC-lab booking in an exam slot is refused or requested, the same room 2 periods later is bookable under `slots` and refused under `closed`; the overlay cap `max_active_bookings: 2` applies only inside EXAM weeks; `test_wave2_policies.py` is green; backtest B7 reports room-periods freed vs whole-week closure (> 0).
   files: `backend/app/services/booking_policies.py`, `backend/app/api/v1/booking_policies.py`, `backend/tests/test_as_04_*.py`.
-- [ ] AS-05 · AS-B · **migration (shared `00xx_adaptive`)** · Demand ledger (aggregate, KVKK): table `demand_events` (ts, term_id, date, weekday, start/end period, period_kind, headcount_band, features, building filter, results_count, outcome searched/booked/none; **no user id, no free text**), written by `find_rooms` and by booking creation (outcome booked); a retention setting (default 400 days) wired into the existing daily KVKK purge; `GET /analytics/demand` with cells < 5 suppressed.
+  done (booking_policies: season-profile overlays as transient policies per booked date's period kind (scoped max_active counts exam-week bookings in the scope only), 'Final haftası profili (Sınav dönemi): ...' reasons with why.source season_profile; exam mode slots (buffer_periods 0..4, slots_effect request default per owner decision 3) via ExamSlotIndex; GET /booking-policies/effective lists season_overlays; slot_hold_summary for B7; tests test_as_04_overlays (3) on the real Bahar import + the Final 2026 list, test_wave2_policies green; as-b-2026-10-17)
+- [x] AS-05 · AS-B · **migration (shared `00xx_adaptive`)** · Demand ledger (aggregate, KVKK): table `demand_events` (ts, term_id, date, weekday, start/end period, period_kind, headcount_band, features, building filter, results_count, outcome searched/booked/none; **no user id, no free text**), written by `find_rooms` and by booking creation (outcome booked); a retention setting (default 400 days) wired into the existing daily KVKK purge; `GET /analytics/demand` with cells < 5 suppressed.
   accept: pytest `test_as_05_*`: a find-room search adds 1 row without user_id; a search with 0 results is `none`; display cells < 5 come back as `"<5"`; retention purge deletes old rows; the KVKK DSR export is unaffected (no personal data).
   files: `backend/app/models/seasons.py` (DemandEvent), `backend/app/services/find_room.py` (one ledger call), `backend/app/services/bookings.py` (one ledger call after commit), new `backend/app/services/demand.py`, `backend/app/api/v1/analytics.py` (append the route), `backend/app/services/kvkk.py` (append the purge hook only), `backend/tests/test_as_05_*.py`.
-- [ ] AS-06 · AS-B · no migration · Peak-hour model + backtest harness: `services/peaks.py` builds (term, period_kind, weekday, period, group) cells from published runs, IMPORT grid assignments, blocks and bookings (via `utilisation.build_scope`; frequency and seat fill), shrinks toward building → campus (k = 4 weeks), gives 80 % ranges from week-to-week quantiles and flags peaks ≥ profile threshold (default 85 %); `GET /analytics/peaks`; `services/backtest.py` + `python -m app.cli backtest adaptive [--json]`.
+  done (services/demand.py: one aggregate demand_events row per find-room search (searched / none) and per created booking (booked), no user id / text / exact headcount, own session, never breaks the request; GET /analytics/demand with cells < 5 as '<5'; demand.retention_days (400, floor 30) purged by kvkk.purge_expired; tests test_as_05_demand (4); as-b-2026-10-17)
+- [x] AS-06 · AS-B · no migration · Peak-hour model + backtest harness: `services/peaks.py` builds (term, period_kind, weekday, period, group) cells from published runs, IMPORT grid assignments, blocks and bookings (via `utilisation.build_scope`; frequency and seat fill), shrinks toward building → campus (k = 4 weeks), gives 80 % ranges from week-to-week quantiles and flags peaks ≥ profile threshold (default 85 %); `GET /analytics/peaks`; `services/backtest.py` + `python -m app.cli backtest adaptive [--json]`.
   accept: pytest `test_as_06_backtest.py` on the fixtures: **B1** MAPE ≤ 2 % and MASE ≤ 1.0 for Bahar weeks 9–15 from 1–8 (baseline 0.70 %); **B2** Bahar → Güz period-shape Pearson ≥ 0.95 and ≥ 3 of the top-4 peak periods shared (measured 0.995); peaks on Bahar include P4 and P8 Mon–Thu; an empty DB answers `confidence: none` + `needs`.
   files: new `backend/app/services/peaks.py`, new `backend/app/services/backtest.py`, `backend/app/cli.py` (one subcommand), `backend/app/api/v1/analytics.py` (append), `backend/tests/test_as_06_*.py`.
-- [ ] AS-07 · AS-B · no migration · Demand forecast: `services/forecast.py` with `requests` (the target term's own requests → room needs per building × weekday × band × tag × capacity band), `seasonal_naive` (same season last term × cohort-progression ratio, cross-season period shape from AS-06) and a damped-level option only with ≥ 3 same-season points; 80 % intervals from ordered backtest residual quantiles with a minimum width; < 10 calibration points → `low` with the parent-group range; `GET /analytics/forecast/demand`.
+  done (services/peaks.py: Cube + shrunk weekly means (k = 4) with 80 % ranges and seat fill, GET /analytics/peaks (+ CSV); services/backtest.py + python -m app.cli backtest adaptive [--json] [--skip-db]; B1 MAPE 0.70 % MASE 0.92, B2 Pearson 0.996 top-4 shared 3; Bahar peaks P4/P8 Mon-Thu (building C); empty DB none + needs; tests test_as_06_backtest (6); as-b-2026-10-17)
+- [x] AS-07 · AS-B · no migration · Demand forecast: `services/forecast.py` with `requests` (the target term's own requests → room needs per building × weekday × band × tag × capacity band), `seasonal_naive` (same season last term × cohort-progression ratio, cross-season period shape from AS-06) and a damped-level option only with ≥ 3 same-season points; 80 % intervals from ordered backtest residual quantiles with a minimum width; < 10 calibration points → `low` with the parent-group range; `GET /analytics/forecast/demand`.
   accept: pytest `test_as_07_*`: **B3** Güz weeks 1–2 per-building WAPE ≤ 15 % from the Bahar shape × Güz request level, 80 % coverage reported; every cell carries method / basis / confidence / needs (TR/EN); an empty install gives `none`; deterministic output (same input, same JSON).
   files: new `backend/app/services/forecast.py`, `backend/app/services/backtest.py`, `backend/app/api/v1/analytics.py` (append), `backend/tests/test_as_07_*.py`.
-- [ ] AS-08 · AS-S · no migration · `peak_smoothing` soft constraint: one penalty per room-period above the threshold in a (day, period, group) cell, counted only over events with a flexible day or start (fixed times never move); weight from the profile, `DEFAULT_WEIGHTS["peak_smoothing"] = 0` (off); evaluate.py + greedy/repair paths score it the same way; registered in the constraint catalogue with TR/EN text.
+  done (services/forecast.py: requests method (deduped fixed-time needs per building x weekday x period x tag x capacity band), seasonal_naive from the same season's published term (ratio 1 labelled, < 10 weeks low with the campus range), damped_level only with >= 3 points; GET /analytics/forecast/demand; B3 WAPE 5.3 % (weeks 3.2 / 7.5 %), 80 % coverage 25 % reported (one year of history); tests test_as_07_forecast (5); as-b-2026-10-17)
+- [x] AS-08 · AS-S · no migration · `peak_smoothing` soft constraint: one penalty per room-period above the threshold in a (day, period, group) cell, counted only over events with a flexible day or start (fixed times never move); weight from the profile, `DEFAULT_WEIGHTS["peak_smoothing"] = 0` (off); evaluate.py + greedy/repair paths score it the same way; registered in the constraint catalogue with TR/EN text.
   accept: pytest `test_as_08_*`: a toy instance moves a flexible event out of a full cell; **B8** on the Bahar flexible-day subset with weight > 0: hard score and placed count unchanged, load above the threshold ≤ the off run; weight 0 gives a byte-identical result to today; solver suites green.
   files: new `backend/app/solver/constraints/peak_smoothing.py`, `backend/app/solver/constraints/__init__.py` (register), `backend/app/solver/weights.py` (one key), `backend/app/solver/evaluate.py` (if a hook is needed), `backend/tests/test_as_08_*.py`. Integrity guards untouched.
-- [ ] AS-09 · AS-B · no migration · Planner warnings: data issues `peak_pressure` (fixed-time requests alone need > X % of the suitable rooms in a peak cell: "Çarşamba 4. ders: bilgisayar laboratuvarı isteyen 6 ders, uygun 4 oda") and `exam_load` (seats per slot > exam_capacity × threshold; cohort with > 2 exams on a day), TR/EN, with the requests listed.
+  done (constraints/peak_smoothing.py: soft only, flexible events only, excess = max(0, min(flex, flex + fixed − allowance)) per (day, period, group) cell and week, groups * / tag / building / room, cells list; weight 0 default = not in the model (byte-identical); evaluate, repair.score and greedy GreedyPeaks agree; catalogue TR/EN; B8 (services/backtest_solver.py, Bahar week 3 Mon–Tue flexible-day subset, weight 10): hard 100 both, 294/294 placed, 0 lost, 0 fixed moved, load above threshold 9 → 5 (full week 3: 25 → 12, 685/685, 400 s/solve); tests tests/solver/test_as_08_peak_smoothing.py 10, tests/test_as_08_backtest.py 1, tests/solver 179 passed; ruff + mypy clean; as-s-2026-10-18)
+- [x] AS-09 · AS-B · no migration · Planner warnings: data issues `peak_pressure` (fixed-time requests alone need > X % of the suitable rooms in a peak cell: "Çarşamba 4. ders: bilgisayar laboratuvarı isteyen 6 ders, uygun 4 oda") and `exam_load` (seats per slot > exam_capacity × threshold; cohort with > 2 exams on a day), TR/EN, with the requests listed.
   accept: pytest `test_as_09_*` on Bahar and Final fixtures: at least one `peak_pressure` for a PC-lab cell if the data has one (assert the computation, not a fixed count); Final 2026 flags Wed 3 June; `precheck.py` is unchanged.
   files: `backend/app/services/data_issues.py`, `backend/app/services/peaks.py`, `backend/tests/test_as_09_*.py`.
-- [ ] AS-10 · AS-B · no migration · Capacity shortfall + what-if: `GET /analytics/forecast/shortfall` (per peak cell and group: demand vs suitable supply, P(shortfall > 0), the competing requests) and `POST /analytics/forecast/what-if` {enrolment_pct, scope all / faculty / program, rooms_closed, extra_sections, solve}; `solve: true` queues a draft child run labelled "Senaryo: …", never activatable without the usual guard, comparable in `/runs/compare`.
+  done (data_issues groups peak_pressure (forecast.pressure_cells: fixed-time requests > 85 % of suitable rooms, 'Pazartesi 8.–9. ders: bilgisayar laboratuvarı isteyen 4 ders, uygun 4 oda') and exam_load (exam_load.exam_issues: peak day > 1.5x, seats > 85 % of exam capacity, cohort > 2 exams/day; Final flags 3 Haziran 2026); precheck.py untouched; tests test_as_09_warnings (4); as-b-2026-10-17)
+- [x] AS-10 · AS-B · no migration · Capacity shortfall + what-if: `GET /analytics/forecast/shortfall` (per peak cell and group: demand vs suitable supply, P(shortfall > 0), the competing requests) and `POST /analytics/forecast/what-if` {enrolment_pct, scope all / faculty / program, rooms_closed, extra_sections, solve}; `solve: true` queues a draft child run labelled "Senaryo: …", never activatable without the usual guard, comparable in `/runs/compare`.
   accept: pytest `test_as_10_*`: **B5** Bahar +10 %: deterministic count of classes with no fitting room (> the 0 % count) and per-cell shortfall; the draft run has `params.scenario` and is_active false; a 0 % what-if equals today's room fit.
   files: `backend/app/services/forecast.py`, `backend/app/api/v1/analytics.py` (append), `backend/app/services/solver_bridge.py` (read `params.scenario.enrolment_pct` when sizing; a small additive change), `backend/tests/test_as_10_*.py`.
-- [ ] AS-11 · AS-B · no migration · Exam-period demand: seats per day and slot from the exam list and exam run vs exam_capacity; booking and block demand in EXAM / MAKEUP weeks vs lecture weeks (exam-week multiplier per room group, `none` without history); expected invigilators per slot vs pool size per day; `GET /analytics/forecast/exams`; a draft `slots` hold proposal (AS-04) with freed room-periods.
+  done (GET /analytics/forecast/shortfall (Hall check per weekday x period x room group, competing requests, p_shortfall 0/1 from known requests) and POST /analytics/forecast/what-if (enrolment_pct, scope all/faculty/program, rooms_closed, extra_sections, solve -> draft run 'Senaryo: ...' with params.scenario, never active); solver_bridge._apply_scenario scales sizes and drops closed rooms; B5 Bahar no-fit 35 -> 39, shortfall cells 20 -> 35, deterministic; tests test_as_10_whatif (3); as-b-2026-10-17)
+- [x] AS-11 · AS-B · no migration · Exam-period demand: seats per day and slot from the exam list and exam run vs exam_capacity; booking and block demand in EXAM / MAKEUP weeks vs lecture weeks (exam-week multiplier per room group, `none` without history); expected invigilators per slot vs pool size per day; `GET /analytics/forecast/exams`; a draft `slots` hold proposal (AS-04) with freed room-periods.
   accept: pytest `test_as_11_*` on Final 2026: peak day Wed 3 June, peak-to-mean 1.86 ± 0.01; peak slot seats ≤ the exam_capacity sum; **B7** freed room-periods > 0; empty booking history gives `none` + needs.
   files: `backend/app/services/forecast.py`, `backend/app/services/invigilation.py` (read-only helper import, no change) or a new `backend/app/services/exam_load.py`, `backend/tests/test_as_11_*.py`.
+  done (services/exam_load.py: day / slot load vs exam capacity, invigilators vs the pool, exam-week booking multiplier (none + needs without history), draft slots hold; GET /analytics/forecast/exams; Final 2026 peak Wed 3 June 126 exams, peak/mean 1.867 over the exam weeks' weekdays; B7 freed 34 914 of 37 800 closed room-periods, 0 exam room-periods bookable; tests test_as_11_exams (4); as-b-2026-10-17)
 - [ ] AS-12 · AS-B + AS-S · no migration · Exams vs the class plan + date advisor: exam runs read the published COURSE assignments of the same term on the exam dates as blocks (midterms / early finals can no longer take a held room; reverse warning on the course side); advisor cards (cohort > 2 / day, back-to-back for a cohort or an instructor, large exams in the last 2 days, seat peak per slot) with ranked date or slot moves and the conflict delta; nothing is changed automatically.
   accept: pytest `test_as_12_*`: an exam dated in lecture week 8 avoids the room a class holds then; **B6** Final 2026: accepting the top-N advisor moves (applied in the test only) brings the peak day from 126 to ≤ 100 exams with no new cohort conflicts; existing exam tests (`test_api_exam_share.py`, `test_import_exam_list.py`) green.
   files: `backend/app/services/solver_bridge.py` (exam branch: course blocks), new `backend/app/services/exam_advisor.py`, `backend/app/api/v1/analytics.py` or `backend/app/api/v1/runs.py` (append one route), `backend/tests/test_as_12_*.py`.
-- [ ] AS-13 · AS-B · **migration (shared `00xx_adaptive`)** · Learning versions + nightly refresh + calibration: `learning_versions` (term, counts, checksum, diff vs previous) and `learned_prior_snapshots` (version → compact JSON); "Bu sürüme dön" restores a snapshot (accepted rules untouched); nightly extract + recompute for the active term (03:15 Istanbul, beside the purge job, setting `learning.nightly_refresh` default on); Beta posterior per suggestion class → draft "öğrenme ayarı" proposals (MIN_CONFIDENCE per class, display order), applied only by an admin; implement the planning-audit extractor (TODO `learning_extract.py:573`).
+  part done (solver lane: services/exam_class_plan.py course_blocks (published COURSE run of the same term on exam (week, weekday) in teaching weeks → solver blocks, stats class_plan; FINAL terms and EXAM/MAKEUP/HOLIDAY weeks untouched) + exam_overlaps (course-side reverse warning, TR/EN); services/exam_advisor.py (cards peak_day / cohort_day / clash / back_to_back / front_load / seats, greedy ranked date or slot moves with conflict delta, never a new cohort-day excess or clash, advice only, deterministic); B6 Final 2026: peak Wed 3 June 126 → 100 after the top 89 of 125 moves (all 125: 85), new cohort conflicts 0, cohort days > 2: 21 → 0, clashes 104 → 0; tests test_as_12_exam_advisor 8, test_as_12_class_plan 5 (2 wait for the bridge line); as-s-2026-10-18)
+  open: AS-B merges the one bridge line (exam branch after booking_blocks), the data_issues group exam_overlap and GET /analytics/forecast/exams/advice (asks in the AS-B status file); AS-17 advisor panel
+  AS-B part done (bridge exam branch: exam_class_plan.course_blocks after booking_blocks, run.stats.class_plan; data issues group exam_overlap for course runs; GET /analytics/forecast/exams/advice -> exam_advisor.advise_term (404 term_not_found); B6 in run_all / CLI: 89 moves, peak 126 -> 94 exams, clashes 104 -> 0, cohort days over 21 -> 0; tests test_as_12_class_plan 5/5, test_as_12_routes 2, test_data_issues; as-b-2026-10-17)
+- [x] AS-13 · AS-B · **migration (shared `00xx_adaptive`)** · Learning versions + nightly refresh + calibration: `learning_versions` (term, counts, checksum, diff vs previous) and `learned_prior_snapshots` (version → compact JSON); "Bu sürüme dön" restores a snapshot (accepted rules untouched); nightly extract + recompute for the active term (03:15 Istanbul, beside the purge job, setting `learning.nightly_refresh` default on); Beta posterior per suggestion class → draft "öğrenme ayarı" proposals (MIN_CONFIDENCE per class, display order), applied only by an admin; implement the planning-audit extractor (TODO `learning_extract.py:573`).
   accept: pytest `test_as_13_*`: two refreshes give 2 versions with a correct diff; revert restores the prior set byte-for-byte; **B4** priors from Bahar only → building suggestions vs Güz definitive buildings precision ≥ 0.8 and 0 cross-season room or tag suggestions; audit-based moves are not double-counted with the parent-run comparison; L5/L6 and `test_p19_learning*` green.
   files: `backend/app/models/learning.py`, `backend/app/services/learning.py`, `backend/app/services/learning_extract.py`, `backend/app/api/v1/learning.py`, `backend/app/main.py` (one lifespan line), migration `00xx_adaptive`, `backend/tests/test_as_13_*.py`.
+  done (services/learning_versions.py: versions + snapshots per refresh (manual / nightly / revert), diff, byte-for-byte revert with a pin until the next manual refresh, nightly 03:15 Istanbul for the active term (learning.nightly_refresh), Beta calibration drafts + admin apply (learning.min_confidence), RF-07 per-habit disable / correct / tune (learning.habit_overrides), KVKK erasure scrubs snapshots; learning_extract planning-audit extractor (one source per edit); /learning/{versions,calibration,habits,settings}, PUT /learning/priors/{id}/habit; B4 precision 0.861 (31 of 36 building suggestions), 0 cross-season room or tag; tests test_as_13_learning (7); as-b-2026-10-17)
 - [ ] AS-14 · AS-B + AS-S · no migration · Weight learning from edits (inverse-optimisation lite): for each manual move or lock vs its parent run, score both plans with `solver/evaluate.py`, record ΔΦ per soft term, count agreements per term pair and propose a draft season-profile version ("12 düzenlemenin 10'unda bina tercihi oda israfından önce geldi: building_preference 5 → 8") with the evidence (run ids, counts, no names); never applied without an admin.
   accept: pytest `test_as_14_*`: **B9** synthetic edits generated with known weights → Kendall τ ≥ 0.8 of the recovered ratios; fewer than 5 edits → no proposal (`needs`); the draft appears in `/seasons/profiles` with status draft.
   files: new `backend/app/services/weight_learning.py`, `backend/app/services/seasons.py`, `backend/tests/test_as_14_*.py`.
+  part done (solver lane: services/weight_learning.py: ΔΦ per soft term in units via evaluate (all on-terms at weight 1) for each MANUAL / AI_EDIT move vs the parent run (locks carry no trade), agreements per term pair, Chebyshev-centre LP for the ratios and a minimal-L1-change LP (w·ΔΦ ≤ −1) for the proposal (GLOP, deterministic), draft season-profile version origin learned with TR/EN explanation and evidence (run ids, counts, no names), an existing learned draft is refreshed in place, < 5 edits → needs; B9 synthetic edits with known weights 12/7/3/1: recovered 12.2/7.6/3.3/1, Kendall τ ratios 1.0 (seeds 0–5: ≥ 0.867), proposal building_preference 5 → 7, day_window 5 → 2 explains 60/60 edits vs 51/60 today; tests test_as_14_weight_learning 8; as-s-2026-10-18)
+  open: AS-B route POST /learning/weights/propose (ask in the AS-B status file); AS-17 surface
+  AS-B part done (POST /learning/weights/propose {term_id} (planning.admin) -> weight_learning.propose_for_term, draft audited season_profile.*, DECISIONS row; B9 in run_all / CLI: Kendall tau 1.0 (also with 10 % noise), 60/60 edits explained; B8 via b8_standalone in the CLI without --skip-db: peak units 9 -> 5, 0 classes lost, 0 fixed moved; tests test_as_14_routes 1, test_as_06 CLI 2, test_audit_coverage; as-b-2026-10-17)
 - [ ] AS-15 · AS-F · no migration · ⚠ (messages; `/admin/weeks` is not owned by a running lane) Season calendar and profiles UI in `/admin/weeks`: period segments per term, profile list with versions, a weights diff vs standard, approve / activate / revert (confirm, focus to the next row), draft badges with explanation and evidence; Turkish first.
   accept: vitest `components/seasons/*.test.tsx`; Playwright `e2e/as-seasons.spec.ts` at 1440 and 390 touch (tr-TR, Europe/Istanbul): create draft → activate → revert; MOBILE M-01/02/03/05 on /admin/weeks; tsc, eslint, check-design clean.
   files: new `frontend/src/components/seasons/**`, `frontend/src/app/(app)/admin/weeks/page.tsx` (mount), new `frontend/src/lib/api/seasons.ts`, `frontend/messages/{tr,en}.json` (namespace `seasons.*` only), `frontend/playwright.config.ts` (append testMatch).
+  part done (code + vitest, no stack per the resource rule: components/seasons/{season-profiles,season-periods,season-model,weight-label}.tsx mounted under the week editor in app/(app)/admin/weeks/page.tsx; lib/api/seasons.ts; one row per profile key with Etkin/Taslak/Hazır badges, explanation + evidence, weights diff vs standard and versions in one disclosure, Onayla ve etkinleştir / Geri al / Taslağı sil behind confirmations with focus to the row, form with weights + peak threshold behind Gelişmiş, 'Düzenlemelerden ağırlık öner' (POST /learning/weights/propose: learned draft or the backend's needs text), term calendar with Öneri segments Onayla / Sil and a week-range add behind Gelişmiş; hidden on 403; messages seasons.*; tests season-model.test.ts + season-profiles.test.tsx (11); as-f-2026-10-18)
+  open: e2e `e2e/as-seasons.spec.ts` (create draft → activate → revert, 1440 + 390 touch) and M-01/02/03/05 on /admin/weeks (queued for the e2e lane).
 - [ ] AS-16 · AS-F · no migration · ⚠ (mobile optimisers on /analytics; messages) "Yoğun saatler" and "Tahmin" views: a peaks tab in `/analytics/heatmap` (ranges, groups, season comparison, CSV) and a new `/analytics/forecast` (demand with 80 % ranges, confidence badge + `needs` text, shortfall list, what-if form → draft run link, exam load); an empty install shows the needs text, never a blank chart; follow the dataviz rules (uncertainty bands, no colour-only meaning).
   accept: vitest models + components; Playwright `e2e/as-analytics.spec.ts` 1440 + 390 touch on the gracious stack (peaks show P4 / P8) and on an empty stack (needs texts); M-01/02/03/05 on both routes.
   files: new `frontend/src/components/analytics/peaks-*.tsx`, `forecast-*.tsx`, `frontend/src/components/analytics/heatmap-view.tsx` (tab mount), new `frontend/src/app/(app)/analytics/forecast/page.tsx`, `frontend/src/lib/api/analytics.ts` (append), `frontend/messages/{tr,en}.json` (`analytics.peaks.*`, `analytics.forecast.*`).
+  part done (code + vitest: Yoğun saatler tab in /analytics/heatmap?tab=peaks (components/analytics/peaks-view.tsx; heat-model tab, heatmap-view mount) with term / group / week-kind controls, backend CSV, summary sentence, peak table with 80 % ranges in text and the period profile in ChartCard; new /analytics/forecast (forecast-view.tsx, forecast-whatif.tsx, forecast-bits.tsx): demand per group with calibrated ranges + 'düşük güven' badge while confidence is low and no range for requests counts (AS-21 rule), short-hours list, what-if (+N %, Tüm kurum / Fakülte / Program, optional draft run → /runs/{id} + compare), link to the exam advisor; needs text on empty installs; nav entry; lib/api/adaptive.ts; messages adaptive.*; tests adaptive.test.ts + forecast-view.test.tsx (8); as-f-2026-10-18)
+  open: e2e `e2e/as-analytics.spec.ts` on the gracious stack (P4 / P8 peaks) and an empty stack (needs texts), M-01/02/03/05 on both routes.
 - [ ] AS-17 · AS-F · no migration · ⚠ (mobile optimisers on /find-room, /reserve, /exams, /runs; security follow-up owns `settings-view.tsx`, so the exam hold mode goes into `components/policies/policies-admin.tsx` only after that lane hands off) Planner and booking surfaces: run header "Profil: … · ağırlıklar"; `peak_pressure` / `exam_load` items in the existing data-issues list; "Yoğun saat" chip + off-peak alternative on /find-room and /reserve; exam advisor panel on /exams; `slots` hold mode in the policies admin with the freed room-periods; learning "Sürümler" and "Ayar önerileri" in `LearningMemoryPanel`.
   accept: vitest per component; Playwright `e2e/as-surfaces.spec.ts` 1440 + 390 touch: chip visible on a P4 Wednesday search, advisor card on the Final term, revert a learning version; 44 px targets, focus never on `<body>`.
   files: `frontend/src/components/runs/**` (header), `frontend/src/components/findroom/**`, `frontend/src/components/quick-reserve/**`, `frontend/src/components/policies/policies-admin.tsx`, `frontend/src/components/learning/learning-memory-panel.tsx`, `frontend/src/app/(app)/exams/page.tsx` + new `frontend/src/components/exams/advisor-*.tsx`, `frontend/messages/{tr,en}.json`.
-- [ ] AS-18 · AS-B · no migration · ⚠ (intake lane C: onboarding) Cold start: universal installs get `standard` + `exam_week` profiles only and `confidence: none` everywhere until a published term exists; forecasts switch to `requests` as soon as a planning list is imported; ask intake lane C for one call after a council commit (`seasons.after_import(term)`, which proposes period segments from sheet / week names, as a draft).
+  part done (code + vitest: run header line runs/run-profile.tsx ('Profil: … v2 · ağırlıklar (n değişik)' with sources, peak smoothing when > 0, skipped weeks); peak_pressure / exam_load listed last in issue-groups.tsx; find-room 'Yoğun saat' chip + calmer span (findroom/peak-chip.tsx); new /exams/advisor (exams/advisor-panel.tsx, advisor-model.ts): AS-12 cards + ranked moves from GET /analytics/forecast/exams/advice with 'Talebi düzenle' links, load-derived cards while that route 404s, exams-per-day ChartCard, holds line; exam hold mode `slots` (booking-policies.ts schema no longer folds slots to off; policies-admin.tsx mode + policies/exam-slots.tsx buffer / effect / freed room-periods); learning/learning-versions.tsx (Öğrenmeyi yenile, nightly switch, Sürümler with Bu sürüme dön, Ayar önerileri behind Gelişmiş) + learning/learning-habits.tsx (per-habit Kapat / Düzelt / Ağırlığı ayarla / Varsayılana dön) in LearningMemoryPanel; lib/api/learning-versions.ts; tests run-profile, advisor-panel, peak-chip, exam-slots, learning-versions (24); as-f-2026-10-18)
+  open: /reserve chip not added (find-room only); e2e `e2e/as-surfaces.spec.ts` (chip on a P4 Wednesday search, advisor card on the Final term, revert a learning version; 44 px, focus never on body).
+- [x] AS-18 · AS-B · no migration · ⚠ (intake lane C: onboarding) Cold start: universal installs get `standard` + `exam_week` profiles only and `confidence: none` everywhere until a published term exists; forecasts switch to `requests` as soon as a planning list is imported; ask intake lane C for one call after a council commit (`seasons.after_import(term)`, which proposes period segments from sheet / week names, as a draft).
   accept: pytest `test_as_18_*` on an empty DB (no 500, every endpoint answers with needs TR/EN) and after the universal fixtures import (`tests/fixtures/universal/bahar_requests_en.csv`): request-driven demand non-empty.
   files: `backend/app/services/seasons.py`, `backend/app/services/forecast.py`, `backend/tests/test_as_18_*.py`; ask lane C for the hook in `app/council/commit.py` (do not edit).
+  done (built-in profiles only on an empty install, every adaptive endpoint answers none + needs (TR/EN), requests-driven demand right after the universal CSV commit; seasons.after_import proposes draft segments only from week names; tests test_as_18_cold_start (3); ask lane C for the council hook; 2026-10-18 after_import fix: BREAK words were shadowed by HOLIDAY and a HOLIDAY-kind week got a duplicate draft, real Bahar sheet names propose nothing (2 new tests, test_as_18_cold_start 5/5); council commit now calls it after a real commit, best effort (app/api/v1/council.py _propose_segments: logged + rolled back on error, the import still answers 200), tests: real Güz grid with a 'VİZE HAFTASI' sheet -> MIDTERM week 2 draft, forced after_import error -> 200 + log line, test_as_18_cold_start 7/7; as-b-2026-10-17)
 - [ ] AS-19 · AS-S · later · no migration (uses existing nullable `exam_requests.date`) · Exam date and slot scheduling: exam events with allowed dates and slots when the list gives a window instead of a date; CP-SAT chooses them under `exam_gap`, `max_exams_per_day`, new `front_load` and `seat_peak` rules; cohorts = programme + class years until W3E-21 brings registrations.
   accept: pytest on Final 2026 with dates blanked in a window: every exam placed, cohort > 2 / day = 0 where feasible, peak day ≤ the advisor's result; deterministic.
   files: `backend/app/services/solver_bridge.py` (exam branch), new `backend/app/solver/constraints/front_load.py`, `seat_peak.py`, `backend/tests/test_as_19_*.py`.
 - [ ] AS-20 · AS-T · no migration · Persona runs: planner (profile draft → approve → run shows the profile; peak warning; what-if +10 % → draft run compare), admin (exam `slots` hold, learning version revert, KVKK: the ledger shows no personal data), academician (find-room peak chip + off-peak alternative), desktop 1440 + phone 390×844 touch on the gracious stack and on an empty universal stack; run `python -m app.cli backtest adaptive --json` and attach B1–B9.
   accept: a report `docs/testing/2026-10-xx-persona-adaptive.md` with pass/fail per step, screenshots per viewport, the backtest table, and tickets for failures.
   files: that report only; scratch otherwise.
+- [x] AS-21 · AS-B · no migration · Calibrated forecast ranges (owner decision 2026-10-18, recommended option): widen the 80 % intervals empirically before any UI shows them, so B3 coverage lands at 70-90 %; until calibrated on enough of the install's own history the forecast says "düşük güven".
+  accept: B3 coverage80 in 70-90 % (gate), calibration out of sample; seasonal_naive with one published term of the season = `low` + "Düşük güven" needs; with two = `medium`, range from the install's own errors.
+  done (forecast.py: split conformal with Poisson-scaled scores |a - f| / sqrt(f); SHAPE_Q80 = 1.45 from the Güz -> Bahar fold of the real workbooks (60 cells, shape only, because the Bahar request list overstates the realised Bahar grid by ~27 %), LEVEL_REL_SD_PRIOR = 5 % (a stated prior, not fitted), added in quadrature; seasonal_ranges: own cross-term conformal quantile with >= 20 scores from two published same-season terms -> medium, else the defaults -> low + 'Düşük güven: aralık bu kurumun geçmişiyle henüz kalibre edilmedi'; backtest B3 gate now WAPE <= 15 % and coverage 70-90 %: coverage 25 % -> 75 % (6 of 8 cells; only 8 cells, so a wide uncertainty), WAPE 5.3 % unchanged; tests test_as_07_forecast 8/8 (4 new); as-b-2026-10-17)
 Order: AS-01 → AS-02 → AS-03 (migration) → AS-04 / AS-05 / AS-06 → AS-07 / AS-09 / AS-11 → AS-08 / AS-10 / AS-12 / AS-13 / AS-14 → AS-18 → frontend AS-15 / AS-16 / AS-17 → AS-20; AS-19 later.
 
 ### Voice for AI features (owner request 2026-10-17)
@@ -2817,7 +2865,8 @@ Gate: the voice backend tickets (VO-01, VO-02, VO-04) **start only after the sec
 
 Collisions are marked per ticket.
 
-- [ ] VO-01 · ai-engineer · no migration · Speech core in the gateway.
+- [x] VO-01 · ai-engineer · no migration · Speech core in the gateway.
+  done (voice_stt in FEATURES / FEATURE_LABELS "Sesle yazma" / PERSONAL_FEATURES, DEFAULT_CAPS; ProviderSpec.capabilities/regions/retention_tr|en, ModelInfo.modalities tagged at sync; validate_route model_not_speech / model_not_text; voice_stt route source "none", kept out of all_routes; SpeechAdapter + Transcript + HttpSpeechAdapter (url_guard on every real request), openai_audio.py for openai / azure_openai. Owner 2026-10-18: openai_compatible / local Whisper get no stt; voice_tts not added (VO-13 later). Files app/ai/{context,gateway,client}.py, app/ai/providers/{__init__,base}.py, app/ai/voice/{speech,registry,openai_audio}.py; tests tests/ai/test_vo_01_speech_core.py (10); vo-b-2026-10-18)
   - `voice_stt` and `voice_tts` go into `FEATURES` / `FEATURE_LABELS` ("Sesle yazma", "Sesli okuma") and `PERSONAL_FEATURES`.
   - `DEFAULT_CAPS["voice_stt"] = {timeout_s: 60, max_audio_s: 120, max_bytes: 5_000_000}`.
   - `ProviderSpec.capabilities` (`text`/`stt`/`tts`/`audio_native`); `ModelInfo.modalities` filled at sync (OpenAI-style ids `*transcribe*|whisper*|*tts*`, Gemini audio-capable models, speaches `/v1/models`).
@@ -2834,7 +2883,8 @@ Collisions are marked per ticket.
   - existing `tests/ai` stays green; ruff + mypy clean.
   files: `backend/app/ai/context.py`, `backend/app/ai/gateway.py`, `backend/app/ai/providers/__init__.py`, `backend/app/ai/providers/base.py`, new `backend/app/ai/voice/{__init__,speech,openai_audio,fake}.py`, `backend/tests/ai/test_vo_01_*.py`; read-only `providers/url_guard.py`.
   collisions: security follow-up (gate above).
-- [ ] VO-02 · ai-engineer · **migration (next head at merge time; CAL-B, WG-01 `0040_welcome_guide` and AS-03 also plan one, so never two heads)** · Metering and limits.
+- [x] VO-02 · ai-engineer · **migration (next head at merge time; CAL-B, WG-01 `0040_welcome_guide` and AS-03 also plan one, so never two heads)** · Metering and limits.
+  done (alembic 0042_ai_usage_audio: ai_usage.audio_ms + modality, SQLite + PostgreSQL round trip; STT_PRICE_TABLE + estimate_stt_cost (table / admin prices_per_min / unpriced); ai.limits user_daily_audio_s 600, user_monthly_audio_s 6000, org_monthly_audio_s 0, roles/users audio_daily/audio_monthly; meter.reserve_audio (org totals in rls.system_scope via totals()); audio_minutes in report / day report, day/month audio in user_state and GET /ai/me/usage. No per-faculty quota exists yet, so none. Tests tests/ai/test_vo_02_metering.py (10); vo-b-2026-10-18)
   - Schema: `ai_usage.audio_ms` (Integer, default 0) and `ai_usage.modality` (String(12), `text|audio_in|audio_out`, default `text`).
   - Cost: `STT_PRICE_TABLE` beside `PRICE_TABLE_VERSION` (gpt-transcribe 0.0045, gpt-4o-transcribe 0.006, gpt-4o-mini-transcribe 0.003, whisper 0.006 USD/min, local 0; Gemini audio tokens = 32/s × model audio-in price); the cost counts toward the org USD budget.
   - Limits in `ai.limits` (no schema change): `user_daily_audio_s` (600), `user_monthly_audio_s` (6000), `org_monthly_audio_s` (0), `roles{}`/`users{}` `audio_daily`/`audio_monthly`.
@@ -2849,7 +2899,8 @@ Collisions are marked per ticket.
   - `alembic upgrade head` + downgrade on SQLite and PostgreSQL, one head.
   files: `backend/app/models/ai_usage.py`, `backend/app/services/ai_usage.py`, `backend/app/ai/client.py` (price table only), new `backend/alembic/versions/00NN_ai_usage_audio.py`, `backend/tests/ai/test_vo_02_*.py`.
   collisions: security follow-up (`ai_usage.py`), migration head (CAL-B, WG-01, AS-03).
-- [ ] VO-03 · ai-engineer · no migration · Transcribe endpoint, consent and voice settings.
+- [x] VO-03 · ai-engineer · no migration · Transcribe endpoint, consent and voice settings.
+  done (POST /ai/voice/transcribe takes the raw body (not multipart: no spool to disk), memory only, 5 MB cap; order target/permission → configured → consent `voice` (403 voice_consent_required) → empty/size/type+magic bytes/length by header (WAV, Ogg, WebM incl. live recordings, MP4) → transfer basis 409 → rate/concurrency → reserve_audio 429 → provider + one fallback → provider length re-check → strip_controls + NFC + target cap → one ai_usage row; GET /ai/voice/status (reason, hide_mic, targets, provider/region, usage). ai.voice settings: enabled, language, max_seconds ≤120, vocabulary catalog|off (codes only, never names), live_captions, prices_per_min; retention 0 and review-before-send fixed (no send_directly). KVKK purpose `voice`. Files app/api/v1/voice.py, app/ai/voice/{run,audio,vocabulary,errors}.py, router.py (+include), services/kvkk.py (+PURPOSES row); tests tests/ai/test_vo_03_transcribe.py (15) incl. no-disk, no transcript in logs, spoken injection 422 on /chat/stream; vo-b-2026-10-18)
   - `POST /api/v1/ai/voice/transcribe`: multipart `audio`, `feature` ∈ {chat, rules, booking_nl, guard}, `lang`. Checks in order:
     - consent `voice` active (403 `voice_consent_required`);
     - `ai.voice.enabled`;
@@ -2876,7 +2927,8 @@ Collisions are marked per ticket.
   - the vocabulary prompt has no instructor names for a non-grantee;
   - the spoken-injection fixture transcript, posted to `/chat/stream`, gives 422 `prompt_injection` (the guard runs on send).
   files: new `backend/app/api/v1/voice.py`, new `backend/app/ai/voice/{run,policy,vocabulary}.py`, `backend/app/ai/gateway.py` (`ai.voice` getters), `backend/tests/ai/test_vo_03_*.py`; asks: one `include_router` line in `backend/app/api/v1/router.py` (router owner), one `PURPOSES` row in `backend/app/services/kvkk.py:90` (KVKK owner).
-- [ ] VO-04 · ai-engineer · no migration · Admin API for voice.
+- [x] VO-04 · ai-engineer · no migration · Admin API for voice.
+  done (sync tags modalities and lists speech-only providers' fixed models; test call transcribes the bundled 5 s Turkish clip app/ai/voice/assets/tr-test.ogg (MediaSpeech CC BY 4.0, SOURCES.md) → kind stt + transcript_preview ≤60, metered as test with audio_ms; GET/PUT /ai/admin/voice audited ai.voice; transfer record processes_voice + audio_retention; limits accept audio fields; routes accept voice_stt. Files app/api/v1/ai_admin.py, tests/test_audit_coverage.py (+2 rows); tests tests/ai/test_vo_04_admin.py (6); API contract scratchpad voice/API.md; vo-b-2026-10-18)
   - `POST /ai/admin/providers/{p}/sync` stores modalities. `…/test` for an STT-capable provider transcribes the bundled 4 s Turkish clip and stores `{ok, detail, model, transcript_preview≤60}`.
   - `GET/PUT /ai/admin/voice` (settings above; audited `ai.voice_update`).
   - `PUT /ai/admin/routes` accepts `voice_stt` / `voice_tts`.
@@ -2891,6 +2943,7 @@ Collisions are marked per ticket.
   files: `backend/app/api/v1/ai_admin.py`, `backend/app/schemas/ai_admin.py` (if separate), `backend/tests/fixtures/voice/tr-test-4s.opus` (+ `SOURCES.md`), `backend/tests/ai/test_vo_04_*.py`.
   collisions: security follow-up.
 - [ ] VO-05 · devops · no migration · Browser permission + edge + optional local Whisper.
+  part done (headers + edge only, taken by VO-B on the coordinator's go: Permissions-Policy microphone=(self) in smartsched/deploy/nginx/default.conf and caddy/Caddyfile; nginx `location = /api/v1/ai/voice/transcribe` with client_max_body_size 6m and the /api/ CSRF fence; Caddy request_body 6MB on that path; assertions in tests/test_w3_sec_hardening.py; nginx -t and caddy validate pass (scratch binaries). The voice-local Whisper profile is dropped by the owner decision 2026-10-18; open: getUserMedia check on a real stack behind nginx and Caddy; vo-b-2026-10-18)
   - `Permissions-Policy` `microphone=()` → `microphone=(self)` in `deploy/nginx/default.conf:108` and `deploy/caddy/Caddyfile:24`, with an assertion in `backend/tests/test_w3_sec_hardening.py` (W3-SEC owner informed).
   - nginx `location = /api/v1/ai/voice/transcribe` with `client_max_body_size 6m` and no request-body logging.
   - Compose profile `voice-local`:
@@ -2909,6 +2962,7 @@ Collisions are marked per ticket.
   files: `deploy/nginx/default.conf`, `deploy/caddy/Caddyfile`, `deploy/docker-compose.yml` (new service + profile), `deploy/pins.py`, `deploy/README.md`, `backend/tests/test_w3_sec_hardening.py` (one assertion).
   collisions: W3-SEC header owners (ask), integrator for compose.
 - [ ] VO-06 · frontend · no migration · `components/voice/**` core.
+  part done (recorder, mic button, on-device-only captions, consent sheet, error copy, lib/api/voice.ts raw-body upload per VO-B API.md; vitest green; vo-f-2026-10-18). open: e2e vo-mounts on a stack (resource rule).
   - `use-voice-recorder.ts`:
     - MediaRecorder with `isTypeSupported` (webm/opus, then mp4);
     - AnalyserNode level meter;
@@ -2930,6 +2984,7 @@ Collisions are marked per ticket.
   files: new `frontend/src/components/voice/{mic-button,use-voice-recorder,voice-captions,voice-consent-sheet,voice-errors,index}.ts(x)` + tests, new `frontend/src/lib/api/voice.ts`, `frontend/messages/{tr,en}.json` (`voice.*`).
   collisions: CAL-F and WG-04 also append to `messages/*.json` (namespaces only).
 - [ ] VO-07 · frontend · no migration · /admin/ai voice UI.
+  part done (`voice_stt` in `AI_FEATURES` (TEXT_FEATURES for text rows / guard bench), Models row offers only `modalities ∋ stt`, provider cards show capabilities, regions, retention; Ses card, limits, usage, my usage; ai-voice.test.tsx; vo-f-2026-10-18). open: e2e vo-admin; `voice_tts` waits for VO-13.
   - Models tab: rows for `voice_stt` / `voice_tts` that offer only speech-capable synced models, and a "no model → mic hidden" note.
   - Providers tab: capability chips "Metin · Ses→yazı · Sesli okuma", an STT test button showing the transcript preview, and the "processes voice" field on the transfer record.
   - Limits tab: audio minutes per user, role and person.
@@ -2943,6 +2998,7 @@ Collisions are marked per ticket.
   files: `frontend/src/components/admin/ai/{ai-model.ts,models-tab,providers-tab,limits-tab,usage-tab,guard-tab,my-ai-usage}.tsx` + tests, `frontend/src/lib/api/ai-admin.ts`, `frontend/e2e/vo-admin.spec.ts`.
   collisions: charts design (`usage-tab`, `CHART_SERIES`), WG-07 (`<HintSlot>` line in `ai-admin.tsx`).
 - [ ] VO-08 · frontend · no migration · Mounts on every AI text surface.
+  part done (mic in chat composer, write-it, upload paste, guard bench; never auto-sends; quick reserve waits for booking_nl; vo-f-2026-10-18). open: e2e vo-mounts; `vo-[a-z-]+` in playwright testMatch.
   - Chat composer (`components/chat/chat-panel.tsx:313`, plus an actions slot in `components/ui/beautifului/prompt-composer.tsx`), `target=chat`.
   - Studio write-it (`components/studio/write-it.tsx:100`), `rules`.
   - Upload panel paste tab (`components/studio/upload-panel.tsx:219`), `rules`.
@@ -2966,7 +3022,8 @@ Collisions are marked per ticket.
   - Persona runs on own stack, desktop 1440 and phone 390: planner dictates in chat and studio; admin configures, tests, limits and checks usage; teacher withdraws consent and the mic asks again; keyboard-only and screen-reader pass.
   accept: bench report + persona report `docs/testing/2026-10-xx-persona-voice.md` with pass/fail per step, screenshots per viewport, and tickets for failures.
   files: `backend/tests/fixtures/voice/**`, `frontend/e2e/fixtures/voice/**`, the two reports; scratch otherwise.
-- [ ] VO-10 · ai-engineer · no migration · Cloud speech adapters (after VO-09 picks one).
+- [x] VO-10 · ai-engineer · no migration · Cloud speech adapters (after VO-09 picks one).
+  done (thin httpx adapters, no SDKs: gemini_audio.py (inline audio, fixed verbatim instruction, responseJsonSchema {text} and the answer re-validated, length from AUDIO tokens/32), azure_speech.py (fast transcription api-version 2025-10-15, tr-TR, phraseList), google_stt.py (Speech-to-Text v2 Chirp 3, location eu → eu-speech.googleapis.com, inline phrase set, API-key auth), deepgram.py (api.eu.deepgram.com, nova-3, keyterm, mip_opt_out); new speech-only ProviderSpecs azure_speech / google_stt / deepgram with regions + retention notes; request shapes checked against the vendors' docs 2026-10-17. Tests tests/ai/test_vo_10_adapters.py (18) against doc-shaped fixtures tests/fixtures/voice/responses/*.json; live smoke tests/ai/test_vo_live_smoke.py (skipped without OPENAI_API_KEY). open: a test call on a real account per chosen provider; vo-b-2026-10-18)
   - `gemini_audio.py`: inline audio + fixed "transcribe verbatim" instruction + JSON schema; Gemini API paid tier, or Vertex EU.
   - Speech-only providers with `capabilities={stt}` and the encrypted-key pattern: `azure_speech` (fast transcription REST, region config, `tr-TR`), `google_stt` (Chirp 3 / Gemini transcribe, `eu` location), `deepgram` (`api.eu.deepgram.com`).
   - Each adapter: model list (static where the provider has no list endpoint), a test call, error translation to `ProviderError`, and price per minute.
@@ -2993,7 +3050,7 @@ Order: (security follow-up closed) → VO-01 → VO-02 (migration) / VO-05 (head
 
 Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, tokens §6, phone §7, motion §8, a11y §9, budget §10). Wireframes: `docs/design/v3/wireframes/charts-*.svg`. Decision: EvilCharts **ECharts** (`echarts-bar-chart`, `echarts-line-chart`, `echarts-area-chart`; MIT, echarts Apache-2.0) becomes the single engine for time series behind one `ChartCard` shell. `BarList` / `Meter` / `StatTile` / `KpiNumber` / `HeatGrid` stay for rankings, quotas and grids. Recharts is removed in CH-09. Every frontend ticket follows Turkish-first strings under `charts.*`, 44 px targets and 16 px inputs on phones, reduced motion, and free transitions.dev recipes only. Every ticket is verified at 1440 and 390×844 touch (tr-TR, Europe/Istanbul).
 
-- [ ] CH-01 · frontend · no migration · **Phase 2, starts on the orchestrator's "phase 2 go"** (package.json/lockfile are in use by another agent).
+- [x] CH-01 · frontend · no migration · **Phase 2, starts on the orchestrator's "phase 2 go"** (package.json/lockfile are in use by another agent).
   - Do: `npm install echarts`; `npx shadcn@latest add @evilcharts/echarts-bar-chart @evilcharts/echarts-line-chart @evilcharts/echarts-area-chart` (pulls `echarts-{chart,tooltip,legend,dot,brush}`); move from `src/components/evilcharts/**` to `src/components/charts/evil/{charts,ui}/`; re-point imports; add a header per file (source URL, MIT © 2026 Gurbinder, "Modified: …").
   - Allowed patches: import paths; an injected `valueFormatter` instead of bare `toLocaleString()`; `AriaComponent` registered for `aria.decal`.
   - Paperwork: a row in `src/components/ui/SOURCES.md` (ask the design-system owner if it is not ours) and in charts.md §sources.
@@ -3004,7 +3061,8 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - the `next build` route table is recorded before and after: routes without charts +0 kB first-load; the lazy chart chunk ≤ 240 kB gz.
   files: new `smartsched/frontend/src/components/charts/evil/**`, `smartsched/frontend/package.json` + `package-lock.json` (echarts only), `src/components/ui/SOURCES.md` (one row), `docs/design/v3/charts.md` §sources.
   tester: frontend build/perf tester.
-- [ ] CH-02 · frontend · no migration · **Phase 2.** Shared `ChartCard` shell per charts.md §5.
+  done (`echarts@6.1.0` pinned exactly (package.json adds `echarts` only; lock adds echarts, zrender, their tslib); `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart` ran through the proxy; 8 files moved to `src/components/charts/evil/{charts,ui}/`, header per file (source URL, MIT © 2026 Gurbinder, Modified list); patches: import paths, `<Tooltip valueFormatter labelFormatter className>`, HTML-escaped tooltip text, `AriaComponent`, `useReduce` for `useReducedMotion`, file-level `react-hooks/refs` waiver; `grep -r @/registry src/components/charts` = 0; SOURCES.md row + charts.md §sources; tsc on the charts tree and its imports 0 errors (full-project tsc OOM-killed on the shared host, see PROGRESS), eslint src/components/charts clean, check:design passed; bundle by esbuild: shared engine chunk 203.7 kB gz, all three forms 229.2 kB gz (≤ 240), routes without charts +0 kB (no importer outside components/charts). Open: the `next build` before/after route table was not recorded (host memory); do it first in CH-04; designer charts-p2-2026-10-17)
+- [x] CH-02 · frontend · no migration · **Phase 2.** Shared `ChartCard` shell per charts.md §5.
   - Files: `chart-card.tsx`, `chart-lazy.tsx` (`next/dynamic`, `ssr: false`), `chart-summary.ts`, `chart-table.tsx`, `chart-csv.ts`, `chart-format.ts`, `chart-tokens.ts`, `period-picker.tsx`.
   - States: loading / empty / error / partial / stale / too-few-points (< 3 → `StatTile`).
   - Table twin always in the DOM; ⋯ menu (CSV, image, table, print).
@@ -3017,7 +3075,8 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - a demo story/test page is **not** mounted on any app route (no surface edits in phase 2).
   files: new `smartsched/frontend/src/components/charts/*.{ts,tsx}`, `smartsched/frontend/messages/{tr,en}.json` (`charts.*` only); ask the motion.md owner to add §3.18 "Charts" from charts.md §8.
   tester: frontend unit tester + a11y tester (axe on the shell fixture, NVDA/VoiceOver reading order: title → summary → table).
-- [ ] CH-03 · frontend · no migration · Chart keyboard + colour-blind + print layer.
+  done (`src/components/charts/`: chart-card.tsx (+ chart-card.css), chart-lazy.tsx (`next/dynamic`, `ssr:false`, one chunk per form), chart-form-{bar,line,area}.tsx, chart-form-types.ts, chart-api.ts (`getInstanceByDom` → image export / CH-03 `showTip`), chart-summary.ts, chart-table.tsx, chart-csv.ts, chart-format.ts, chart-tokens.ts, chart-renderer.ts, chart-skeleton.tsx, period-picker.tsx (`usePeriodParam` → `?period=`), use-chart-patterns.ts (per user, default off, forced-colors on); states loading/empty/error/stale/partial/too-few (< 3 → numbers) at a stable height; table twin always in the DOM; footer "Tabloyu göster" + "Veriyi indir" (BOM, `;` + decimal comma tr, `,` en, ISO date column), ⋯ menu image + print; animation off, free recipes skeleton-reveal (180 ms), tooltip, text-states-swap with reduced-motion fallbacks; messages `charts.*` tr + en. vitest src/components/charts: 6 files, 45 tests passed; eslint clean; check:design passed; not mounted on any route. Deviations recorded in charts.md §12 "Phase 2 notes" (solid tooltip, CSV in the footer, dropdown not sheet on phones → CH-03). Ask the motion.md owner to add §3.18 "Charts" from charts.md §8 + the notes; designer charts-p2-2026-10-17)
+- [x] CH-03 · frontend · no migration · Chart keyboard + colour-blind + print layer.
   - Keyboard: plot wrapper `tabIndex=0` `role="group"`; ←/→/Home/End move the focused bucket via `dispatchAction({type:"showTip"})`; Esc hides; a polite live region reads the bucket (debounced 250 ms).
   - Colour: `decal: "auto"` when the user toggles "Grafiklerde desen" (per-user preference) or `forced-colors: active`.
   - Print CSS: hide the menu and period control, print the table twin.
@@ -3026,7 +3085,8 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - Playwright `e2e/charts-a11y.spec.ts` on the shell fixture at 1440 + 390 touch: keyboard scrub reads "14 Ekim Çarşamba: toplam 82.300 token"; focus never on `<body>`; `emulateMedia({forcedColors:"active"})` shows patterns; `page.pdf()` contains an SVG chart + the table.
   files: `smartsched/frontend/src/components/charts/chart-keyboard.ts(x)`, `chart-print.css` (or a module in `chart-card.tsx`), profile preference key (ask the profile owner), `e2e/charts-a11y.spec.ts`, `playwright.config.ts` (append testMatch).
   tester: a11y tester (keyboard + screen reader + forced colours).
-- [ ] CH-04 · frontend · no migration · Migrate dashboard `PeriodArea` to `ChartCard` + `echarts-area-chart`.
+  done (`components/charts/chart-keyboard.ts` (`keyMove`, `bucketSentence`, `useChartKeyboard`: the plot is one tab stop `role=group` "Grafik, ok tuşlarıyla gezinin" with a visible focus outline, ←/→/Home/End show the tooltip at the bucket (pixel `showTip`, `chart-api.ts`), Esc hides, a polite live region reads "14 Ekim Çarşamba: toplam 82.300 token; Sohbet 37.120, Kurallar 45.180" after 250 ms; only the drawing inside is aria-hidden); the plot element is memoised so keyboard/live re-renders do not make EvilCharts re-push its option (that dropped the tooltip); `chart-patterns-toggle.tsx` "Grafiklerde desen" (per user, default off) mounted on /profile with one line in `admin/profile-view.tsx`; forced colours turn `aria.decal` on; print CSS in `chart-card.css` (menu, period and footer hidden, table twin printed, SVG renderer). Tests: vitest src/components/charts 8 files / 52 passed; `e2e/charts-a11y.spec.ts` 6 passed at 1440 + 390×844 touch, tr-TR, Europe/Istanbul (keyboard read-out, focus never on body, forced colours → SVG `<pattern>`s, print → SVG + table + `page.pdf()`), self-contained: vite-built fixture `e2e/fixtures/charts/**` served by `page.route`, no app route and no backend; added to playwright.config.ts testMatch; scoped tsc 0, eslint clean, check:design passed; motion.md §3.18 "Charts" written; designer charts-p2-2026-10-17)
+- [x] CH-04 · frontend · no migration · Migrate dashboard `PeriodArea` to `ChartCard` + `echarts-area-chart`.
   - Single series `--seq-4`; peak in the summary ("En yoğun saat 10:30 (%86)").
   - SVG renderer; the existing sr-only table moves into the shell twin.
   - `BuildingBars` and `UtilisationHeatmap` stay unchanged.
@@ -3037,7 +3097,8 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - `grep EvilAreaChart src/components/dashboard` = 0.
   files: `smartsched/frontend/src/components/dashboard/dashboard-charts.tsx` (current owner: frontend dashboard / design-system), `messages` keys under `charts.dashboard.*`.
   tester: planner persona tester.
-- [ ] CH-05 · frontend · no migration · Migrate the AI "Günlük token kullanımı" stacked bar to `ChartCard` + `echarts-bar-chart` (`stackType="stacked"`).
+  done (`dashboard/dashboard-charts.tsx` `PeriodArea` on `ChartCard` + `LazyAreaChart`, one series `--seq-4` via `singleConfig`, SVG by the renderer rule, the old sr-only table is the shell's table twin, summary "En yoğun saat 10:10 (%86).", `hint` names the measure; `periodSeries` unchanged; `BuildingBars` / `UtilisationHeatmap` untouched; `grep EvilAreaChart src/components/dashboard` = 0; dashboard-charts.test.tsx (periodSeries + accessible description); vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: Playwright planner flow + CSV in a tr-TR parser + M-01/02/03/05 on /dashboard, and the `next build` before/after route table: E2E lane (resource rule); designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
+- [x] CH-05 · frontend · no migration · Migrate the AI "Günlük token kullanımı" stacked bar to `ChartCard` + `echarts-bar-chart` (`stackType="stacked"`).
   - Colours stay `SERIES_COLOR` (fixed order, "Diğer" = `--label-3`); today hatched.
   - Phone: weekly sums ≤ 5 columns; 7 g / 30 g / Dönem picker.
   - The meters, tiles and BarList stay unchanged.
@@ -3048,7 +3109,8 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - `grep EvilBarChart src/components/admin/ai` = 0.
   files: `smartsched/frontend/src/components/admin/ai/usage-tab.tsx`, `ai-model.ts` (current owner: W3-AI).
   tester: admin persona tester.
-- [ ] CH-06 · frontend · no migration · Migrate the ops "İstekler" hand-drawn SVG to three small multiples (requests/min, 5xx/min, p95 ms), each with its own axis and a shared x.
+  done (`admin/ai/usage-chart.tsx` `DailyChart` (moved out of usage-tab.tsx): stacked `LazyBarChart`, `SERIES_COLOR` per feature through `dailyLegend` (fixed order, "Diğer" = `--label-3`, colour follows the entity when a series is filtered out), today hatched (`lastIsToday` → `partial`), phones fold to weekly sums ≤ 5 columns (`foldWeeks`); the period control stays the page's (it also drives the KPI tiles); meters, tiles and BarList unchanged; `grep EvilBarChart src/components/admin/ai` = 0; tests usage-chart.test.tsx + ai-model.test.ts (`dayChartData`, `activeSeries`, legend order/colour); vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: Playwright w3-ai at 1440 + 390 (tap tooltip, CSV 5 features + total) + M-01/02/03/05 on /admin/ai: E2E lane; designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
+- [x] CH-06 · frontend · no migration · Migrate the ops "İstekler" hand-drawn SVG to three small multiples (requests/min, 5xx/min, p95 ms), each with its own axis and a shared x.
   - `echarts-line-chart`, canvas, `sampling: "lttb"`; 1 sa / 24 sa / 7 g.
   - Stale strip when Prometheus/Loki is down; Grafana links unchanged.
   accept:
@@ -3057,6 +3119,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - M-01/02/03/05 on `/admin/ops`.
   files: `smartsched/frontend/src/components/admin/ops/ops-panel.tsx`, `ops-model.ts` (current owner: W3-OPS).
   tester: admin/ops tester.
+  done (`admin/ops/requests-chart.tsx`: one ChartCard with three small multiples (requests/min, 5xx/min, p95 ms; shared minute axis, own axis each, never dual), one summary/table twin/CSV, the keyboard scrub moves all three tooltips; stale strip when a refetch fails over old data; Grafana links unchanged; the sweeper's "Son yedek" backup card in ops-panel.tsx kept (test present); `chartGeometry` retired, `totals` kept + new `requestsDigest`. Deviations: ranges 30 / 60 / 180 dk because `GET /ops/requests` caps `minutes` at 180 (le=180 in api/v1/ops.py), so 24 sa / 7 g need a coarser server step (ask W3-OPS); ≤ 180 points → SVG by the renderer rule, `sampling: "lttb"` not needed yet; summary pattern "Dakikada ort. {n} istek; en çok 5xx {saat} ({n})." instead of the ticket's "…; 19:21'de 5xx artışı" (ops-panel.test.tsx asserts "Dakikada ort. 20 istek; en çok 5xx HH:MM (1)."). vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: Playwright ops spec at 1440 + 390 (dropped frames on scrub; the 1,440-point case waits for the server step) + M-01/02/03/05 on /admin/ops: E2E lane; designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
 - [ ] CH-07 · backend + frontend · no migration · Bookings per week (term) and request outcomes per week.
   - Backend: read-only `GET /bookings/stats/weekly?term_id=` (counts per ISO week, exam weeks flagged, current week `partial: true`) and `GET /requests/stats` reuse (exists).
   - Frontend: two `ChartCard`s with `echarts-bar-chart` on the admin overview: the exam week direct-labelled "Sınav haftası", the current week hatched.
@@ -3072,7 +3135,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - Playwright planner flow at 1440 + 390; keyboard ←/→ moves between runs and Enter opens one.
   files: `smartsched/frontend/src/components/runs/runs-list.tsx` (+ new `runs/score-history.tsx`) (current owner: runs lane; AS-17 also touches `components/runs/**`: coordinate).
   tester: planner persona tester.
-- [ ] CH-09 · frontend · no migration · Remove Recharts after CH-04/05 have landed.
+- [x] CH-09 · frontend · no migration · Remove Recharts after CH-04/05 have landed.
   - Delete `src/components/ui/evilcharts/**` (Recharts files, incl. the unused radial/brush/background/dot); drop `recharts` from package.json.
   - Update SOURCES.md (keep the EvilCharts MIT LICENSE file: the ECharts files still need it).
   accept:
@@ -3081,6 +3144,7 @@ Spec: `docs/design/v3/charts.md` (inventory §1, decision table §4, shell §5, 
   - full vitest + tsc + eslint + check:design green.
   files: `smartsched/frontend/src/components/ui/evilcharts/**`, `package.json`, `package-lock.json`, `src/components/ui/SOURCES.md` (owner: design-system; package.json needs the orchestrator's go).
   tester: frontend build/perf tester.
+  done (`components/ui/evilcharts/**` (Recharts files) deleted, `recharts` uninstalled: package.json and package-lock.json have no recharts (recharts, d3-*, redux, victory-vendor gone), node_modules/recharts absent, `grep -rn recharts src package.json package-lock.json` = 0; SOURCES.md updated, `LICENSES/evilcharts-MIT.txt` kept for the ECharts files; vitest (--maxWorkers=1) charts + dashboard + admin/ai + admin/ops + profile 18 files / 110 passed; eslint clean; check:design passed; full-project `tsc --noEmit` 0 errors. Open: `next build` net change on /dashboard and /admin/ai ≤ +110 kB gz vs before CH-01, plus the full vitest run: E2E/build lane (resource rule); designer charts-p2-2026-10-17, verified after the restart 2026-10-18)
 - [ ] CH-10 · later · frontend · no migration · Audit events per day (30 g, `echarts-bar-chart`) above the audit table, only if admins ask for it; a click on a column filters the table to that day.
   accept: vitest + Playwright at 1440 + 390; the table filter is keyboard reachable.
   files: `smartsched/frontend/src/components/audit/audit-view.tsx` (admin lane).
@@ -3109,17 +3173,30 @@ Order: CH-01 → CH-02 → CH-03 → CH-04 → CH-05 → CH-06 → CH-09 → CH-
 > Owner decision 2026-10-18: voice uses cloud APIs/models that support audio, chosen and moderated by admins; no on-prem Whisper (the `voice-local` profile in VO-05 is dropped).
 
 ### Real-not-fake & admin editability (owner request 2026-10-17; audit docs/testing/audits/2026-10-17-no-mock-and-editability.md)
-- [ ] RF-01 blocker: the /classes "Öğrenci" (enrolment) edit is persisted (schemas/requests.py, classes-page.tsx) — lane RF-1
-- [ ] RF-02 blocker: the admin default solver seed and weights reach every run (merged server-side and recorded on the run) — AS-B, AS-01
-- [ ] RF-03 blocker: the "Davet e-postası gönder" switch works (users-admin-identity.tsx → send_email) — lane RF-1
+- [x] RF-01 blocker: the /classes "Öğrenci" (enrolment) edit is persisted (schemas/requests.py, classes-page.tsx) — lane RF-1
+  done (PUT /requests/meetings/{id} {enrolment} writes section.enrolment via catalog_admin.update_section, audited section.update; exams write their own enrolment, audited exam_request.update; 422 on negative/time-shaped/>2000; schemas/requests.py, api/v1/requests.py; classes-page.tsx unchanged, it already sent the field; pytest test_rf1_catalog_editability.py fails on the old code (10 != 77); stack 19800 API check passed before the restarts; UI check in E2E TO RUN; builder rf-1-2026-10-18)
+  verified e2e 2026-10-18 (e2e lane: stack 19800/19801 at 1440 mouse + 390×844 touch, docs/testing/e2e-queue/results-2026-10-18.md § RF-1)
+- [x] RF-02 blocker: the admin default solver seed and weights reach every run (merged server-side and recorded on the run) — AS-B, AS-01
+  done (seasons.effective_weights + effective_seed in solver_bridge.build_solver_input: DEFAULT_WEIGHTS < Ayarlar solver_weights < active season profile < run params, admin solver_default_seed; run.stats weights_effective / weights_source / seed on every path: POST /runs, Studio generate, moderation re-solve, server job; tests test_as_01_weights (4) + test_as_01_paths (4); stack check (run header shows the admin seed and weights) in E2E TO RUN; as-b-2026-10-17)
+- [x] RF-03 blocker: the "Davet e-postası gönder" switch works (users-admin-identity.tsx → send_email) — lane RF-1
+  done (switch on by default with SMTP and sends send_email + locale; without SMTP off + 'E-posta ayarlanmadı' + link 'E-postayı ayarla' → /admin/email; sent / failed toasts; new GET /auth/sso/admin/invite-mail (setup.users); users-admin-identity.tsx, lib/api/identity.ts; vitest rf1-invite-mail.test.tsx 5/5, fails 5/5 on the old file; stack check in E2E TO RUN; builder rf-1-2026-10-18)
+  verified e2e 2026-10-18 (e2e lane: stack 19800/19801 at 1440 mouse + 390×844 touch, docs/testing/e2e-queue/results-2026-10-18.md § RF-1)
 - [ ] RF-04 blocker: the phone month arrows on /timetable work (mobile-calendar.tsx) — after the mobile optimisers
-- [ ] RF-05 blocker: admin screens to view, edit and delete instructors, courses, faculties/departments and imported sections, using the existing routes and lib/api/catalog-admin.ts — lane RF-1
+- [x] RF-05 blocker: admin screens to view, edit and delete instructors, courses, faculties/departments and imported sections, using the existing routes and lib/api/catalog-admin.ts — lane RF-1
+  done (Yönetim › Katalog /admin/catalog/{instructors,courses,programs,faculties,sections}: searchable list, 'Yeni', edit sheet with 'Son değişiklik', 'Gelişmiş', delete with consequences (blocked while in use, sections archived); new GET /catalog/usage/{entity}/{id}; course/section search now matches the display code (ACU 1421 vs stored ACU-1421, found on the stack); components/admin/catalog/**, app/(app)/admin/catalog/**, lib/api/catalog-admin.ts, nav-config + permissions entries, catalog.* messages; vitest 9/9, pytest 8/8; stack 19800/19801 at 1440 + 390 touch before the restarts: instructor name, course code and programme name survive a reload, last change shown, blocked delete names '1 şube'/'8 şube', focus back on the row; section capacity check in E2E TO RUN; builder rf-1-2026-10-18)
+  verified e2e 2026-10-18 (e2e lane: stack 19800/19801 at 1440 mouse + 390×844 touch, docs/testing/e2e-queue/results-2026-10-18.md § RF-1)
 - [ ] RF-06 major: re-import keeps admin edits (room capacity and tags, programme renames, exam requests and archived rows, FILE preference rules) with a diff review — after lane C
 - [ ] RF-07 major: learning refresh button + nightly refresh; correct, disable or tune individual habits — AS-B, AS-13
+  part done (backend: POST /learning/refresh returns a learning version, nightly refresh 03:15 Europe/Istanbul for the active term behind GET/PUT /learning/settings, PUT /learning/priors/{id}/habit disable / correct / tune, GET /learning/habits, all audited; tests test_as_13_learning (7); as-b-2026-10-17)
+  open: the 'Öğrenmeyi yenile' button, nightly switch and per-habit controls in LearningMemoryPanel (AS-17 frontend lane, contract in the AS-B API notes).
+  part done (frontend: 'Öğrenmeyi yenile' button, 'Her gece yenile' switch, Sürümler with revert, and per-habit Kapat / Düzelt / Ağırlığı ayarla / Varsayılana dön in LearningMemoryPanel: components/learning/learning-versions.tsx, learning-habits.tsx, lib/api/learning-versions.ts; vitest learning-versions.test.tsx (6); as-f-2026-10-18)
+  open: e2e on the stack (refresh → new version row, disable a habit → it is no longer suggested).
 - [ ] RF-08 major: seeded workbooks are recorded as imports with an actor, a report and a download — after lane C
 - [ ] RF-09 major: period grid and term week calendar editable by admins — after lane C / CAL-B
 - [ ] RF-10 major: the personal 'Yoğunluk' setting also applies to the timetable — after the mobile optimisers
-- [ ] RF-11 major: senders for reminder, series created and changed, approval submitted and calendar consent; new-device sign-in after the security follow-up; correct the 'template only' labels in /admin/email — lane RF-2
+- [x] RF-11 major: senders for reminder, series created and changed, approval submitted and calendar consent; new-device sign-in after the security follow-up; correct the 'template only' labels in /admin/email — lane RF-2
+  done (app/services/mail_senders.py through notify_dispatch: booking.reminder (worker app/workers/reminders.py, bookings.reminder_lead_hours default 24, 0 = off, ledger key per booking/date/period), series.created (replaces the booking_created mail for series), series.changed (owners + approvers who approved the series), approval.submitted (receipt; bell copy read), calendar.consent (kvkk.grant/withdraw hooks, no services/calendar_* edits), new_device.sign_in (UA family + /24 HMAC in user setting known_devices, org.new_device_sign_in_mail); every kind sender=wired; renderer no longer repeats note/intro or leaves literal {placeholders} on the queued re-render; /admin/email copy without lane names; tests/test_rf11_mail_senders.py 12 + 4 updated suites, FakeSMTP outbox sink, pytest/ruff/mypy, no stack; rf-2-2026-10-18)
+  follow-up done (coordinator decision: security/legal mails mandatory): notify_dispatch.MANDATORY (calendar.consent, new_device.sign_in, mfa_reset.by_admin, password_reset_link.by_admin; password_reset sent directly) always reach in_app + email, not listed or switchable in preferences, footers 'kapatılamaz' again; org.new_device_sign_in_mail kept; KVKK export + erasure of known_devices (HMAC, first/last seen); calendar_connectors connect/disconnect -> mail_senders.calendar_connection; frontend settings card components/settings/mail-notices.tsx (reminder_lead_hours 0-336, new_device_sign_in_mail) mounted in settings-view; ?booking= and ?series= (series-only: earliest loaded booking of the series) open the detail sheet on /my-bookings (/bookings/mine redirects) and /bookings (components/bookings/deep-link*.ts). Tests: test_rf11_mail_senders.py 14 passed; vitest deep-link 9, mail-notices 3; e2e pending (resource rule); rf-2-2026-10-18
 - [ ] RF-12 major: SAML federation metadata signature check — after the SAML library lane
 
 
@@ -3144,7 +3221,7 @@ Gates:
 
 Ranked tickets:
 
-- [ ] HB-01 · ai-engineer · no migration · **can start now** · Feature index and no-AI search core.
+- [x] HB-01 · ai-engineer · no migration · **can start now** · Feature index and no-AI search core.
   - `app/helper/features.yaml`: id, route, title/synonyms/steps TR+EN, the `data-tour` anchor (WG-05 names), permission any-of, audiences, `actions[]`, `since`.
   - `app/helper/index.py`: loader with schema validation; BM25 over text folded with `guardrails.fold` plus a light Turkish suffix strip; field weights; the permission filter applied before ranking.
   - `app/helper/data/routes.json`: generated from `frontend/src/app/**/page.tsx` by `scripts/helper/routes.py`.
@@ -3156,6 +3233,7 @@ Ranked tickets:
   vitest asks (frontend owner): `nav-index.test.ts`, which fails when an `href` in `nav-config.ts` or `admin/nav-items.ts` has no index entry.
   files: new `backend/app/helper/{__init__,index,features.yaml}`, `backend/app/helper/data/routes.json`, `scripts/helper/routes.py`, `backend/tests/helper/**`.
   collision: WG-B/WG-F own the anchor names. Read only; ask WG-F for any missing `data-tour` ids.
+  done (app/ai/helper/features.yaml + index.py: Turkish-folded BM25, permission filter before ranking, kind/path/≤ 3 steps/CRBS synonyms (A3), every nav-config/admin nav href has an entry with the same permission; tests/helper/test_hb_01_index.py 11 incl. where_queries.json top-1/top-3; the vitest nav-index.test.ts stays with HX-01; hb-a-2026-10-18)
 - [ ] HB-02 · ai-engineer · no migration · **can start now** · `GET /helper/search?q=&limit=`: index hits as `nav` cards, plus data hits from the palette's sources (courses, sections, instructors, programmes, booking rooms) through the person's own permissions; no AI, no metering.
   accept:
   - pytest: 4 personas × 10 queries; a 403 source is skipped, not fatal;
@@ -3163,7 +3241,8 @@ Ranked tickets:
   - Turkish-first strings.
   files: new `backend/app/api/v1/helper.py` (search route only), `backend/app/helper/search.py`, tests. Ask: one `include_router` line in `backend/app/api/v1/router.py` (router owner).
   frontend twin (HX, designer lane): a "Nasıl yapılır" group in `command-palette.tsx`.
-- [ ] HB-03 · ai-engineer · no migration · **can start now** · Action registry core and the 10 read actions.
+  part done (GET /helper/search: pages + where ("Nerede?" group, A5) as nav cards, rooms / courses / instructors / programmes / sections through the person's permissions, a 403 source is skipped; test_hb_02_search.py 5 (4 personas x 10 queries); hb-a-2026-10-18). open: p95 < 50 ms on the seeded stack (E2E TO RUN)
+- [x] HB-03 · ai-engineer · no migration · **can start now** · Action registry core and the 10 read actions.
   - `@action` decorator: name, kind, permission any-of, pydantic `args` (`extra="forbid"` → strict tool schema), service, REST twin `route`, card, `rate`.
   - `tools_for(access, hits, settings)` gives ≤ 10 tools.
   - Read actions 1–10 of the research doc §5.2: open_feature, search_site, find_free_rooms, room_day_schedule, my_bookings, my_requests_status, approvals_inbox, run_status, requests_needing_review, my_ai_usage.
@@ -3174,7 +3253,8 @@ Ranked tickets:
   - the strict-schema budget (`catalog.py:820-826` rules) holds for any 10-tool subset;
   - read actions are side-effect free (no `session.add`/commit, checked with a session spy).
   files: new `backend/app/helper/actions/{__init__,registry,nav,bookings,approvals,planning,usage}.py`, tests.
-- [ ] HB-04 · backend · **migration (next head at merge time; VO-02, AS-03/05/13 and CAL also plan one: re-check `alembic heads`, never two heads)** · Helper tables:
+  done (registry + 10 reads, strict tool schemas, tools_for ≤ 10 with taint; new app/ai/helper/tooluse.py validates every model tool call before it runs (stop reasons, offered names, strict args, same checks as the card endpoint, tokens hidden from the model), used by HB-06's run_turn; test_hb_03_registry.py 8 + test_hb_03_tooluse.py 3 (mocked anthropic SDK; live smoke skipped without ANTHROPIC_API_KEY); hb-a-2026-10-18)
+- [x] HB-04 · backend · **migration (next head at merge time; VO-02, AS-03/05/13 and CAL also plan one: re-check `alembic heads`, never two heads)** · Helper tables:
   - `helper_action_invocations`: id, user_id, action, args_hash, preview_hash, nonce **unique**, status `previewed/confirmed/done/failed/undone`, audit_id, undo_of, created_at, expires_at;
   - `helper_threads`, `helper_messages`, `helper_notes`, `helper_events` (columns in research §5.4 and §5.7).
   - SQLite + PostgreSQL; RLS policies owner-scoped (like `ai_usage`; fan-out not needed).
@@ -3184,7 +3264,8 @@ Ranked tickets:
   - RLS: a teacher reads only their own rows;
   - the purge job test.
   files: new `backend/alembic/versions/00NN_helper.py`, `backend/app/models/helper.py`, `backend/app/models/__init__.py` (export), `backend/app/core/rls.py` only if a new policy helper is needed (ask the W3-SEC owner), tests.
-- [ ] HB-05 · ai-engineer · no migration (tables from HB-04) · Write actions with preview, confirm, idempotency, audit and undo:
+  done (alembic 0044_helper, SQLite + PostgreSQL round trip, RLS owner-only, purge; test_hb_04_migration.py 4; hb-a-2026-10-18)
+- [x] HB-05 · ai-engineer · no migration (tables from HB-04) · Write actions with preview, confirm, idempotency, audit and undo:
   - actions: `create_booking`, `cancel_my_booking`, `withdraw_my_request`, `decide_approval`, `undo_last_helper_action`;
   - `preview()` uses the service's check path (`booking_policies.enforce`, free-slot check) with no writes;
   - confirm token: HMAC (user, action, canonical args, preview hash, exp 10 min, nonce);
@@ -3199,7 +3280,8 @@ Ranked tickets:
   - approval mode `all` turns `create_booking` into a request;
   - red-team RA-01, 03, 04, 05, 06, 11 (research §7.2) pass offline.
   files: `backend/app/helper/actions/{bookings,approvals,undo}.py`, `backend/app/helper/confirm.py`, `backend/app/api/v1/helper.py` (confirm/undo routes), tests.
-- [ ] HB-06 · ai-engineer · no migration · **after the security follow-up and VO-01 (same lines in `context.py`/`gateway.py`)** · Gateway feature `helper` and the turn loop.
+  done (5 writes in actions/writes.py; confirm.py: HMAC token, once-only nonce claim, preview hash re-check (409 changed + new card), audit helper.action.<name> / helper.confirm_rejected, undo through bookings_undo (24 h, before the start); own single bookings / cancels / withdrawals one tap R1, approver decides R2, no publish/invite write; test_hb_05_writes.py 6 + red team RA-01/03/04/05/06/11; API contract scratchpad/helper/API.md; hb-a-2026-10-18)
+- [x] HB-06 · ai-engineer · no migration · **after the security follow-up and VO-01 (same lines in `context.py`/`gateway.py`)** · Gateway feature `helper` and the turn loop.
   - Registration:
     - `FEATURES`/`FEATURE_LABELS` ("Yardımcı"/"Helper");
     - `DEFAULT_CAPS["helper"] = {max_tokens: 4000, max_tool_rounds: 4, timeout_s: 60}`;
@@ -3220,14 +3302,16 @@ Ranked tickets:
   - every SSE `card` validates against `/helper/schema`;
   - one `ai_usage` row per model call with feature `helper`.
   files: `backend/app/ai/context.py`, `backend/app/ai/gateway.py` (`DEFAULT_CAPS`, `PERSONAL_FEATURES`), `backend/app/ai/guardrails.py` (`MAX_INPUT_CHARS` only), new `backend/app/helper/{turn,cards}.py`, `backend/app/ai/prompts/helper.md`, `backend/app/api/v1/helper.py`, tests.
-- [ ] HB-07 · ai-engineer · no migration · **can start now; align with `docs/design/v3/helper.md` when it lands** · Card contract `helper.card.v1`: pydantic union `answer`/`nav`/`list`/`facts`/`form`/`confirm`/`result`/`limit`/`refusal`/`error` (research §5.3), `GET /helper/schema` (cards + action arg schemas), and form-field kinds derived from action `args`.
+  done (gateway feature `helper` (FEATURES/labels Yardımcı·Helper, DEFAULT_CAPS 4000/4/60, PERSONAL_FEATURES, MAX_INPUT_CHARS 1000); turn loop `app/ai/helper_turn.py` + SSE `POST /helper/turn` (`app/api/v1/helper_turn.py`, mounted): helper guard → index mode with 0 model calls → ai_scope('helper') loop ≤ 4 rounds, ≤ 10 strict tools, results spotlighted, taint drops writes, confirm card ends the turn, grounded answer card; fallback to index mode on 422/429/409/502/timeout/no key; prompt `app/ai/prompts/helper.md`; tests/ai/test_hb_06_turn.py 14 passed; audit row POST /helper/turn; hb-b-2026-10-18)
+- [x] HB-07 · ai-engineer · no migration · **can start now; align with `docs/design/v3/helper.md` when it lands** · Card contract `helper.card.v1`: pydantic union `answer`/`nav`/`list`/`facts`/`form`/`confirm`/`result`/`limit`/`refusal`/`error` (research §5.3), `GET /helper/schema` (cards + action arg schemas), and form-field kinds derived from action `args`.
   accept:
   - snapshot test of the JSON Schema;
   - no card field can carry a URL or HTML (schema pattern + test);
   - every TR string has an EN twin;
   - the designer signs off the field list in `helper.md` (or lists the differences as asks).
   files: new `backend/app/schemas/helper.py`, `backend/app/helper/cards.py` (builders), tests. Frontend twin: HX renderer (designer lane).
-- [ ] HB-08 · ai-engineer · no migration · **can start now** · Helper guardrails:
+  done (schema.py helper.card.v1 incl. choice (A2), follow_ups ≤ 2 (A7), list ≤ 5 rows (A8); GET /helper/schema; POST /helper/actions/{name}/card with no model call (A4), confirm directly when resolved (A1); GET /helper/status (A6) index-only until an admin routes helper; every string field a plain/identifier pattern, args neutralised instead of a 500; choice pick fixed (room option values as text); snapshot tests/helper/fixtures/helper_card_v1.schema.json; test_hb_07_cards.py 5; designer differences in API.md; hb-a-2026-10-18)
+- [x] HB-08 · ai-engineer · no migration · **can start now** · Helper guardrails:
   - `app/helper/guard.py`: off-scope means no scheduling signal and an index score below the threshold, which gives a 0-token refusal card + the top 3 hits;
   - the index vocabulary feeds the scope check;
   - "answer names a page without a `nav` card" replaces the text with the index answer;
@@ -3239,7 +3323,8 @@ Ranked tickets:
   - RA-13/RA-14 pass;
   - `POST /ai/admin/redteam` includes the helper cases.
   files: new `backend/app/helper/guard.py`, `backend/app/ai/redteam_guard_cases.json` (append), `backend/app/ai/redteam.py` (case loader only if needed), tests.
-- [ ] HB-09 · ai-engineer · no migration (tables from HB-04) · **can start after HB-04** · Memory with consent:
+  done (guard.py, helper cases in redteam_guard_cases.json, redteam_actions.json RA-01…15 with tests/helper/test_hb_redteam_actions.py (one test per id) + test_hb_redteam_turn.py (RA-02, RA-09 through HB-B's run_turn with the fake SDK); test_hb_08_guard.py 8; RA-10/11/15 keep their live parts for HB-10/HB-11/HB-06; hb-a-2026-10-18)
+- [x] HB-09 · ai-engineer · no migration (tables from HB-04) · **can start after HB-04** · Memory with consent:
   - `GET/POST/DELETE /helper/notes`; a note is created only from a user action (`source=user_button|user_confirmed`);
   - limits: ≤ 20 notes, ≤ 200 chars each;
   - a person's name from the redactor list is refused in a note;
@@ -3249,7 +3334,8 @@ Ranked tickets:
   - pytest for consent, limits, purge, DSR export lists notes and threads, erasure deletes them;
   - RA-12 passes.
   files: new `backend/app/helper/memory.py`, routes in `backend/app/api/v1/helper.py`, tests. Asks (KVKK owner): one `DATA_CLASSES` row and the purge registration in `backend/app/services/kvkk.py`.
-- [ ] HB-10 · backend · **migration (next head, after VO-02's `ai_usage` migration; after the security follow-up hands off `services/ai_usage.py`)** · Quota chain and multi-worker reservations.
+  done (memory.py: notes only on Hatırla / Not ekle, 20 x 200, no person's name, 180 days since last use, threads 30 days, admin switch PUT /helper/admin/settings (audited ai.helper), the person's switch, withdrawal of ai_personal deletes notes (withdraw effect helper_notes_deleted), KVKK export rows {kind: note|thread|action} + erasure, prompt_notes for the turn loop; test_hb_09_memory.py 4; hb-a-2026-10-18)
+- [x] HB-10 · backend · **migration (next head, after VO-02's `ai_usage` migration; after the security follow-up hands off `services/ai_usage.py`)** · Quota chain and multi-worker reservations.
   - Columns: `ai_usage.department_id`, `ai_usage.faculty_id` (snapshot at record time; index `(created_at, faculty_id)`).
   - Table `ai_reservations`.
   - `ai.limits` gains `faculties` (with `managers`), `departments`, `features`, `unassigned`.
@@ -3265,7 +3351,8 @@ Ranked tickets:
   - the old `test_w3_ai_gateway.py` suite stays green;
   - the `guardrails.py:633` docstring is corrected.
   files: `backend/app/models/ai_usage.py`, `backend/app/services/ai_usage.py`, `backend/app/ai/gateway.py` (`DEFAULT_LIMITS`), `backend/app/ai/pipeline.py` (rate / concurrency calls), `backend/app/ai/guardrails.py` (limiter classes), `backend/app/api/v1/ai_admin.py` (`LimitsIn`; **after VO-04**), new `backend/alembic/versions/00NN_ai_quota_units.py`, tests.
-- [ ] HB-11 · backend · no migration · Faculty quota managers.
+  done (alembic 0046_ai_quota_units: ai_usage.department_id/faculty_id snapshot + ix (created_at, faculty_id/department_id), table ai_reservations; reserve order concurrency → org → feature → faculty/unassigned → department → role (role_id, then code) → user under pg_advisory_xact_lock + per-worker asyncio lock; per-minute limit and concurrency counted from the table; TR/EN refusals per scope; unit alerts to faculty managers + admins; PUT /ai/admin/limits takes faculties/departments/features/unassigned/strict (department sum ≤ faculty 422; faculty sum > org = warning, 422 with strict); guardrails RateLimiter docstring corrected; tests/ai/test_hb_10_quota_chain.py 20 passed incl. two engines on one real PostgreSQL 16 (fails ['ok','ok'] without the advisory lock), tests/test_hb_10_migration.py 3 passed (SQLite + PG round trip), old test_w3_ai_gateway.py green; hb-b-2026-10-18)
+- [x] HB-11 · backend · no migration · Faculty quota managers.
   - Permission `ai.usage_faculty` ("Fakültemin yapay zekâ kullanımını görme ve paylaştırma"), seeded by `ensure_permissions_and_roles`; it needs a `PERMISSION_TR` label.
   - Scope: `faculties[id].managers`, else the faculty of the manager's own department.
   - `GET /ai/faculty/usage` gives totals, by department, by feature and the trend; by person only with `show_people`.
@@ -3278,7 +3365,8 @@ Ranked tickets:
   - audit rows;
   - permission label in TR/EN.
   files: `backend/app/services/bookings_perms.py` (one permission row + TR label; ask the permissions owner if one is running), new `backend/app/api/v1/ai_faculty.py`, `backend/app/services/ai_usage.py` (report filter), tests. Frontend twin: HX "Fakülteler" sub-tab in `/admin/ai › Sınırlar`.
-- [ ] HB-12 · ai-engineer · no migration · **after the security follow-up and VO-01 (extends VO-01's `ModelInfo` capability fields)** · Capability detection on model sync and route validation.
+  done (permission ai.usage_faculty 'Fakültemin yapay zekâ kullanımını görme ve paylaştırma' (bookings_perms + deps.PERMISSION_TR, admin only by default); `app/api/v1/ai_faculty.py`: GET /ai/faculty/usage (totals, by department, by feature, daily trend; people only with show_people and tokens only; scope = faculties[id].managers else own department's faculty; admins any; cross-user reads in rls.system_scope with the faculty filter in SQL; RA-11 403), PUT /ai/faculty/allocations (programmes of that faculty only, sum ≤ faculty allocation, audited ai.faculty_allocation); tests/ai/test_hb_11_faculty.py 7 passed; hb-b-2026-10-18)
+- [x] HB-12 · ai-engineer · no migration · **after the security follow-up and VO-01 (extends VO-01's `ModelInfo` capability fields)** · Capability detection on model sync and route validation.
   - `ModelInfo.capabilities` {tools, tool_choice, strict_tools, json_schema, vision, pdf, context_window, parallel_tools, source, checked_at}.
   - Sync sniffs the server type through `url_guard`: Ollama `/api/show`, vLLM `/v1/models` `max_model_len`, LM Studio `/api/v0/models`, llama.cpp `/props`, OpenRouter `supported_parameters`.
   - `test?probe=true` runs a forced-tool, a json_schema and a 32×32 image probe (< 1000 tokens, metered `test`).
@@ -3290,7 +3378,8 @@ Ranked tickets:
   - the probe results stored;
   - no request to a blocked address during sniffing.
   files: `backend/app/ai/providers/base.py`, `backend/app/ai/providers/openai_compat.py` (`list_models`, new `probe`), `backend/app/ai/gateway.py` (`validate_route`), `backend/app/api/v1/ai_admin.py` (sync/test; **after VO-04**), tests.
-- [ ] HB-13 · ai-engineer · no migration · **after the security follow-up; the `ingest.py` part after intake lane C** · Local-model degrade fixes.
+  done (capabilities sync/sniff/probe/override (earlier slice); audit DECISIONS row for PUT /ai/admin/providers/{provider}/capabilities; tests/ai/test_hb_12_capabilities.py formatted, 13 passed; hb-b-2026-10-18)
+- [x] HB-13 · ai-engineer · no migration · **after the security follow-up; the `ingest.py` part after intake lane C** · Local-model degrade fixes.
   - Forced tool choice for single-tool features (`client.py`: `force_tool=` → Anthropic `{"type":"tool"}` / OpenAI named function).
   - JSON-schema emulation when `tool_choice` is false or unknown (wrap the result into a `tool_use` block).
   - Invalid tool JSON becomes an `INVALID_JSON` tool result instead of a whole-call `ProviderError` (`providers/base.py:543-552`).
@@ -3304,6 +3393,7 @@ Ranked tickets:
   - a name resolving private does not;
   - existing provider tests stay green.
   files: `backend/app/ai/client.py`, `backend/app/ai/providers/openai_compat.py`, `backend/app/ai/providers/base.py`, `backend/app/ai/elicit.py` (pass `force_tool`), `backend/app/council/llm.py` (`call_tool` `force_tool`), `backend/app/ai/ingest.py` (rasterise branch, `:441-500`), `backend/app/ai/gateway.py` (`transfer_ok`), tests.
+  done (AIClient.complete/stream_complete `force_tool` (elicit + council call_tool pass it): Claude → auto (Opus 5.5/Sonnet 5.5/Fable 5.1 400 on forced choice), OpenAI-compatible → named function or JSON-schema emulation + one emulated retry; broken tool JSON → `_invalid` → INVALID_JSON tool result; scanned PDFs rasterised to PNG pages for local VLMs; pipeline clamps max_tokens to the context window and refuses `context_too_small` / `model_lacks_capability` before sending (fallback skipped when it cannot take the call); is_local_url by resolved addresses; tests/ai/test_hb_13_local_models.py 15 passed, test_w3_ai_providers bad-JSON case updated to the new contract; hb-b-2026-10-18)
 - [ ] HB-14 · ai-engineer · no migration (tables from HB-04) · Telemetry and feedback.
   - `helper_events` writer; `POST /helper/feedback` {turn_id, thumb, note ≤ 300}.
   - Prometheus `smartsched_helper_turns{mode,outcome}`, `smartsched_helper_actions{action,stage,outcome}`, `smartsched_helper_latency_seconds{mode}` (no user label).
@@ -3363,3 +3453,547 @@ Sequence:
 - After VO-04: HB-14 (admin route), then HB-15.
 - After VO-05: HB-16.
 - HB-17 runs from HB-12 onward, and HB-18 last.
+
+### AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX
+Ledger `helper-ux-2026-10-17`. Owner: keep every feature, but people used to classroombookings must find SmartSched easy and never overwhelming; a search tool or AI guide that says where each feature is and where to click; in-chat generated buttons and small forms that call the site's own features ("similar to OpenAI's new intelligent UI", i.e. ChatGPT Intelligent UI, 2026-10-07). Research (OpenAI Intelligent UI / ChatKit widgets / Apps SDK, AI SDK, CopilotKit, assistant-ui, MCP Apps, A2UI, Thesys C1, M365 Admin agent, Stripe, Intercom Fin, Rovo, Linear, Notion, Raycast, Mobbin M1–M15, licences): [docs/research/2026-10-17-helper-ux.md](research/2026-10-17-helper-ux.md). Design (placement, "Nerede?", the card catalogue and risk classes, memory, limits / status chip, TR/EN copy, motion, a11y, **simplicity checklist §9**, phone layouts, test ids): [docs/design/v3/helper.md](design/v3/helper.md), wireframes `docs/design/v3/wireframes/helper-{search-1440,sheet-1440,where-1440,390,cards,states}.svg` (generator `helper-gen.py`).
+
+**Placement decision:**
+- One entry point: the ⌘K palette becomes **"Ara veya sor"**. Desktop gets a field-like top-bar trigger; phones use the existing round search button. There is no floating bot and no new tab.
+- Results order: navigation hits → **Nerede?** (controls inside pages, with "Göster") → Kısayollar → **Yardımcıya sor**.
+- The helper opens as a **non-modal 400 px side sheet** on desktop and **full screen** on phones (⌘J).
+- The run chat stays separate (timetable edits through the guarded apply path) and shares the stream, composer, banner and card frame.
+
+**Backend:** HB-01…HB-20 above ("AI helper: backend, governance, local models"). This UX is aligned with its `helper.card.v1` contract, `POST /helper/turn`, `GET /helper/search`, the confirm-token flow and the memory model. UX asks A1–A8 are in `helper.md` §17.
+
+**Lanes:** **HX-F** frontend (HX-01…10), **HX-M** motion (HX-11), **HX-D** design (HX-12), **HX-T** tester (HX-13). Every file is new under `smartsched/frontend/src/components/helper/**` (+ `lib/api/helper.ts`), except the one-line mounts listed as asks. Nothing here touches the integrity guards, W3-*, CAL-*, WG-* files or the round-3 lanes.
+
+**Testers:** academician (`akademisyen.test@`), staff (`personel.test@`, later granted `approvals.decide`), planner, admin (`admin@`). Viewports: 1440 mouse and 390×844 touch, tr-TR, Europe/Istanbul.
+- [ ] HX-01 · frontend · no migration · **can start with HB-01/HB-02/HB-07 contracts** · API client and the client-side helpers.
+  - `lib/api/helper.ts`: zod types generated from `GET /helper/schema` (snapshot test), React Query hooks for `GET /helper/search`, `POST /helper/turn` (SSE), `POST /helper/actions/confirm`, `POST /helper/actions/undo`, notes and threads.
+  - `components/helper/feature-links.ts`: `feature_id` → href, anchor, kind, path. It is generated from `nav-config.ts`, `ADMIN_SECTION_NAV_ITEMS`, the settings / profile tabs and `helper.md` §3.4. The server never sends a URL.
+  - `components/helper/intents.ts`: TR/EN dates, periods, times, room codes and headcounts → action + partial args.
+  - Hand the CRBS synonyms table (`helper.md` §3.2) and the `kind` / `path` fields to HB-01 (ask A3).
+  accept: vitest
+  - `feature-links.test.ts`: every `feature_id` maps to an existing route; every anchor exists in welcome-guide §13 or helper §3.4;
+  - the nav-index test HB-01 asks for fails when a `nav-config.ts` / `admin/nav-items.ts` href has no index entry;
+  - `intents.test.ts`: ≥ 60 TR/EN phrasings incl. "yarın 10 a 204", "perşembe öğleden sonra 12 kişilik", "3. saat", Turkish İ/ı;
+  - the schema snapshot matches the server's;
+  - tsc, eslint and `check-design.mjs` clean.
+  files: new `frontend/src/lib/api/helper.ts`, `frontend/src/components/helper/{feature-links,intents,schema.gen}.ts` + tests.
+  testers: — (unit level).
+- [ ] HX-02 · frontend · no migration · **"Ara veya sor"**: the extended palette and its trigger (`helper.md` §2.2, §2.3; `helper-search-1440.svg`, `helper-390.svg` A).
+  - Groups in this order: Sayfalar ve ayarlar, **Nerede?**, the existing data groups, **Kısayollar**, **Yardımcıya sor**. Empty query: Son yaptıklarınız (≤ 3) + role starters + Git.
+  - The ask row is last, or first and preselected when the query reads as a question.
+  - Shift+Enter = Göster.
+  - Status chip on the ask row.
+  - No hits: the ask row is still offered. With AI off: no ask row, while Nerede? and Kısayollar remain.
+  - Max 6 rows per group and 24 in total.
+  - Placeholder and trigger copy from `helper.*` keys (TR first).
+  accept: vitest `palette-groups.test.tsx` (group order, role filter, question detection, Shift+Enter, ask row hidden in index mode); Playwright `e2e/hx-palette.spec.ts` at 1440 and 390 touch:
+  - an admin finds "periods" → Ders saatleri and "Tatil ekle" (Göster) with `mode: index` and **0 `ai_usage` rows**;
+  - an academician gets no admin hit for "kullanıcı davet";
+  - the trigger's accessible name is "Ara veya sor (Ctrl+K)" / "(⌘K)";
+  - MOBILE M-01/02/03/05 with the palette open.
+  files: new `frontend/src/components/helper/{palette-groups,helper-trigger}.tsx` + tests, `frontend/messages/{tr,en}.json` (`helper.*` only), `frontend/e2e/hx-palette.spec.ts`.
+  asks (shell owner):
+  - mount `<HelperPaletteGroups/>` and the new placeholder in `components/shell/command-palette.tsx`;
+  - replace the "Ara" button with `<HelperTrigger/>` in `top-bar.tsx`;
+  - the label "Ara veya sor" on `open-palette-mobile` in `tab-bar.tsx`;
+  - playwright `testMatch` append `hx-[a-z-]+`.
+  testers: academician (phone), admin (desktop).
+- [ ] HX-03 · frontend · no migration · **after HB-06 (turn) or against its SSE fixture** · Helper sheet and conversation (`helper.md` §2.4, §2.5, §5.2, §5.3; `helper-sheet-1440.svg`, `helper-390.svg` B, `helper-states.svg` A/B).
+  - `HelperProvider`: open state, current thread, ⌘J; on `/runs/[id]`, ⌘J keeps focusing the run chat.
+  - `HelperSheet`: desktop non-modal `role="complementary"` 400 / 360 px, no scrim, F6; phone full-screen dialog with a focus trap.
+  - Message log (`role="log"`), streaming text, "Düşünüyor…", the page-context chip, `PromptComposer` (16 px), `AiUsageBanner`, `AiNotice`, role starters.
+  - `StatusChip` (Yerel model / Bulut · {sağlayıcı} / yedek / Yapay zekâ kapalı / Sınıra ulaşıldı; ask A6).
+  - **Rehber modu** when `mode: index` or AI is unavailable: a search field over `GET /helper/search` plus shortcuts, and no composer.
+  - Limit states: user / department / faculty scope messages from the server.
+  - Esc closes and focus returns to the opener.
+  accept: vitest `helper-sheet.test.tsx` (non-modal on desktop, modal on phone, focus in / out, Esc, F6, chip states, Rehber modu, limit disables the composer with the reason); Playwright `e2e/hx-sheet.spec.ts` at 1440 and 390:
+  - open from the palette and from ⌘J, ask a question, a streamed answer arrives, close and focus returns;
+  - in index mode the sheet works with no model;
+  - at 100 % the composer is disabled and Kısayollar work;
+  - MOBILE M-01/02/03/05 with the sheet open on `/reserve`;
+  - blur budget: ≤ 3 backdrop-filter surfaces while the sheet animates.
+  files: new `frontend/src/components/helper/{helper-provider,helper-sheet,stream,status-chip,thread,starters}.tsx` + tests, `frontend/e2e/hx-sheet.spec.ts`.
+  asks (shell owner):
+  - one `<HelperProvider/>` mount in `components/shell/app-shell.tsx`;
+  - ⌘J in `use-global-shortcuts.ts`;
+  - "Yardımcıya sor" in the user menu › Yardım group (next to WG-06's items) and the "Daha" › Yardım group.
+  testers: academician (phone), admin (desktop), planner (⌘J on a run page).
+- [ ] HX-04 · frontend · no migration · **with HB-05/HB-07** · Card renderer and the confirm / undo plumbing (`helper.md` §4.1, §4.2, §4.6).
+  - `HelperCardFrame` + one component per wire type: `answer`, `nav`, `list`, `facts`, `form`, `confirm`, `result`, `limit` / `refusal` / `error`, `choice` (ask A2).
+  - Unknown type or action → `answer` + `nav` fallback.
+  - Confirm only on an `isTrusted` click or key on the card's button; "evet" in the composer answers `helper.card.typedYes`.
+  - Token expiry → "Bu öneri eskidi" + Yenile; a 409 shows the new preview.
+  - Result: focus → the result line, a polite live message, "Geri al" (undo token) and an 8 s toast.
+  - The older pending card collapses; at most one pending R2 card.
+  - "Yalnızca metin" preference.
+  accept:
+  - vitest `cards/*.test.tsx`: every wire type renders from the schema fixtures; an unknown action falls back; a non-trusted click does not confirm; typed "evet" does not confirm; an expired token shows Yenile; focus after confirm and after undo is never `<body>`; no element renders a server-provided URL or HTML (render test with hostile strings);
+  - axe: no violations in the card fixtures.
+  files: new `frontend/src/components/helper/cards/{frame,render,answer,nav,list,facts,form,confirm,result,status,choice}.tsx` + tests.
+  testers: academician, approver.
+- [ ] HX-05 · frontend · no migration · **after HX-04 and HB-05** · Action presentations R0/R1 (`helper.md` §4.3; `helper-cards.svg`): `book_room` (create_booking, "Talep et" in request mode), `find_room`, `room_day`, `my_bookings`, `cancel_booking`, `my_requests` (+ withdraw), `run_status` / review, `my_ai_usage`, `remember` (notes), `undo_last`.
+  - Prefilled `confirm` with "Değiştir" → `form` (ask A1).
+  - Option lists from the existing endpoints (`options_source`).
+  - ≤ 5 visible fields; the rest behind "Gelişmiş".
+  - Follow-up chips (ask A7).
+  accept: Playwright `e2e/hx-actions.spec.ts` at 1440 and 390 on the own stack:
+  - academician: "Yarın 10:00 için A 204'ü ayır" → one click → booking exists → "Geri al" cancels it;
+  - a taken slot shows "Bu saat az önce doldu." + "Başka saat öner";
+  - a request-mode room shows "Talep et" and creates a request;
+  - cancel own booking + undo while the slot is free;
+  - audit rows `helper.action.*` exist, and no write happens without the click (audit count before / after an unconfirmed card);
+  - MOBILE M-01/02/03/05 with a card open.
+  files: new `frontend/src/components/helper/cards/actions/*.tsx` + tests, `frontend/e2e/hx-actions.spec.ts`.
+  testers: academician, staff.
+- [ ] HX-06 · frontend · no migration · **after HX-04** · R2 and hand-overs:
+  - `approvals_list` (row confirm, reject reason as on `/approvals`);
+  - `invite_user` (client form → opens the users page's invite dialog prefilled);
+  - `publish_run` (a `facts` preview → opens the runs page's own publish dialog; blockers disable it with the reason);
+  - `add_to_calendar` (opens the CAL-08 sheet);
+  - `download_report` (the page's export button via `feature_id`; Göster when it is off-screen);
+  - `open_run_chat` (navigate + prefill the run chat).
+  accept: Playwright `e2e/hx-handover.spec.ts`:
+  - an approver approves and rejects with a reason from the helper;
+  - a planner's "Planı yayınla" never publishes without the dialog (run state unchanged until the dialog's confirm);
+  - an academician never gets publish or invite cards;
+  - an admin's invite opens the dialog with the e-mail, name and role filled;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/cards/actions/{approvals,invite,publish,calendar,report,run-chat}.tsx` + tests, `frontend/e2e/hx-handover.spec.ts`.
+  asks:
+  - the runs owner: export the publish dialog or accept `?publish=<run_id>`;
+  - the admin-users owner: accept `?invite=1&email=&name=&role=&department=` prefill;
+  - CAL-F: open the CAL-08 sheet from `?calendar=1`;
+  - the chat owner: `?chat=<text>` prefill on `/runs/[id]`.
+  testers: approver, planner, admin.
+- [ ] HX-07 · frontend · no migration · **after WG-05** · "Göster" (`helper.md` §3.3; `helper-where-1440.svg`, `helper-390.svg` D).
+  - `ShowMe` = a 1-step tour on WG-05's `SpotlightRing` + `TourCard`: navigate, wait ≤ 3 s for `[data-tour]`, scroll to centre, ring, step card "Anladım" / "Yardımcıya dön".
+  - The target stays interactive. The scrim is at 25 % on desktop with the sheet visible. On phones the sheet closes and the step card is docked.
+  - A missing anchor → the steps + "Bu düğme şu an bu sayfada görünmüyor."
+  accept: vitest `show-me.test.tsx`; Playwright `e2e/hx-showme.spec.ts`:
+  - admin "Tatil ekle" and "Davet et" are ringed at 1440 and 390;
+  - Esc ends with focus on the target;
+  - "Yardımcıya dön" restores the thread;
+  - reduced motion: the ring jumps.
+  files: new `frontend/src/components/helper/show-me.tsx` + test, `frontend/e2e/hx-showme.spec.ts`.
+  asks: the `data-tour` anchors of `helper.md` §3.4, one attribute each, from their page owners (admin setup, profile, reserve, find-room, my-bookings, runs, bookings).
+  testers: admin, academician.
+- [ ] HX-08 · frontend · no migration · **after HB-09** · Profil › Yardımcı (`helper.md` §5.1; `helper-states.svg` C):
+  - the memory switch;
+  - notes (list, Sil, Not ekle ≤ 200 characters, the server refuses a person's name);
+  - history ("Son 30 günün konuşmaları saklanır", Geçmişi sil with confirm);
+  - the plain notice;
+  - "2 notunuzu kullanıyorum · Yönet" in the empty sheet;
+  - "Notunuza göre: …" under answers that used a note.
+  accept: vitest; Playwright `e2e/hx-memory.spec.ts`:
+  - no note exists until "Hatırla";
+  - delete one, delete all history;
+  - DSR export (existing KVKK page) lists notes and threads;
+  - `ai_personal` withdrawal empties the notes and the sheet runs in index mode;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/memory/memory-section.tsx` + test, `frontend/e2e/hx-memory.spec.ts`.
+  asks: one mount in `components/admin/profile-view.tsx` (profile owner).
+  testers: academician.
+- [ ] HX-09 · frontend · no migration · **after HB-14/HB-15** · `/admin/ai` › **Yardımcı** tab:
+  - on / off and mode (Yapay zekâ / Yalnızca dizin);
+  - audiences;
+  - actions per audience with plain risk words ("Kendi rezervasyonu", "Başkalarını etkiler");
+  - memory and retention behind "Gelişmiş";
+  - the summary as **4 tiles with sentences** ("Bu hafta 312 soru; %71'i doğrudan sayfaya yönlendirildi"), not a KPI wall;
+  - unanswered queries with k ≥ 5.
+  accept: vitest; Playwright `e2e/hx-admin.spec.ts`:
+  - switching `create_booking` off for academicians removes it (the academician gets a `nav` card instead);
+  - mode "Yalnızca dizin" → 0 `ai_usage` rows on the next turns;
+  - a staff user gets the no-access page;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/admin/{helper-admin,helper-summary}.tsx` + tests, `frontend/e2e/hx-admin.spec.ts`.
+  asks (W3-AI owner): one tab entry in `components/admin/ai/ai-admin.tsx`.
+  testers: admin.
+- [ ] HX-10 · frontend · no migration · **after HB-10/HB-11** · Faculty quotas:
+  - `/admin/ai` › Sınırlar › **Fakülteler**: one row per faculty (allocation, used meter with words, managers), expandable departments; strict mode and per-feature caps under "Gelişmiş".
+  - The faculty manager's own view (`ai.usage_faculty`): totals, departments and trend in sentences, people only with `show_people`, and "Bölümlere paylaştır" with the sum checked against the faculty allocation (422 message shown inline).
+  accept: vitest; Playwright `e2e/hx-faculty.spec.ts`:
+  - a manager sees only their faculty;
+  - a department sum over the allocation shows the TR message;
+  - a non-manager has no entry;
+  - 1440 + 390.
+  files: new `frontend/src/components/helper/admin/{faculty-limits,faculty-usage}.tsx` + tests, `frontend/e2e/hx-faculty.spec.ts`.
+  asks: a sub-tab slot in `components/admin/ai/limits-tab.tsx` (W3-AI owner); a nav entry for `ai.usage_faculty` holders in `nav-config.ts` (shell owner).
+  testers: admin + a faculty manager account.
+- [ ] HX-11 · motion · no migration · Helper motion (`helper.md` §7).
+  - Sheet open (desktop: `sheet` spring, x 24 → 0, no blur; phone: pattern 4), thinking (pattern 17), streaming chunk fade (pattern 16), card enter, confirm → success check, toast, pending-card collapse, Göster ring, status-chip word swap.
+  - Free transitions.dev recipes only (panel-reveal, thinking-states / shimmer-text, streaming-text, skeleton-reveal, success-check, text-states-swap, toast, tooltip), re-implemented on our tokens, ≤ 300 ms.
+  - Reduced motion = end states / ≤ 100 ms fades; reduced transparency = opaque.
+  - **No hosted Motion Agent fix spent.**
+  accept:
+  - the motion audit (`e2e/motion-audit.spec.ts` helper block): ≤ 3 dropped frames per interaction, nothing > 300 ms except the thinking loop, reduced motion = end state;
+  - `check_snippets.py` PASS if the skill changes;
+  - rows ready for `docs/design/v2/motion.md` §3.19 (handed to its owner).
+  files: new `frontend/src/components/helper/helper.css`.
+  asks: a `components/ui/SOURCES.md` row (its owner), the helper block in `e2e/motion-audit.spec.ts` (its owner), motion.md §3.19.
+  testers: academician (phone, reduced motion on).
+- [ ] HX-12 · design · no migration · Simplicity audit with the `helper.md` §9 checklist.
+  - Scope: the 12 most used screens (`/reserve`, `/bookings`, `/my-bookings`, `/find-room`, `/approvals`, `/moderation/me`, `/admin`, `/admin/users`, `/settings`, `/timetable`, `/runs/[id]`, `/profile`) at 1440 and 390.
+  - Every "no" is a major finding with a screenshot and an owner.
+  - Plus a copy review of all `helper.*` keys (TR first, ≤ 20 words, no internal terms).
+  accept: a report `docs/testing/2026-10-xx-simplicity-audit.md` with pass/fail per rule per screen, screenshots, and tickets for each failure.
+  files: that report only.
+  testers: — (designer run; academician and admin personas).
+- [ ] HX-13 · tester · no migration · Persona runs of `helper.md` §15 together with HB-18 (one run, both reports).
+  - Academician (phone): "Ara veya sor" → Nerede → Göster → book with one click → undo.
+  - Approver: decide from the helper.
+  - Planner: publish hand-over never publishes alone.
+  - Admin: "periods" with AI off, an invite hand-over, a Yardımcı tab switch.
+  - In AI-cloud, AI-local and index-only modes.
+  - Keyboard-only and screen-reader passes (aria snapshots); reduced motion and transparency; MOBILE M-01/02/03/05.
+  - "Overwhelming" or "where do I click?" is a **major** finding.
+  accept: a report `docs/testing/2026-10-xx-persona-helper.md` with pass/fail per step, screenshots per viewport, 0 writes without a confirm in the audit log, and tickets for failures.
+  files: that report; specs live in HX-02…HX-10.
+  testers: academician, staff (+ approver grant), planner, admin.
+- [ ] HX-14 · later · no migration
+  - Re-evaluate merging the run chat into the helper after HX-13.
+  - The composer mic when VO lands (the transcript fills the box; voice doc).
+  - An A2UI v1.0 adapter for `helper.card.v1` and the MCP Apps `ui://` card templates with HB-19/HB-20 (external assistants; KVKK review first).
+  - Optional per-institution "Yardım bağlantısı" in the Rehber modu footer.
+
+**Sequence:**
+1. HX-01 starts with HB-01/02/07, then HX-02.
+2. HX-03 runs against HB-06's SSE fixture, then HX-04.
+3. HX-05 runs after HB-05, together with HX-06.
+4. HX-07 runs after WG-05.
+5. HX-08 runs after HB-09.
+6. HX-09 runs after HB-15, and HX-10 after HB-11.
+7. HX-11 starts after HX-03/HX-04.
+8. HX-12 can start now.
+9. HX-13 runs last, with HB-18.
+
+### Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX
+Ledger `auth-ux-2026-10-18`. The owner asked for the login pages with motion and input-box design, covering:
+- two-factor authentication;
+- adding passkeys;
+- the login providers;
+- for accounts that admins added by e-mail: an admin can reset the user's 2FA or send a password-reset link.
+
+Documents:
+- Design: [docs/design/v3/auth.md](design/v3/auth.md).
+- Wireframes: `docs/design/v3/wireframes/auth-{signin,2fa,security,admin}-{1440,390}.svg` and `auth-inputs.svg`,
+  generated by `auth-gen.py`.
+- Research: [docs/research/2026-10-18-auth-ux.md](research/2026-10-18-auth-ux.md). It covers NIST SP 800-63B-4,
+  OWASP MFA / ASVS 5, Chrome Conditional Create, web.dev OTP and passkey management, input-otp (MIT), FIDO /
+  Passkey Central, Okta, Entra, Google, e-Devlet, and Mobbin flows and screens M1–M13.
+
+**Backend:** AU-B (`docs/research/2026-10-18-auth-backend.md`, AU-xx tickets). The screens are aligned with it. The
+remaining gaps are asks A1a–A1i in auth.md §17: sessions and history API, re-auth window, trusted-device days,
+`/org/public` passkey flags, Conditional Create, invite and reset returning a session.
+
+**Lanes:**
+- **AUX-F** frontend: AUX-01…08 and AUX-11.
+- **AUX-M** motion: AUX-09 and AUX-10.
+- **AUX-T** tester: AUX-12.
+
+New files live under:
+- `smartsched/frontend/src/components/auth/**` (new parts only);
+- `components/profile/security/**`;
+- `components/admin/users-security.tsx`;
+- `components/settings/signin-security.tsx`;
+- `lib/api/auth-security.ts`;
+- the routes `app/login/verify`, `app/login/setup-2fa`.
+
+The one-line mounts in files other lanes own are listed as asks. Nothing touches the integrity guards.
+
+**Testers:** a local planner with 2FA, a local staff member without it, an LDAP user, a Microsoft academician and an
+admin. Viewports: 1440 mouse and 390×844 touch, tr-TR, Europe/Istanbul. A Chromium virtual authenticator handles
+passkeys and the stack's SMTP sink catches mail.
+
+- [ ] AUX-01 · frontend · no migration · **after AU-B's routes** · API client and passkey helpers.
+  - `lib/api/auth-security.ts`: zod types and React Query hooks for:
+    - `/auth/mfa/status`;
+    - TOTP start / confirm / disable;
+    - recovery-code status / regenerate;
+    - passkey register / login options and verify, list, rename, delete;
+    - trusted devices;
+    - the admin MFA reset and reset link;
+    - `auth.*` settings.
+  - `components/auth/passkey.ts`:
+    - feature detection (`PublicKeyCredential`, `getClientCapabilities()`);
+    - conditional `get()` with AbortController;
+    - modal `get()`, `create()`, Conditional Create;
+    - Signal API calls (`signalAllAcceptedCredentials`, `signalUnknownCredential`);
+    - mapping of `NotAllowedError` / `InvalidStateError` / `AbortError` to the copy keys of auth.md §4.6 / §6.4.
+  accept: vitest
+  - schema snapshot against AU-B's OpenAPI;
+  - passkey.ts with a mocked `navigator.credentials`: an abort cancels a pending conditional get, and Conditional
+    Create failures are silent;
+  - tsc, eslint, `check-design.mjs` clean.
+  files: new `frontend/src/lib/api/auth-security.ts`, `frontend/src/components/auth/passkey.ts` + tests.
+  part done (lib/api/auth-security.ts: schemas + hooks incl. AU-15 sessions, AU-16 idp-mfa, admin session revoke, usePasswordMinLength; paths pinned against the regenerated OpenAPI subset __fixtures__/au-b-openapi.json (33 routes); components/auth/passkey.ts + tests; vitest green); open: none at unit level; aux-f-2026-10-18
+- [ ] AUX-02 · frontend · no migration · Input-box system: OTP slots, recovery field, autofill styling (auth.md §10).
+  - `components/auth/otp-input.tsx`:
+    - built on `input-otp` (MIT; SOURCES.md row);
+    - one real input with `inputmode=numeric`, `autocomplete=one-time-code` and `pattern=\d{6}`;
+    - 6 slots grouped 3 + 3: 44×52 fine, 48×56 coarse;
+    - paste strips spaces and hyphens; `onComplete` fires;
+    - error and success states; the caret blinks, and is steady under reduced motion.
+  - `components/auth/recovery-code-field.tsx`:
+    - `autocapitalize=characters`;
+    - normalises case, spaces and hyphens, and O→0, I/L→1;
+    - format `XXXX-XXXX-XXXX-XXXX`.
+  - Ask the ui owner: an `:autofill` rule in `ui/field-styles.ts` (7 % tint, no browser yellow).
+  accept: vitest
+  - paste "123 456" and "123-456" → 6 digits and `onComplete` once;
+  - the accessibility tree shows one textbox named "Doğrulama kodu";
+  - Backspace and ← → work;
+  - axe clean;
+  - at 390 the slots are ≥ 44 px and the text ≥ 16 px.
+  files: new `frontend/src/components/auth/{otp-input,recovery-code-field}.tsx` + tests; ask: `ui/field-styles.ts`.
+  part done (auth/otp-input.tsx on input-otp 1.5.0, recovery-code-field.tsx; vitest paste/one-textbox/keys; SOURCES row); `:autofill` rule added to ui/field-styles.ts; open: 390 px check on the stack; aux-f-2026-10-18
+- [ ] AUX-03 · frontend · no migration · Sign-in page: passkeys in door 2 (auth.md §4.1–§4.3, §4.6).
+  - When `/org/public` says `passkeys_enabled && passkey_first_factor` (ask A1e):
+    - the identifier gets `autocomplete="username webauthn"`;
+    - a conditional `get()` runs while door 2 is open;
+    - "veya" + the secondary "Geçiş anahtarıyla giriş yap" appears under the form.
+  - Last-method cookie value `passkey` opens door 2 and shows "Son girişinizi geçiş anahtarıyla yaptınız."
+  - Conditional Create runs after a password sign-in, with silent failure and the toast `signin.passkey.saved`.
+  - New copy keys `signin.passkey.*` (TR + EN).
+  - It edits the sign-in files (`sign-in-page.tsx`, `local-sign-in.tsx`, `signin-model.ts`) through a small
+    `PasskeyDoor` part.
+  accept: vitest + Playwright (virtual authenticator)
+  - with passwordless off: no button and no `webauthn` token;
+  - with it on: autofill sign-in succeeds with no 2FA step;
+  - `NotAllowedError` shows the neutral notice, an unknown credential shows the error with focus;
+  - doorsFor tests extended;
+  - no layout shift on first paint.
+  files: new `frontend/src/components/auth/passkey-door.tsx` + tests; edits in `components/auth/{sign-in-page,local-sign-in,signin-model}.tsx/ts` (sign-in owner informed); `messages/{tr,en}.json` keys `signin.passkey.*`.
+  part done (passkey-door.tsx, door rules, conditional get/create, signin.passkey.* copy; vitest); open: Playwright with a virtual authenticator; aux-f-2026-10-18
+- [ ] AUX-04 · frontend · no migration · **after AU-B's challenge route** · 2FA step and enrolment notice (auth.md §5).
+  - `/login/verify`, in the same `SignInShell`:
+    - account line + "Farklı bir hesap";
+    - OTP (AUX-02), with automatic submit on the 6th digit;
+    - "Bu cihazı 30 gün hatırla" (hidden when not allowed);
+    - "Başka bir yöntem" panel: passkey, recovery code, "Hiçbirine erişemiyor musunuz?" with the org's security
+      contact;
+    - the states `signin.mfa.*` (wrong, clock, recoveryWrong, tooMany, expired, locked with minutes, offline).
+  - `/login/setup-2fa`: the enrolment notice with the deadline, "Şimdi kur" and "Daha sonra ({n} gün kaldı)" (grace
+    only). After the deadline the session is enrolment-only.
+  - The challenge token stays in the route handler's httpOnly cookie, never in the URL.
+  accept: vitest + Playwright at 1440 and 390
+  - a wrong code clears the slots and focus stays;
+  - 5 failures → back to `/login` with the notice;
+  - the remember tick skips the step next time;
+  - a recovery code works once, and the toast shows the remaining count (≤ 3 → "Yeni kodlar oluştur");
+  - with the keypad open at 390, "Doğrula" is visible;
+  - focus never lands on `<body>`.
+  files: new `frontend/src/app/login/verify/page.tsx`, `frontend/src/app/login/setup-2fa/page.tsx`, `frontend/src/components/auth/{mfa-step,other-methods,enrol-notice}.tsx` + tests; `messages/*` keys `signin.mfa.*`, `signin.enrol.*`.
+  part done (/login/verify, /login/setup-2fa, mfa-step, other-methods, enrol-notice; vitest); open: e2e/au-signin-security.spec.ts §16.1–16.3; aux-f-2026-10-18
+- [ ] AUX-05 · frontend · no migration · Set-password form and forgot-password lines (auth.md §4.4, §4.5).
+  - `SetPasswordForm`:
+    - one field with show/hide, `autocomplete=new-password`, `passwordrules`;
+    - a hidden username field for password managers;
+    - the length hint, live counter and blocklist / username errors;
+    - "Parolayı kaydet ve giriş yap", which signs in (ask A1i).
+  - Used by the local invite (ask W3-IDP: `local-invite-accept.tsx` delegates), the reset code and the admin-sent
+    link.
+  - `/reset-password` gets the SSO line and "İki aşamalı doğrulamanız değişmedi…".
+  accept: vitest — the repeat field is gone; errors are linked with `aria-describedby`; the expired-link copy shows;
+  after success the person lands on the enrolment notice when the policy requires 2FA.
+  files: new `frontend/src/components/auth/set-password-form.tsx` + tests; asks: `identity/local-invite-accept.tsx` (W3-IDP), `admin/reset-password.tsx` (owner).
+  part done (set-password-form.tsx, reset / invite through the route handler with a session; change-password-form uses password_min_length 12 / 8; vitest); local-invite-accept.tsx delegates to SetPasswordForm, profile PasswordForm on password_min_length; open: admin/reset-password owner; aux-f-2026-10-18
+- [ ] AUX-06 · frontend · no migration · Profil › Giriş ve güvenlik: section, re-auth, 2FA setup (auth.md §6.1–§6.3, §6.7, §6.8).
+  - `SecuritySection` (`id="security"`):
+    - rows Parola (moves `PasswordForm` in), İki aşamalı doğrulama, Geçiş anahtarları, Oturumlar / Hatırlanan
+      cihazlar, Son girişler;
+    - one tint button ("Aç").
+  - `ReauthDialog`: password (+ code or passkey when 2FA is on), reused for 10 minutes (ask A1b).
+  - `MfaSetupSheet`:
+    - steps 1–2 in one view at ≥ 1024: QR black on white, the 32-character key in 8 groups with "Kopyala", the OTP
+      with "✓ Doğrulandı";
+    - on phones "Uygulamada aç" + the key, with the QR behind a disclosure;
+    - step 3: 10 codes, "İndir (.txt)", "Kopyala", "Yazdır", the tick, then "Bitir";
+    - the warning on close;
+    - a 15-minute expiry message.
+  - Also: "Yeni kurtarma kodları oluştur", "Uygulamayı değiştir", "Kapat" (hidden when the policy requires it).
+  - SSO accounts get the single explanation row.
+  accept: vitest + Playwright at 1440 and 390
+  - setup in ≤ 3 steps;
+  - `.txt` content and file name;
+  - "Bitir" stays disabled until the tick;
+  - the re-auth dialog appears once per 10 min;
+  - SSO user: no 2FA or passkey rows;
+  - the QR has ≥ 4 modules of quiet zone in dark mode.
+  files: new `frontend/src/components/profile/security/{security-section,password-row,mfa-row,mfa-setup-sheet,recovery-codes,reauth-dialog}.tsx` + tests; ask profile owner: mount in `admin/profile-view.tsx` after `MicrosoftAccountSection`.
+  part done (security-section, mfa-row, mfa-setup-sheet, totp-setup (key behind 'QR kodunu tarayamıyor musunuz?' at ≥ 1024, fresh key on restart), recovery-codes (.txt / copy / print, Bitir after the tick, close warning), reauth-dialog (password reused 10 min, memory only); security-section.test.tsx 7 tests); 'Uygulamayı değiştir' wired to AU-18 (replacing / changed / change_pending, tests); open: e2e §16.6; aux-f-2026-10-18
+- [ ] AUX-07 · frontend · no migration · Profil: passkeys list, remembered devices, then sessions and history (auth.md §6.4–§6.6).
+  - Passkey rows:
+    - provider icon and name from the AAGUID (MIT list), with the name editable right after adding;
+    - created and last-used dates, and "Yalnızca bu cihazda";
+    - ⋯ → "Yeniden adlandır" (inline) / "Kaldır" (dialog, Signal API);
+    - the last-method warning;
+    - add errors, and a limit of 10.
+  - "Hatırlanan cihazlar" with "Unutulsun" and "Tümünü unut".
+  - When ask A1a lands: sessions ("Bu cihaz", "Oturumu kapat", "Diğer tüm oturumları kapat") and "Son girişler" (20
+    rows, icon + word).
+  accept: vitest + Playwright (virtual authenticator)
+  - add → row + toast + `passkey_added` at the SMTP sink;
+  - rename keeps focus on the row's ⋯;
+  - remove → the row leaves and `passkey_removed` arrives (after ask A2);
+  - lists are `<ul>`;
+  - no IP shown.
+  files: new `frontend/src/components/profile/security/{passkeys-list,trusted-devices,sessions-list,sign-in-history}.tsx`, `frontend/src/components/profile/security/aaguid.ts` (+ the MIT data file and a SOURCES.md row) + tests.
+  part done (passkeys-list, aaguid.ts, trusted-devices, sessions-list (AU-15: current first, 'Oturumu kapat', 'Diğer cihazlardan çıkış yap' also forgets remembered devices, no network shown), sign-in-history; vitest); open: e2e §16.2 / §16.4; aux-f-2026-10-18
+- [ ] AUX-08 · frontend · no migration · Admin › Kullanıcılar additions (auth.md §7).
+  - Method tags "Yerel · 2FA" and "Yerel · 2FA bekleniyor ({date})".
+  - Filter "İki aşamalı doğrulama: Tümü / Açık / Kapalı / Bekleniyor".
+  - Row menu group "Giriş":
+    - local: link / reset / show code;
+    - LDAP: reset + explanation;
+    - **SSO: one explanation row, not a button**;
+    - own row: the link to Profil.
+  - The edit sheet's "Giriş ve güvenlik" block.
+  - "2FA'yı sıfırla" dialog: chips that fill the reason (10–500 characters), the identity-check select, "Geçiş
+    anahtarlarını koru ({n})" (hidden for the compromise chip), the destructive confirm, and the errors
+    `own_account` / `sso_account` / 403.
+  - "Parola sıfırlama bağlantısı gönder" dialog with `no_email` / `mail_not_configured` (offers "Kodu göster"),
+    `sso_account`, `directory_account` and 429.
+  - Rename "Tek kullanımlık sıfırlama kodu" → "Sıfırlama kodunu ekranda göster".
+  accept: vitest + Playwright
+  - a Microsoft user's menu has no reset or link button, only the text;
+  - a reset with a 9-character reason is refused client-side;
+  - after reset: the audit row and `mfa_reset_by_admin` at the sink, with no reason text;
+  - a link to a user without e-mail offers the code;
+  - phones act from the edit sheet (bottom-sheet dialogs, 44 px targets).
+  files: new `frontend/src/components/admin/users-security.tsx` + tests; ask admin users owner: mounts in `admin/users-admin.tsx` and `admin/users-admin-identity.tsx`, the method-tag line in `users-admin-identity-model.ts`.
+  part done (components/admin/users-security.tsx: useUserSecurity → menuItems / block / dialogs, MfaMethodTag, MfaFilterSelect, reset and link dialogs with every refusal, 'Oturumları sonlandır' (AU-15) with a confirm; users-security.test.tsx 10 tests); mounted in users-admin.tsx (row menu, edit dialog, dialogs; old reset-code item replaced; aux-f-mounts.test.tsx); tag and filter on AU-18 mfa_state / mfa_grace_until (aux-f-mounts.test.tsx); open: e2e §16.7/8; aux-f-2026-10-18
+- [ ] AUX-09 · motion · no migration · Free transitions.dev recipes and motion rows (auth.md §11.1–§11.2).
+  - Add the free "Text states swap", "Icon swap", "Success check" (retimed to 240 ms, y 8 px, blur 4 px) and "Page
+    side-by-side" (220 ms, blur 0) with `npx transitions-dev add <name>`, **free only**. Keep the
+    `Transitions.dev — <name>` headers and add SOURCES.md rows.
+  - Wire the moments:
+    - password → 2FA step;
+    - setup steps;
+    - wrong-code shake on the slot group;
+    - Doğrula → Doğrulandı ✓;
+    - "Başka bir yöntem" panel (Panel reveal 240/160);
+    - the eye icon swap;
+    - "Kopyalandı";
+    - the shield ✓ when 2FA turns on;
+    - passkey row insert / remove (pattern 6).
+  - Move `will-change: transform` from `.t-input` to `.t-input.is-shaking`.
+  - Ask the motion.md owner: §11.2 becomes `v2/motion.md` §3.19.
+  accept:
+  - `e2e/motion-audit.spec.ts` gets a `sign-in-security` case: under 4× CPU, ≤ 3 dropped frames per interaction;
+    nothing > 300 ms in `document.getAnimations()`;
+  - under `reducedMotion: "reduce"`: no transform or travel, end state on the next frame or ≤ 100 ms fade;
+  - reduced transparency: opaque;
+  - no `will-change` left on idle fields.
+  files: `frontend/src/components/ui/transitions/transitions-dev.css` (ui owner informed), `components/ui/SOURCES.md`, the AUX parts above; `frontend/e2e/motion-audit.spec.ts` (append case).
+  part done (free recipes re-implemented in components/auth/auth.css with reduced-motion stops; will-change moved to .t-input.is-shaking; SOURCES rows); open: motion-audit sign-in-security case (e2e lane); aux-f-2026-10-18
+- [ ] AUX-10 · motion · no migration · Sign-in hero (auth.md §11.3–§11.4).
+  - `components/auth/signin-hero.tsx`:
+    - `docs/lottie/hero-solver-{light,dark}.json` played with `lottie-react`, lazy-loaded at ≥ 1024 px only, after
+      idle + 300 ms;
+    - **one pass of frames 0→140 (4.67 s)**, then it stops on the poster frame;
+    - a glass-tint frame (no backdrop-filter), `aria-hidden`, `pointer-events: none`;
+    - the poster PNG under reduced motion or `Save-Data`;
+    - hidden < 1024 px, in forced colours and on the 2FA step.
+  - **Uses the project's one hosted Motion Agent fix for this hero, named "signin-hero-settle"**: the entry
+    (opacity 0→1 over 240 ms, 4 px rise) and the settle onto the poster frame. Free scans only otherwise. The key
+    stays in `TRANSITIONS_AGENT_LICENSE` and is never written down.
+  accept:
+  - Playwright at 1440: the animation ends ≤ 5 s after start and does not loop;
+  - no long animation frame > 50 ms while typing in the identifier;
+  - at 390 the Lottie bundle is not requested;
+  - reduced motion shows the PNG;
+  - the motion-audit case passes.
+  files: new `frontend/src/components/auth/signin-hero.tsx` + test; one mount line in `components/auth/signin-shell.tsx` (scene area, sign-in owner informed); the JSON copied or imported from `docs/lottie/`.
+- [ ] AUX-11 · frontend · no migration · Ayarlar › Giriş güvenliği policy tab (auth.md §9).
+  - Segmented Kapalı / İsteğe bağlı / Zorunlu.
+  - Role chips (default Yönetici) and the grace period 7 / 14 / 30.
+  - The live sentence "{n} kişi {date} tarihine kadar kurmalı; {m} kişi zaten kurdu".
+  - The passkeys switch, with the nested "Parolasız girişe de izin ver".
+  - Gelişmiş: "Bu cihazı hatırla" (after ask A1d).
+  - The SSO note.
+  - Confirmations for Zorunlu and Kapalı ("askıya alınır, silinmez").
+  - A self-scope banner with "Şimdi kur".
+  - Ask the settings owner: tab `signin-security` in `settings-view.tsx`.
+  accept: vitest + Playwright at 1440 and 390
+  - the saved values round-trip to `auth.*`;
+  - the Kapalı confirm names the count;
+  - the save bar is sticky above the tab bar on phones (M-05);
+  - the role chips wrap and are 44 px.
+  files: new `frontend/src/components/settings/signin-security.tsx` + tests; ask: `components/settings/settings-view.tsx` (one tab entry).
+  part done (components/settings/signin-security.tsx: segmented policy, role chips + Tüm roller, grace, live sentence, passkeys + nested passwordless, Gelişmiş remember 0/7/30, SSO note, self banner, Zorunlu / Kapalı confirms, phone save capsule; signin-security.test.tsx 7 tests incl. the AU-16 IdpMfaSwitch); tab signin-security mounted in settings-view.tsx; live sentence on AU-18 required_people / enrolled_people; open: e2e §16.9 at 390; aux-f-2026-10-18
+- [ ] AUX-12 · tester · Persona runs of auth.md §16 (checks 1–13) on an own stack (`REC_TEACHER=1 REC_LANG=tr`).
+  - Run at 1440 mouse and 390 touch.
+  - Chromium virtual authenticator for passkeys; the SMTP sink for the six (later nine) security e-mails.
+  - MOBILE M-01/M-02/M-03/M-05 on `/login`, `/login/verify`, `/login/setup-2fa`, `/profile#security`,
+    `/admin/users`, `/settings?tab=signin-security`.
+  - Simplicity probe: "where do I click?" is a **major** finding, with a screenshot.
+  accept: a report in `docs/testing/` with screenshots per check, and failures filed as AUX-xx follow-ups.
+  files: new `frontend/e2e/auth-ux.spec.ts`, `docs/testing/2026-10-xx-auth-ux.md`.
+
+Order:
+1. AUX-01 and AUX-02 can start now (mock AU-B's documented shapes).
+2. AUX-03 and AUX-04 run after AU-B's login / challenge / passkey routes.
+3. AUX-05 runs after ask A1i.
+4. AUX-06 and AUX-07 run after AU-B's enrolment and passkey routes (AUX-07's sessions part after ask A1a).
+5. AUX-08 runs after AU-B's admin routes.
+6. AUX-11 runs after AU-B's settings rows.
+7. AUX-09 runs alongside AUX-03…08.
+8. AUX-10 runs after AUX-03.
+9. AUX-12 runs last.
+
+### Sign-in, 2FA and passkeys (owner request 2026-10-18) — backend
+
+Lane AU-B (`au-b-2026-10-18`). Research: docs/research/2026-10-18-auth-backend.md. API contract for AUX / the frontend:
+scratchpad `auth/API.md` (summarised in the research §9). Alembic `0043_mfa`; dependency `webauthn==3.0.1` (BSD-3).
+
+- [x] AU-01 Model: `user_mfa`, `mfa_recovery_codes`, `webauthn_credentials`, `trusted_devices`, `auth_challenges`
+  (cascade, owner-only RLS on PostgreSQL), policy settings `auth.*` with code defaults; stdlib RFC 6238 TOTP.
+  done (alembic 0043_mfa on 0042, one head, SQLite + PG round trip and RLS; fresh installs seed
+  `auth.passkey_first_factor = 1`; app/models/mfa.py, app/core/totp.py; tests test_au_b_migration, test_au_b_totp)
+- [x] AU-02 Authenticator-app enrolment (start → otpauth URI + secret → confirm → 10 recovery codes once), disable with
+  re-authentication + a code, recovery-code regeneration. done (app/services/mfa.py, app/api/v1/mfa.py; test_au_b_mfa_api)
+- [x] AU-03 Sign-in challenge step: `POST /auth/login` → `mfa_required` + signed single-use challenge (own key, never a
+  bearer token) → TOTP (±1 step, replay refused) / recovery code (single use) / passkey → session. done (auth.py gate)
+- [x] AU-04 Lockout (5 failures → 15 min doubling, cap 24 h; 5 tries per challenge) and per-address limits in
+  `security_http` (`mfa_verify`, `passkey_sign_in`, `mfa_setup`, per-user `mfa_reauth`). done
+- [x] AU-05 Trusted devices: 30 days (policy 0/7/30), SHA-256 stored, `X-Trusted-Device` header, revocable, ended by
+  disable / admin reset / password change or reset. done
+- [x] AU-06 Policy `auth.mfa_policy` off | optional | required_for_roles (default roles ADMIN), grace days, setup token
+  after the grace period, `mfa_required` e-mail to newly covered people; `GET/PUT /admin/auth/mfa-policy`. done
+- [x] AU-07 Passkeys (py_webauthn 3.0.1): registration (attestation none, ES256/EdDSA/RS256, resident key preferred,
+  excludeCredentials), up to 10 per person, rename, remove with re-auth; RP ID = public host (full host on sslip.io).
+  done (app/services/passkeys.py; software authenticator tests/webauthn_soft.py; test_au_b_passkeys)
+- [x] AU-08 Passkey as the second factor; signature counter (cloned key audited `auth.passkey_counter_error`). done
+- [x] AU-09 Passkey-only sign-in (UV required) when the institution enables it; flags in `/org/public`. done
+- [x] AU-10 `POST /admin/users/{id}/mfa/reset`: reason + identity check, audited, refused for SSO-only and own account,
+  signs out, e-mails; `GET /admin/users/{id}/mfa` without secrets. done (test_au_b_admin)
+- [x] AU-11 `POST /admin/users/{id}/password-reset-link`: local accounts only (`sso_account`, `directory_account`),
+  existing reset token e-mailed as a link, never in the answer or the outbox; audited. done (test_au_b_admin)
+- [x] AU-12 Security e-mails via `mail.send_kind` (9 kinds, TR/EN, security footer): mfa_enabled, mfa_disabled,
+  mfa_reset_by_admin, passkey_added, passkey_removed, mfa_recovery_code_used, recovery_codes_regenerated, mfa_required,
+  password_reset_link_by_admin. done (app/emails/kinds.py, strings.py, samples.py; test_w3b_mail_render)
+- [x] AU-13 UX asks (auth.md §17): 10-minute re-auth window, sign-in history `GET /auth/sign-ins`, session after reset
+  link / invite acceptance (same gate), passkey flags in `/org/public`, password minimum 12 (8 with 2FA) on
+  change-password / reset / invite. done (test_au_b_ux_asks)
+- [x] AU-14 KVKK: export file `sign_in_security` (no secrets), erasure of the five tables; audit DECISIONS rows. done
+- [x] AU-15 Server-side sessions (coordinator decision 2026-10-18): `jti` in every token, `user_sessions` (alembic
+  0045_user_sessions, owner-only RLS), check per request with a 15 s cache, `GET /auth/sessions`, `DELETE
+  /auth/sessions/{id}`, `POST /auth/sessions/revoke-others`, `POST /admin/users/{id}/sessions/revoke`; MFA reset ends
+  them. done (app/services/sessions.py, deps.py hook; tests/test_au_b_sessions.py: revoked token 401 on its next request)
+  2026-10-18 after the restart: `users.sessions_epoch` (0045) makes a self-revocation hold at once on the other uvicorn
+  worker too (cache entry trusted only while the epoch matches; no extra query); MFA reset marks rows `mfa_reset`
+  (test_au_b_admin); unit tests only, E2E pending (au-b-2026-10-18)
+- [x] AU-16 IdP-asserted MFA (`amr` / `acr`, OIDC / Entra) when the policy requires 2FA for the role: per-provider
+  "IdP MFA'yı zorunlu tut" (off by default) refuses with `idp_mfa_required`, else a one-time step-up notice on the
+  exchange; `GET/PUT /admin/auth/providers/.../idp-mfa`. done (mfa.idp_mfa_gate in sso._resolve_login; test_au_b_sessions)
+- [x] AU-18 AUX-F asks (2026-10-18): `mfa_state` (on | off | pending | null for IdP-only) + `mfa_grace_until` in
+  `GET /auth/sso/admin/user-status`; `required_people` / `enrolled_people` in `GET/PUT /admin/auth/mfa-policy`;
+  "Uygulamayı değiştir" (`totp/start` with an app on → `replacing`, old app works until the new one is confirmed,
+  codes kept, `auth.mfa_app_changed` + e-mail `mfa_app_changed`); "iki aşamalı doğrulama" in every AU-B string.
+  done (mfa.list_states / policy_out / totp_on, sso.user_status, kinds/strings/samples; tests/test_au_b_aux_asks.py;
+  unit tests only, E2E pending; au-b-2026-10-18)
+- [ ] AU-17 Frontend: route handler passes `mfa_required` through, stores `ss_td` cookie, forwards `X-Trusted-Device`
+  (AUX / frontend lane). open.

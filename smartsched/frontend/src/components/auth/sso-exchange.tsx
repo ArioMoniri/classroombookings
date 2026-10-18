@@ -4,6 +4,8 @@
  * in the httpOnly cookie), then go to `/welcome[?invited=1|?bound=1]` when the backend says this sign-in created or
  * bound the account, else to `next` or the role's home. A used or expired ticket (401) lands on the generic
  * `failed` error of /login — the same text as any other refusal.
+ * AU-16: `idp_mfa_missing` (the policy wants 2FA for the role, the provider asserted none, enforcement off) shows the
+ * server's step-up sentence once, as a lasting warning toast that survives the navigation.
  */
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -38,6 +40,10 @@ export function SsoExchange({ logoUrl, kvkkUrl }: { logoUrl: string | null; kvkk
         const user = MeFull.safeParse(out.user);
         const me = user.success ? user.data : null;
         const next = safeNext(out.next) ?? urlNext;
+        if (out.idp_mfa_missing) {
+          const text = (locale === "tr" ? out.idp_mfa_message_tr : out.idp_mfa_message_en) || t("auth.idp.mfaMissing");
+          toast.warning(t("auth.idp.mfaMissingTitle"), { description: text, duration: 12_000, id: "idp-mfa-missing" });
+        }
         if (out.welcome) {
           const flag: WelcomeFlag = { kind: out.welcome, inviter: out.inviter_name ?? null, next };
           sessionStorage.setItem(WELCOME_KEY, JSON.stringify(flag));

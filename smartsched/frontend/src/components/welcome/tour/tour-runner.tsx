@@ -18,7 +18,7 @@ import { useI18n } from "@/lib/i18n/provider";
 import { useReduce } from "@/lib/motion";
 import { useUiStore } from "@/stores/ui";
 import { focusPageHeading, useWelcomeStore, type TourRequest } from "../welcome-store";
-import { TOUR_RUNNING_ATTR, isFocusable, waitForAnchor } from "./anchors";
+import { TOUR_RUNNING_ATTR, isFocusable, visible, waitForAnchor } from "./anchors";
 import type { EngineStep } from "./engine";
 import JoyrideAdapter from "./joyride-adapter";
 import { SpotlightRing } from "./spotlight-ring";
@@ -62,7 +62,7 @@ export function TourRunner({ request }: { request: TourRequest }) {
       toast(reason === "completed" ? t(sidebar ? "welcome.tour.done" : "welcome.tour.donePhone") : t("welcome.tour.ended"));
       // after the engine's own cleanup (its focus trap restores the element focused when the step opened)
       window.setTimeout(() => {
-        if (reason === "dismissed" && isFocusable(target) && target.offsetParent !== null) target.focus();
+        if (reason === "dismissed" && isFocusable(target) && visible(target)) target.focus();
         else focusPageHeading();
       }, 60);
     },
@@ -88,7 +88,6 @@ export function TourRunner({ request }: { request: TourRequest }) {
       return;
     }
     const ctrl = new AbortController();
-    setActive(null);
     void (async () => {
       if (step.route && !samePath(window.location.pathname, step.route)) router.push(step.route);
       let target = await waitForAnchor(step.anchor, 3000, ctrl.signal);

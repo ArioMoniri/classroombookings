@@ -1,0 +1,950 @@
+[
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "salon nasıl ayırırım",
+  "expect": "bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "derslik bul yarın 10:00 40 kişi",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "boş salon var mı",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "rezervasyonlarım",
+  "expect": "my_bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "rezervasyonumu nasıl iptal ederim",
+  "expect": "my_bookings.cancel"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "rezervasyon iptal",
+  "expect": "my_bookings.cancel"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "şifremi değiştirmek istiyorum",
+  "expect": "profile.password"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "sifre degistir",
+  "expect": "profile.password"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "parola",
+  "expect": "profile.password"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "derslerimi takvimime nasıl eklerim",
+  "expect": "profile.calendar"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "google takvime ekle",
+  "expect": "profile.calendar"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "outlook takvim",
+  "expect": "profile.calendar"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "e-posta bildirimlerini nereden kapatırım",
+  "expect": "profile.notifications"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "bildirimleri kapat",
+  "expect": "profile.notifications"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "hızlı rezervasyon",
+  "expect": "reserve"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "hemen salon lazım",
+  "expect": "reserve"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "taleplerim ne durumda",
+  "expect": "my_requests"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "talebimi geri çek",
+  "expect": "my_requests"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "talep durumu",
+  "expect": "my_requests"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "profilim",
+  "expect": "profile"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "adımı değiştir",
+  "expect": "profile"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "yapay zeka kotam ne kadar",
+  "expect": "profile.ai_usage"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "kalan yapay zeka hakkım",
+  "expect": "profile.ai_usage"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "whatsapp bağla",
+  "expect": "profile.channels"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "sms bildirimi için telefon numaram",
+  "expect": "profile.channels"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "verilerimi indir",
+  "expect": "profile.privacy"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "hesabımı sil",
+  "expect": "profile.privacy"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "yardımcı neleri hatırlıyor",
+  "expect": "profile.helper_memory"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "notlarımı sil",
+  "expect": "profile.helper_memory"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "projeksiyonlu salon bul",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "kaç kişilik salon var",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "oda ayır",
+  "expect": "bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "rezervasyon tablosu",
+  "expect": "bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "rezervasyn yap",
+  "expect": "bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "rezervasyonlarim",
+  "expect": "my_bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "rezervsyonlarım",
+  "expect": "my_bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "boş derslik",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "bos derslik bul",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "laboratuvar ayır",
+  "expect": "bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "amfi ayırmak istiyorum",
+  "expect": "bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "yaptığım rezervasyonlar nerede",
+  "expect": "my_bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "tr",
+  "q": "salonu bırakmak istiyorum",
+  "expect": "my_bookings.cancel"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "how do i book a room",
+  "expect": "bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "find a free room tomorrow",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "my bookings",
+  "expect": "my_bookings"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "cancel my booking",
+  "expect": "my_bookings.cancel"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "change password",
+  "expect": "profile.password"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "add my classes to my calendar",
+  "expect": "profile.calendar"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "turn off email notifications",
+  "expect": "profile.notifications"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "quick booking",
+  "expect": "reserve"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "status of my request",
+  "expect": "my_requests"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "delete my data",
+  "expect": "profile.privacy"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "room with projector",
+  "expect": "find_room"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "my ai quota",
+  "expect": "profile.ai_usage"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "what does the helper remember",
+  "expect": "profile.helper_memory"
+ },
+ {
+  "persona": "teacher",
+  "lang": "en",
+  "q": "bookins",
+  "expect": "bookings"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "bekleyen taleplerim",
+  "expect": "approvals"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "onay bekleyen rezervasyonlar",
+  "expect": "approvals"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "bir talebi nasıl reddederim",
+  "expect": "approvals.row_actions"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "talep onayla",
+  "expect": "approvals"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "onaylar",
+  "expect": "approvals"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "onay bildirimleri nereden gelir",
+  "expect": "profile.notifications"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "red gerekçesi",
+  "expect": "approvals.row_actions"
+ },
+ {
+  "persona": "approver",
+  "lang": "en",
+  "q": "pending requests",
+  "expect": "approvals"
+ },
+ {
+  "persona": "approver",
+  "lang": "en",
+  "q": "reject a request",
+  "expect": "approvals.row_actions"
+ },
+ {
+  "persona": "approver",
+  "lang": "en",
+  "q": "approval inbox",
+  "expect": "approvals"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "onaylanacaklar",
+  "expect": "approvals"
+ },
+ {
+  "persona": "approver",
+  "lang": "tr",
+  "q": "gelen talepler",
+  "expect": "approvals"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "son çalıştırma ne durumda",
+  "expect": "runs"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "planı yayınla",
+  "expect": "runs.publish"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "programı yayınla",
+  "expect": "runs.publish"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "ders programı oluştur",
+  "expect": "generate"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "çözücüyü çalıştır",
+  "expect": "generate"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "incelenecek talepler",
+  "expect": "requests"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "ders talepleri",
+  "expect": "requests"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "excel yükle",
+  "expect": "onboarding"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "planlama listesi yükle",
+  "expect": "import"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "çizelge",
+  "expect": "timetable"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "haftalık ders programını gör",
+  "expect": "timetable"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "iki çalıştırmayı karşılaştır",
+  "expect": "runs.compare"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "salon doluluğu",
+  "expect": "analytics.heatmap"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "gözetmen ataması",
+  "expect": "exams.invigilation"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "sınav gözetmeni",
+  "expect": "exams.invigilation"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "son çalıştırmanın raporunu indir",
+  "expect": "runs.export"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "özet",
+  "expect": "dashboard"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "yeni program oluştur sıfırdan",
+  "expect": "programs.new"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "derslik listesi",
+  "expect": "rooms"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "rezervasyon çakışmaları",
+  "expect": "admin.conflicts"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "moderasyon",
+  "expect": "moderation"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "yayinla",
+  "expect": "runs.publish"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "calistirmalar",
+  "expect": "runs"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "publish the plan",
+  "expect": "runs.publish"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "run the solver",
+  "expect": "generate"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "requests to review",
+  "expect": "requests"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "utilisation heatmap",
+  "expect": "analytics.heatmap"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "compare two runs",
+  "expect": "runs.compare"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "download the latest run report",
+  "expect": "runs.export"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "timetable",
+  "expect": "timetable"
+ },
+ {
+  "persona": "planner",
+  "lang": "en",
+  "q": "import planning list",
+  "expect": "import"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "csv indir",
+  "expect": "bookings.export"
+ },
+ {
+  "persona": "planner",
+  "lang": "tr",
+  "q": "rezervasyon raporu",
+  "expect": "bookings.export"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "tatil nerede eklenir",
+  "expect": "admin.holidays"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "resmi tatil ekle",
+  "expect": "admin.holidays"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kullanıcı davet et",
+  "expect": "admin.users.invite"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "öğretim elemanı davet et",
+  "expect": "admin.users.invite"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kullanıcı ekle",
+  "expect": "admin.users"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "ders saatleri",
+  "expect": "admin.schedules"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "crbs'teki periods nerede",
+  "expect": "admin.schedules"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "saat dilimleri",
+  "expect": "admin.schedules"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "dönem ekle",
+  "expect": "admin.sessions"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "dönem değiştir",
+  "expect": "admin.sessions"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "yarıyıl",
+  "expect": "admin.sessions"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "a haftası b haftası",
+  "expect": "admin.weeks"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "ders haftaları",
+  "expect": "admin.weeks"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "bölüm ekle",
+  "expect": "admin.departments"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "roller ve izinler",
+  "expect": "admin.roles"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "yetki ver",
+  "expect": "admin.roles"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "salon ekle",
+  "expect": "admin.rooms"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kim ayırabilir",
+  "expect": "admin.access"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "salon erişimi",
+  "expect": "admin.access"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "onay kuralları",
+  "expect": "admin.approval_rules"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "onay gerektiren salonlar",
+  "expect": "admin.approval_rules"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "ldap ayarları",
+  "expect": "admin.authentication"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "tek oturum açma",
+  "expect": "admin.authentication"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "smtp ayarı",
+  "expect": "admin.email"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "e-posta şablonları",
+  "expect": "admin.email"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "denetim kaydı",
+  "expect": "admin.audit"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kim değiştirdi",
+  "expect": "admin.audit"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kvkk başvuruları",
+  "expect": "admin.kvkk"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "saklama süreleri",
+  "expect": "admin.kvkk"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "yapay zeka ayarları",
+  "expect": "admin.ai"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "api anahtarı",
+  "expect": "admin.ai"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "yerel model",
+  "expect": "admin.ai"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "sistem durumu",
+  "expect": "admin.ops"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "hata kayıtları",
+  "expect": "admin.ops"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "webhook",
+  "expect": "admin.integrations"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "bakım modu",
+  "expect": "admin.settings"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kurum adı ve logo",
+  "expect": "admin.settings"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kurulum",
+  "expect": "admin"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "tatıl ekle",
+  "expect": "admin.holidays"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "kullanici davet",
+  "expect": "admin.users.invite"
+ },
+ {
+  "persona": "admin",
+  "lang": "tr",
+  "q": "holiday",
+  "expect": "admin.holidays"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "where do i add a holiday",
+  "expect": "admin.holidays"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "invite a user",
+  "expect": "admin.users.invite"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "where are crbs periods",
+  "expect": "admin.schedules"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "add a term",
+  "expect": "admin.sessions"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "roles and permissions",
+  "expect": "admin.roles"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "add room",
+  "expect": "admin.rooms"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "who can book this room",
+  "expect": "admin.access"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "approval rules",
+  "expect": "admin.approval_rules"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "single sign-on",
+  "expect": "admin.authentication"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "mail server",
+  "expect": "admin.email"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "audit log",
+  "expect": "admin.audit"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "ai settings",
+  "expect": "admin.ai"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "maintenance mode",
+  "expect": "admin.settings"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "departments",
+  "expect": "admin.departments"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "timetable weeks",
+  "expect": "admin.weeks"
+ },
+ {
+  "persona": "admin",
+  "lang": "en",
+  "q": "holidyas",
+  "expect": "admin.holidays"
+ }
+]

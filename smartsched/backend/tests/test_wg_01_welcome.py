@@ -37,8 +37,10 @@ async def academician(env):  # type: ignore[no-untyped-def]  # noqa: F811
     uid, h = await env.user("ayse.yilmaz@uni.edu.tr", firstname="Ayşe", lastname="Yılmaz")
     async with dbmod.get_session_factory()() as s:
         ins = (
-            await s.execute(select(Instructor).where(Instructor.full_name.like("%İ%")).order_by(Instructor.id))
-        ).scalars().first()
+            (await s.execute(select(Instructor).where(Instructor.full_name.like("%İ%")).order_by(Instructor.id)))
+            .scalars()
+            .first()
+        )
         assert ins is not None, "the Bahar planning list has an instructor with İ"
         ins.user_id = uid
         await s.commit()

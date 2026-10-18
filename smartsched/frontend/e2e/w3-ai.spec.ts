@@ -170,8 +170,10 @@ test("1. admin desktop: stub provider synced, tested, routed; metered call, refu
   await page.getByTestId("ai-tab-usage").click();
   await expect(page.getByTestId("ai-kpi-tokens")).not.toContainText(/^Token0$/);
   await expect(page.getByTestId("ai-users")).toContainText(ADMIN_EMAIL);
-  await page.getByTestId("ai-view-table").click();
-  await expect(page.getByTestId("ai-chart-table")).toBeVisible();
+  // CH-05: the daily chart is a ChartCard; with < 3 days it shows the numbers and the table at once (no toggle)
+  const toggle = page.getByTestId("chart-table-toggle-ai-daily-tokens");
+  if (await toggle.count()) await toggle.click();
+  await expect(page.getByTestId("chart-table-ai-daily-tokens")).toBeVisible();
 
   await page.getByTestId("ai-tab-guard").click();
   await expect(page.getByTestId("ai-refusals")).toContainText("Talimat enjeksiyonu");

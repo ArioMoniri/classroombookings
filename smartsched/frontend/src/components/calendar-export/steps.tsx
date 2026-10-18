@@ -15,11 +15,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GRANT_PATH } from "@/components/privacy/calendar-consent";
 import type { FieldKey } from "@/lib/api/calendar-export";
+import { errorText, wave1Error } from "@/lib/api/wave1";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 import { channelKey, sampleParts, subscribeLinks, type Channel, type ScopeChoice } from "./model";
 
 type T = ReturnType<typeof useI18n>["t"];
+
+/** The backend's own sentence (API.md: `message_tr` first in Turkish, `message_en` otherwise, never the code). */
+export function backendText(e: unknown, locale: string): string {
+  const w = wave1Error(e);
+  if (locale === "tr" && w.messageTr) return w.messageTr;
+  if (typeof w.data.message_en === "string") return w.data.message_en;
+  const text = errorText(w, locale);
+  // a response that failed its schema carries zod issues, not FastAPI `{msg}` items: never show "[object Object]"
+  return text.includes("[object Object]") && e instanceof Error ? e.message : text;
+}
 
 export function providerName(p: string, t: T): string {
   return p === "google" || p === "microsoft" ? t(`calendarPush.provider.${p}`) : p;
@@ -139,7 +150,7 @@ export function WhatStep({ choices, onPick, notLinked, contactEmail }: { choices
 
 /* ------------------------------------------------------------------------------------- 2 · how */
 
-export function HowStep({ channels, onPick }: { channels: Channel[]; onPick: (c: Channel) => void }) {
+export function HowStep({ channels, onPick, domain }: { channels: Channel[]; onPick: (c: Channel) => void; domain?: string | null }) {
   const { t } = useI18n();
   const refreshId = useId();
   if (!channels.length) return <p className="type-callout text-label-2" data-testid="cal-no-channels">{t("calendarExport.how.none")}</p>;
@@ -161,7 +172,10 @@ export function HowStep({ channels, onPick }: { channels: Channel[]; onPick: (c:
                   </span>
                   <span className="type-footnote text-label-2">{lead}</span>
                   {c.kind === "push" ? (
-                    <span className="type-footnote text-label-3">{c.connected && c.account ? t("calendarExport.how.pushConnected", { account: c.account }) : t("calendarExport.how.pushNotConnected", { provider: providerName(c.provider, t) })}</span>
+                    <span className="type-footnote text-label-3">
+                      {c.connected && c.account ? t("calendarExport.how.pushConnected", { account: c.account }) : t("calendarExport.how.pushNotConnected", { provider: providerName(c.provider, t) })}
+                      {!c.connected && domain ? ` ${t("calendarExport.how.pushDomain", { domain })}` : ""}
+                    </span>
                   ) : null}
                 </span>
                 <ChevronRight className="mt-0.5 size-4 shrink-0 self-center text-label-3" aria-hidden />
@@ -329,6 +343,11 @@ export function LinkResult({ urls, name, testId = "cal-link" }: { urls: { https:
           {t("calendarExport.done.outlook")}
         </Button>
       </div>
+      {!/^https?:\/\//i.test(l.https) ? (
+        <p className="rounded-xl bg-status-warning px-3 py-2 type-footnote text-status-warning-fg" data-testid={`${testId}-no-url`}>
+          {t("calendarExport.done.noPublicUrl")}
+        </p>
+      ) : null}
       <CopyButton value={l.https} testId={`${testId}-copy`} />
       <p className="rounded-xl bg-status-warning px-3 py-2 type-footnote text-status-warning-fg" data-testid={`${testId}-note`}>
         {t("calendarExport.done.linkNote")}

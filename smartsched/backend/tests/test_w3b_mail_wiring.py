@@ -98,7 +98,8 @@ async def test_approval_paths_keep_recipients_and_text(env, monkeypatch):  # noq
     assert row.to_email == "gozde.ayrancigil@uni.edu.tr" and row.body == bell.body and row.subject == bell.title
     assert row.status == "SENT" and row.link and row.link.startswith("/approvals?request=") and row.locale == "tr"
     (msg,) = _sent_to("gozde.ayrancigil@uni.edu.tr")
-    assert not _sent_to("ayse.yilmaz@uni.edu.tr")
+    (receipt,) = _sent_to("ayse.yilmaz@uni.edu.tr")  # RF-11: her own receipt, never the approver's notice
+    assert receipt["Subject"].startswith("Talebiniz alındı: A 102, 19.02.2026 P1")
     plain, html = _parts(msg)
     assert plain.startswith(bell.body.strip()) and "Talebi incele: https://plan.uni.edu.tr/approvals?request=" in plain
     assert '<html lang="tr"' in html and "Onay bekliyor" in html and "/decide" not in html
@@ -115,7 +116,7 @@ async def test_approval_paths_keep_recipients_and_text(env, monkeypatch):  # noq
     (rej,) = await _rows("approval_rejected")
     (bell,) = await _bell(aid, "approval.rejected")
     assert rej.to_email == "ayse.yilmaz@uni.edu.tr" and rej.body == bell.body
-    (msg,) = _sent_to("ayse.yilmaz@uni.edu.tr")
+    receipt, msg = _sent_to("ayse.yilmaz@uni.edu.tr")
     plain, html = _parts(msg)
     assert plain.startswith(bell.body.strip())
     assert 'data-block="reason"' in html and "BME 419" in html and "Reddedildi" in html

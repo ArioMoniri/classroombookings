@@ -10,5 +10,8 @@
 export const coarseHitArea =
   "pointer-coarse:after:absolute pointer-coarse:after:content-[''] pointer-coarse:after:top-[min(0px,calc(50%-22px))] pointer-coarse:after:bottom-[min(0px,calc(50%-22px))] pointer-coarse:after:left-[min(0px,calc(50%-22px))] pointer-coarse:after:right-[min(0px,calc(50%-22px))]"
 
-/** 16 px text on touch phones so focusing a text field or select does not zoom the page (iOS; MOBILE.md M-03). */
-export const coarsePhoneText = "max-md:pointer-coarse:text-base"
+/**
+ * 16 px text on touch screens so focusing a text field or select does not zoom the page (iOS; MOBILE.md M-03).
+ * Mobile audit B/A (2026-10-17): every coarse pointer, not only below md, so a 768 px touch tablet gets 16 px too.
+ */
+export const coarsePhoneText = "pointer-coarse:text-base"

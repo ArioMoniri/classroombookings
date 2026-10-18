@@ -170,9 +170,9 @@ __all__ = [
 ]
 
 # wave 3 W3-AI: AI gateway usage metering (alembic 0034_ai_usage)
-from app.models.ai_usage import AIUsage  # noqa: E402
+from app.models.ai_usage import AIReservation, AIUsage  # noqa: E402
 
-__all__ += ["AIUsage"]
+__all__ += ["AIReservation", "AIUsage"]
 
 # adaptive scheduling AS-03 / AS-05 / AS-13: season profiles, period segments, demand ledger, learning versions
 from app.models.learning import LearnedPriorSnapshot, LearningVersion  # noqa: E402
@@ -184,3 +184,24 @@ __all__ += ["DemandEvent", "LearnedPriorSnapshot", "LearningVersion", "SeasonPro
 from app.models.welcome import WelcomeContent, WelcomeProgress  # noqa: E402
 
 __all__ += ["WelcomeContent", "WelcomeProgress"]
+
+# AU-B two-step sign-in, passkeys, trusted devices, sign-in challenges (alembic 0043_mfa)
+from app.models.mfa import AuthChallenge, MfaRecoveryCode, TrustedDevice, UserMfa, WebAuthnCredential  # noqa: E402
+
+__all__ += ["AuthChallenge", "MfaRecoveryCode", "TrustedDevice", "UserMfa", "WebAuthnCredential"]
+
+# AI helper HB-04: confirmed helper writes, history, notes, telemetry (alembic 0044_helper; app/models/helper.py)
+from app.models.helper import (  # noqa: E402
+    HelperActionInvocation,
+    HelperEvent,
+    HelperMessage,
+    HelperNote,
+    HelperThread,
+)
+
+__all__ += ["HelperActionInvocation", "HelperEvent", "HelperMessage", "HelperNote", "HelperThread"]
+
+# AU-15 server-side session list (alembic 0045_user_sessions)
+from app.models.mfa import UserSession  # noqa: E402
+
+__all__ += ["UserSession"]

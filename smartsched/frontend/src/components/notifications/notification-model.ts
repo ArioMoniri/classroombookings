@@ -16,7 +16,11 @@ export function notificationHref(link: string | null | undefined, requestId?: nu
   const params = new URLSearchParams(query);
   if (path === "/bookings/mine" || path === "/my-bookings") {
     const req = params.get("request") ?? (requestId ? String(requestId) : null);
-    return req ? `/my-bookings?request=${encodeURIComponent(req)}` : "/my-bookings";
+    if (req) return `/my-bookings?request=${encodeURIComponent(req)}`;
+    // RF-11: a series / reminder notice opens its booking's detail sheet (components/bookings/deep-link.ts)
+    const keep = new URLSearchParams();
+    for (const k of ["series", "booking"]) if (/^\d{1,10}$/.test(params.get(k) ?? "")) keep.set(k, params.get(k)!);
+    return keep.size ? `/my-bookings?${keep}` : "/my-bookings";
   }
   return link;
 }

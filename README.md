@@ -144,19 +144,27 @@ Docker Engine 24 or newer with Compose v2:
 
 ```bash
 cd smartsched/deploy
-ADMIN_EMAIL=you@uni.edu.tr ./deploy.sh
-# http://localhost:8080  (the admin password is ADMIN_PASSWORD in .env)
+./deploy.sh --admin-email you@uni.edu.tr
+# prints the panel URL and, on a terminal, the admin password once (also ADMIN_PASSWORD in .env)
 ```
 
-This starts PostgreSQL, the backend, the frontend and nginx. `--tls` adds HTTPS through Caddy,
-`--legacy` also runs the original classroombookings, `--update` rebuilds and migrates. The first boot
-loads the branch's seed profile from `smartsched/deploy/profile.env`: `institution` loads the 2026
-workbooks, `empty` starts with the setup wizard. More in
-[smartsched/deploy/README.md](smartsched/deploy/README.md).
+This starts PostgreSQL, the backend, the frontend and nginx, runs the migrations, creates the administrator and
+loads the branch's seed profile from `smartsched/deploy/profile.env`: `institution` loads the 2026 workbooks,
+`empty` starts with the welcome guide and `/onboarding`. Optional deploy-time values:
+
+- `--domain smartsched.uni.edu.tr` sets up HTTPS through Caddy;
+- `--org-name`, `--smtp-host` / `--smtp-user` / `--smtp-from`, `--security-contact` and `--ai-provider` are
+  written into the database once (`AI_API_KEY` and `SMTP_PASSWORD` come from the environment, never a flag);
+- `--observability` starts Grafana, `--backups` installs the nightly backup, `--update` rebuilds and migrates.
+
+Every setting can also be changed afterwards in the admin panel, and a redeploy never overwrites those changes.
+See [docs/deploy/ONE-CLICK.md](docs/deploy/ONE-CLICK.md) for both branches, what the deploy prints and the
+first-login checklist, and [smartsched/deploy/README.md](smartsched/deploy/README.md) for the details.
 
 **AWS.** One EC2 instance runs the stack and the project's CI. It is controlled by the first line of
 `infra/aws/POD_ACTION` (`up`, `status`, `stop`, `start`, `cost`, `down destroy`) through a GitHub OIDC
-role, with a monthly budget that stops the instance. See [docs/deploy/AWS.md](docs/deploy/AWS.md).
+role, with a monthly budget that stops the instance. Locally: `python infra/aws/smartsched_aws.py up --pod
+gracious|universal` (same deploy-time flags as `deploy.sh`). See [docs/deploy/AWS.md](docs/deploy/AWS.md).
 
 **Local development.** `scripts/dev.sh --run` creates the Python venv, installs the frontend, seeds an
 admin into SQLite and starts the backend on :8000 and the frontend on :3000. The frontend always talks to
@@ -351,7 +359,7 @@ backend only so far are listed in [docs/STATUS.md](docs/STATUS.md).
 
 <!-- AUTO:status only=done -->
 
-Done 62 · Backend only 0 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
+Done 67 · Backend only 7 · In progress 2 · Planned 0. Done items only; the full list is in [`docs/STATUS.md`](docs/STATUS.md) (source: [`docs/features.yml`](docs/features.yml)).
 
 | Feature | Area | Evidence |
 |---|---|---|
@@ -417,6 +425,11 @@ Done 62 · Backend only 0 · In progress 2 · Planned 0. Done items only; the fu
 | Invitations per provider: invite by e-mail with the provider or a local password (set from the link), themed invitation e-mail (W3-MAIL send_kind), resend, renew, revoke (disables the unused placeholder, T-R1-35), bulk invite from a Turkish Excel CSV; account_created e-mail on self sign-up and local acceptance | Platform, CI and docs | [`test_w3b_idp_invites.py`](smartsched/backend/tests/test_w3b_idp_invites.py) |
 | /login with several providers: equal-weight buttons in the admins' order (Microsoft and Google branding), at most 3 + 'Diğer giriş yolları', invite shows only the invited method, provider error codes domain / invite_provider in TR/EN | Platform, CI and docs | [`identity-wizard.test.tsx`](smartsched/frontend/src/components/identity/identity-wizard.test.tsx) |
 | Calendar export for academicians (backend): 'Derslerim' and 'Bölümümün dersleri' from the published run only, as scope-bound revocable subscription links (classes.ics, department-classes/{id}.ics), one-off .ics files and push into a dedicated 'SmartSched – Derslerim' Google (calendar.app.created) / Microsoft calendar; stable class UIDs across re-publishes and room moves, SEQUENCE on every change, CANCELLED tombstones, Europe/Istanbul VTIMEZONE, RFC 7986 NAME/SOURCE, version-key ETag/304 + Last-Modified, 1 MB cap; department rule (own, taught, calendar.department_feed); per-scope approval with consent id and audit; verified accounts for push (identity, Workspace hd, Entra tid, own e-mail / institution domain, admin-allowed domains); nightly repair 03:30 | Platform, CI and docs | [`test_cal_06_push.py`](smartsched/backend/tests/test_cal_06_push.py) |
+| Welcome guide per role (backend): audiences from permissions + the instructor link (academician, staff, approver, dept_admin, viewer, planner, admin; never role codes), one server-decided automatic surface per call (first sign-in sheet, 'Sonra' back after 3 days at most twice, role-change delta with only the new audiences, admin 'show again', else one wave-3 feature hint for accounts created before its release, 60 days), self-ticking 'Başlarken' checklist from real rows and audit events (booking, decision, channel, calendar link, intake commit, run, publish, org/mail/rooms/users), deep-link / kiosk / embed / maintenance suppression; admin switches, TR/EN text overrides with version conflict (409 stale naming the editor), completion stats with groups under 5 hidden; RLS owner-only progress rows; KVKK export + erasure | Platform, CI and docs | [`test_wg_01_welcome.py`](smartsched/backend/tests/test_wg_01_welcome.py) |
+| Class size edit on /classes is real (RF-01): PUT /requests/meetings/{id} {enrolment} writes the section's enrolment (audited section.update), PUT /requests/exams/{id} {enrolment} the exam's head count (audited exam_request.update); time-shaped or out-of-range values answer 422 | Planning | [`test_rf1_catalog_editability.py`](smartsched/backend/tests/test_rf1_catalog_editability.py) |
+| Invite sheet e-mail switch on /admin/users (RF-03): 'Davet e-postası gönder' on by default when SMTP is set up and sends send_email; without SMTP 'E-posta ayarlanmadı' with a link to /admin/email; sent / failed toast | Platform, CI and docs | [`rf1-invite-mail.test.tsx`](smartsched/frontend/src/components/admin/rf1-invite-mail.test.tsx) |
+| Yönetim › Katalog (RF-05): view, edit and delete the imported instructors, courses, programmes, faculties and the term's sections; one searchable list per entity, 'Yeni', edit sheet with 'Son değişiklik: <ad>, <zaman>', advanced fields behind 'Gelişmiş', delete that names its consequences and is refused while the record is in use (sections are archived); planning.view reads, planning.edit writes, every write audited | Planning | [`catalog-admin.test.tsx`](smartsched/frontend/src/components/admin/catalog/catalog-admin.test.tsx) |
+| Two-step sign-in and passkeys (backend): authenticator app (stdlib RFC 6238, ±1 step, replay refused, secret Fernet-encrypted), ten single-use argon2id recovery codes shown once, sign-in challenge step (signed single-use token, 5 tries, lockout 5 → 15 min doubling), passkeys via py_webauthn 3.0.1 as second factor and passkey-only sign-in (UV required) with RP ID = public host, trusted devices 0/7/30 days, organisation policy off / optional / required_for_roles with grace and setup token, 10-minute re-auth window, password minimum 12 (8 with 2FA); SSO-only accounts get no local factor; admin MFA reset (reason + identity check, audited, e-mailed) and password-reset link by e-mail (local accounts only, token never shown); nine security e-mails | Platform, CI and docs | [`test_au_b_mfa_api.py`](smartsched/backend/tests/test_au_b_mfa_api.py) |
 
 <!-- /AUTO:status -->
 
@@ -441,6 +454,6 @@ A fork of [classroombookings](https://www.classroombookings.com/) by Craig A Rod
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `220124b` (committed 2026-10-17 23:13 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `e0a810a` (committed 2026-10-18 09:15 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

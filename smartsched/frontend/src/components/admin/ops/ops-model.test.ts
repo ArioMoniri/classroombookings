@@ -1,7 +1,7 @@
 /** W3-OPS: panel helpers and the browser error reporter (scrub, 8 KB fit, dedupe, rate limit, listeners). */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fitReport, installErrorReporter, reportClientError, resetClientReporter, scrubClient } from "@/lib/api/ops";
-import { chartGeometry, formatBytes, formatUptime, sameOrigin, totals } from "./ops-model";
+import { formatBytes, formatUptime, requestsDigest, sameOrigin, totals } from "./ops-model";
 
 describe("ops-model", () => {
   it("formats bytes and uptime per locale", () => {
@@ -13,11 +13,11 @@ describe("ops-model", () => {
     expect(formatUptime(120, "tr")).toBe("2 dk");
   });
 
-  it("chart geometry: bars scaled to the busiest minute, p95 line skips empty minutes", () => {
-    const g = chartGeometry([{ t: 0, requests: 10, errors: 5, p95_ms: 100 }, { t: 60, requests: 20, errors: 0, p95_ms: null }, { t: 120, requests: 0, errors: 0, p95_ms: 50 }], 300, 100);
-    expect(g.bars.map((b) => b.h)).toEqual([50, 100, 0]);
-    expect(g.bars[0].err).toBe(25);
-    expect(g.line.split(" ")).toHaveLength(2);
+  // CH-06: the hand-drawn SVG (chartGeometry) is gone; the small multiples read requestsDigest + totals
+  it("window totals, the mean per minute and the minute with the most 5xx", () => {
+    expect(requestsDigest([{ t: 0, requests: 10, errors: 5, p95_ms: 100 }, { t: 60, requests: 30, errors: 7, p95_ms: 300 }, { t: 120, requests: 2, errors: 7, p95_ms: null }])).toEqual({ perMinute: 14, spike: { t: 60, errors: 7 } });
+    expect(requestsDigest([{ t: 0, requests: 10, errors: 0, p95_ms: 100 }])).toEqual({ perMinute: 10, spike: null });
+    expect(requestsDigest([])).toEqual({ perMinute: 0, spike: null });
     expect(totals([{ t: 0, requests: 10, errors: 5, p95_ms: 100 }, { t: 60, requests: 30, errors: 0, p95_ms: 300 }])).toEqual({ requests: 40, errors: 5, errorPct: 12.5, p95: 300 });
   });
 

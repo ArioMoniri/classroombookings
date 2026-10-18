@@ -31,6 +31,7 @@ import { useApprovalFirst, violationText } from "@/lib/api/booking-policies";
 import { useMyRequests } from "@/lib/api/wave1";
 import { useHydrated } from "@/lib/use-hydrated";
 import { BookingDetailSheet } from "./booking-detail-sheet";
+import { useDeepLinkedBooking } from "./deep-link";
 import { BookingGrid, pickKind, reasonKey, TONE_CLASS, TONE_ICON } from "./booking-grid";
 import { bookingErrorMessage } from "./booking-errors";
 import { DatePicker } from "./date-picker";
@@ -117,6 +118,9 @@ export function BookingsView() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [book, setBook] = useState<BookTarget | null>(null);
   const [detail, setDetail] = useState<number | null>(null);
+  // RF-11: an e-mail's ?booking=<id> or ?series=<id> (the series' earliest booking on the shown grid) opens its sheet
+  const gridBookings = useMemo(() => (g ? g.slots.flatMap((s) => (s.booking ? [s.booking] : [])) : null), [g]);
+  useDeepLinkedBooking(setDetail, gridBookings);
   const [info, setInfo] = useState<{ slot: GridSlot; grid: Grid } | null>(null);
   const [multiOpen, setMultiOpen] = useState(false);
 
@@ -211,7 +215,8 @@ export function BookingsView() {
   // T-R1-19 (R1-A-32): the page hydrates after the shell, whose queries (me, the booking context) may already have
   // filled the shared cache: the first client render would then differ from the server's (React #418). The
   // cache-fed markup starts after hydration; until then both render the same skeleton.
-  if (!hydrated) return <Skeleton className="h-[420px] w-full rounded-xl" data-testid="bookings-hydrating" />;
+  // mobile-a fix 12: the skeletons take the grid's height from md up (the 420 px box gave way to a 784 px grid: CLS 0.28 at 768)
+  if (!hydrated) return <Skeleton className="h-[420px] w-full rounded-xl md:h-[calc(100dvh-15rem)]" data-testid="bookings-hydrating" />;
 
   if (ctx.isError) {
     const err = crbsError(ctx.error);
@@ -630,7 +635,7 @@ export function BookingsView() {
             slotDisplay={slotDisplay}
           />
         ) : grid.isLoading || ctx.isLoading ? (
-          <Skeleton className="h-[420px] w-full rounded-xl" />
+          <Skeleton className="h-[420px] w-full rounded-xl md:h-[calc(100dvh-15rem)]" />
         ) : null}
       </div>
 
@@ -801,8 +806,9 @@ function Legend({ approvalFirst = false }: { approvalFirst?: boolean }) {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2">
-    <p className="hidden type-footnote text-label-3 sm:block print:hidden">{t(approvalFirst ? "reserve.grid.hintRequest" : "reserve.grid.hint")}</p>
-    <p className="type-footnote text-label-3 sm:hidden print:hidden">{t("reserve.grid.longPress")}</p>
+    {/* mobile-a fix 15: the drag / Shift-click hint is for a mouse; a touch tablet gets the touch hint at any width */}
+    <p className="hidden type-footnote text-label-3 sm:pointer-fine:block print:hidden">{t(approvalFirst ? "reserve.grid.hintRequest" : "reserve.grid.hint")}</p>
+    <p className="type-footnote text-label-3 sm:pointer-fine:hidden print:hidden">{t("reserve.grid.longPress")}</p>
     <ul className="flex flex-wrap gap-x-4 gap-y-2 type-footnote text-label-2" aria-label={t("crbs.legend.label")}>
       {LEGEND.map(({ tone, key }) => {
         const Icon = TONE_ICON[tone];

@@ -1,0 +1,1 @@
+- policies-admin.tsx policy-new 105x36 -> pointer-coarse:h-11; approvals rules-admin.tsx name input 32px -> 44px (lane F asks, for mobile phase 2)

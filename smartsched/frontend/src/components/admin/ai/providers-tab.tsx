@@ -6,7 +6,7 @@
  * few-token call, and the KVKK transfer record (region, retention, legal mechanism, dates) decides whether requests
  * that may carry personal data can go to this provider (R-AI-03).
  */
-import { PlugZap, RefreshCw, Save } from "lucide-react";
+import { AudioLines, PlugZap, RefreshCw, Save } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { Alert, Field, Loading } from "@/components/admin/kit";
@@ -18,11 +18,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
-import { type Provider, useAiProviders, useSaveProvider, useSyncProvider, useTestProvider } from "@/lib/api/ai-admin";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CAPABILITIES, type Provider, useAiProviders, useSaveProvider, useSyncProvider, useTestProvider } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { StatusWord } from "./ai-kit";
-import { errorMessage, providerLabel, providerStatus } from "./ai-model";
+import { errorMessage, firstSpeechModel, providerLabel, providerStatus } from "./ai-model";
 
 const SECRET_LABEL: Record<string, MessageKey> = {
   api_key: "aiAdmin.provider.key",
@@ -38,7 +39,12 @@ const CONFIG_LABEL: Record<string, MessageKey> = {
 export function ProvidersTab({ canEdit }: { canEdit: boolean }) {
   const { t, locale } = useI18n();
   const q = useAiProviders();
-  if (q.isLoading) return <Loading />;
+  if (q.isLoading) return (
+      // mobile-b phase 2 (CLS 0.74 / 0.57 at 390): the tab's cards fill the screen; hold that height while they load
+      <div className="min-h-[70dvh]" aria-busy="true" data-testid="ai-providers-loading">
+        <Loading />
+      </div>
+    );
   if (q.isError || !q.data) return <Alert tone="error">{errorMessage(q.error, locale, t("aiAdmin.error.load"))}</Alert>;
   return (
     <div className="flex flex-col gap-4" data-testid="ai-providers">
@@ -56,6 +62,9 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
   const save = useSaveProvider();
   const sync = useSyncProvider();
   const test = useTestProvider();
+  const voiceTest = useTestProvider();
+  const sttModel = firstSpeechModel(p);
+  const caps = p.capabilities ?? []; // absent on a backend without voice
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   const [config, setConfig] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(p.config).filter(([k]) => k !== "enabled").map(([k, v]) => [k, String(v ?? "")])));
   const [transfer, setTransfer] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(p.transfer).map(([k, v]) => [k, String(v ?? "")])));
@@ -69,7 +78,8 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
     const body: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(secrets)) if (v.trim()) body[k] = v.trim();
     for (const k of p.config_fields) body[k] = (config[k] ?? "").trim();
-    const tr = Object.fromEntries(Object.entries(transfer).filter(([, v]) => v.trim()));
+    const tr: Record<string, string | boolean> = Object.fromEntries(Object.entries(transfer).filter(([k, v]) => k !== "processes_voice" && v.trim()));
+    if (transfer.processes_voice) tr.processes_voice = transfer.processes_voice === "true";
     if (Object.keys(tr).length || Object.keys(p.transfer).length) body.transfer = tr;
     save.mutate(
       { p: p.id, body },
@@ -96,6 +106,24 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
             {p.local ? <Badge tone="feasible">{t("aiAdmin.provider.local")}</Badge> : null}
             {p.keyless && !p.secrets.length ? <Badge variant="outline">{t("aiAdmin.provider.keyless")}</Badge> : null}
           </div>
+          {caps.length ? (
+            <p className="type-footnote text-label-2" data-testid={`ai-provider-caps-${p.id}`}>
+              <span className="sr-only">{t("voice.admin.caps")}: </span>
+              {CAPABILITIES.filter((c) => caps.includes(c))
+                .map((c) => t(`voice.admin.cap.${c}` as MessageKey))
+                .join(" · ")}
+            </p>
+          ) : null}
+          {p.regions?.length ? (
+            <p className="type-footnote text-label-2" data-testid={`ai-provider-regions-${p.id}`}>
+              {t("voice.admin.regions", { regions: p.regions.map((r) => r.toUpperCase()).join(", ") })}
+            </p>
+          ) : null}
+          {(locale === "tr" ? p.retention_tr : p.retention_en) ? (
+            <p className="type-footnote text-label-3" data-testid={`ai-provider-retention-${p.id}`}>
+              {locale === "tr" ? p.retention_tr : p.retention_en}
+            </p>
+          ) : null}
         </div>
         {p.id !== "anthropic" ? (
           <div className="flex items-center gap-2">
@@ -191,6 +219,22 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               ))}
             </NativeSelect>
           </Field>
+          {caps.includes("stt") ? (
+            <div className="flex items-start gap-2 md:col-span-2">
+              <Checkbox id={`${ids.base}-voice`} checked={transfer.processes_voice === "true"} disabled={!canEdit} onCheckedChange={(v) => setTransfer((x) => ({ ...x, processes_voice: v ? "true" : "false" }))} data-testid={`ai-transfer-voice-${p.id}`} />
+              <div className="min-w-0">
+                <Label htmlFor={`${ids.base}-voice`} className="type-callout text-label-1">
+                  {t("voice.admin.processesVoice")}
+                </Label>
+                <p className="type-footnote text-label-3">{t("voice.admin.processesVoiceHint")}</p>
+              </div>
+            </div>
+          ) : null}
+          {caps.includes("stt") && transfer.processes_voice === "true" ? (
+            <Field label={t("voice.admin.audioRetention")} htmlFor={`${ids.base}-tr-audio`} hint={(locale === "tr" ? p.retention_tr : p.retention_en) ?? undefined}>
+              <Input id={`${ids.base}-tr-audio`} value={transfer.audio_retention ?? ""} disabled={!canEdit} onChange={(e) => setTransfer((x) => ({ ...x, audio_retention: e.target.value }))} />
+            </Field>
+          ) : null}
           {(["region", "retention", "contract_date", "notification_date", "note"] as const).map((k) => (
             <Field key={k} label={t(`aiAdmin.transfer.${k}` as MessageKey)} htmlFor={`${ids.base}-tr-${k}`}>
               <Input id={`${ids.base}-tr-${k}`} type={k.endsWith("_date") ? "date" : "text"} value={transfer[k] ?? ""} disabled={!canEdit} onChange={(e) => setTransfer((x) => ({ ...x, [k]: e.target.value }))} />
@@ -206,7 +250,11 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
         {p.sync_error ? <p className="type-footnote text-status-infeasible-fg">{t("aiAdmin.provider.syncError", { error: p.sync_error })}</p> : null}
         {p.last_test?.at ? (
           <p className={p.last_test.ok ? "type-footnote text-label-2" : "type-footnote text-status-infeasible-fg"} data-testid={`ai-test-line-${p.id}`}>
-            {p.last_test.ok ? t("aiAdmin.provider.testOk", { detail: p.last_test.detail ?? "" }) : t("aiAdmin.provider.testFail", { detail: p.last_test.detail ?? "" })}
+            {p.last_test.transcript_preview
+              ? t("voice.admin.testOk", { preview: p.last_test.transcript_preview })
+              : p.last_test.ok
+                ? t("aiAdmin.provider.testOk", { detail: p.last_test.detail ?? "" })
+                : t("aiAdmin.provider.testFail", { detail: p.last_test.detail ?? "" })}
           </p>
         ) : null}
       </div>
@@ -247,6 +295,23 @@ function ProviderCard({ provider: p, mechanisms, canEdit }: { provider: Provider
               {t("aiAdmin.provider.test")}
             </BusyLabel>
           </Button>
+          {sttModel && caps.includes("text") ? (
+            <Button
+              variant="outline"
+              {...busyProps(voiceTest.isPending, !p.has_credentials)}
+              onClick={() =>
+                voiceTest.mutate(
+                  { p: p.id, model: sttModel },
+                  { onSuccess: (r) => (r.ok ? toast.success(t("voice.admin.testOk", { preview: r.transcript_preview ?? r.detail })) : setError(t("voice.admin.testFail", { detail: r.detail }))), onError: fail },
+                )
+              }
+              data-testid={`ai-provider-voice-test-${p.id}`}
+            >
+              <BusyLabel busy={voiceTest.isPending} label={t("voice.admin.testing")} icon={<AudioLines aria-hidden />}>
+                {t("voice.admin.test")}
+              </BusyLabel>
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </Card>

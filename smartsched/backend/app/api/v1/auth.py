@@ -11,7 +11,7 @@ from app.core.security import hash_password, password_needs_rehash, revoke_token
 from app.models import User
 from app.models.base import utcnow
 from app.schemas.auth import LoginIn, TokenOut, UserOut
-from app.services import audit, bookings_ldap, sso
+from app.services import audit, bookings_ldap, mfa, sso
 from app.services import bookings_events as events
 from app.services.bookings_settings import get_value
 from app.services.bookings_users import find_login_user
@@ -79,7 +79,7 @@ async def login(body: LoginIn, db: DB, request: Request) -> TokenOut:
             headers={"Retry-After": str(wait)},
         )
     try:
-        out = await _login(body, db)
+        out = await _login(body, db, request.headers.get("x-trusted-device"))
     except HTTPException as exc:
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
             ratelimit.failure(address, body.identifier)
@@ -88,7 +88,7 @@ async def login(body: LoginIn, db: DB, request: Request) -> TokenOut:
     return out
 
 
-async def _login(body: LoginIn, db: DB) -> TokenOut:
+async def _login(body: LoginIn, db: DB, trusted_device: str | None = None) -> TokenOut:
     ident, method = body.identifier, "local"
     user: User | None = None
     ldap_rejected = False
@@ -112,6 +112,11 @@ async def _login(body: LoginIn, db: DB) -> TokenOut:
         await sso.record_password_refusal(db, user, method)
         await db.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID)
+    # AU-B: a second factor (or enrolment the policy requires) before the session (app/services/mfa.py)
+    gate = await mfa.after_password(db, user, method, trusted_device)
+    if gate.kind != "pass":
+        await db.commit()
+        return TokenOut(access_token=None, expires_in=0, **gate.extra)
     user.last_login_at = utcnow()
     await events.emit(db, "user.logged_in", {"user_id": user.id, "auth_method": method})
     await db.commit()
@@ -120,6 +125,7 @@ async def _login(body: LoginIn, db: DB) -> TokenOut:
         access_token=token,
         expires_in=get_settings().jwt_expire_minutes * 60,
         password_change_required=bool(user.force_password_reset and method == "local"),
+        **gate.extra,
     )
 
 

@@ -109,4 +109,37 @@ export const catalogApi = {
   deleteRule: (id: number) => request(`/constraints/${id}`, { method: "DELETE", silent: true }),
 };
 
+/** RF-05: what a delete would touch and "Son değişiklik" (`GET /catalog/usage/{entity}/{id}`, planning.view). */
+export const CatalogUsage = z.object({
+  entity: z.string(),
+  id: z.number(),
+  uses: z.record(z.string(), z.number()).default({}),
+  blocked: z.boolean(),
+  action: z.enum(["delete", "archive"]),
+  last_change: z.object({ actor: z.string().nullish(), at: z.string().nullish(), action: z.string() }).nullish(),
+});
+export type CatalogUsage = z.infer<typeof CatalogUsage>;
+export type CatalogEntity = "instructor" | "course" | "faculty" | "program" | "section";
+const Deleted = z.object({ id: z.number(), action: z.string(), audit_id: z.number().nullish() });
+const pageQuery = (q: { search?: string; limit?: number; offset?: number }) => ({ search: q.search || undefined, limit: q.limit ?? 100, offset: q.offset ?? 0 });
+
+/** RF-05: the /admin/catalog screens (view, edit, delete what the workbooks imported); every write is audited. */
+export const catalogAdminApi = {
+  usage: (entity: CatalogEntity, id: number) => request(`/catalog/usage/${entity}/${id}`, { schema: CatalogUsage, silent: true }),
+  instructorsPage: (q: { search?: string; limit?: number; offset?: number }) => request(`/instructors`, { query: pageQuery(q), schema: page(Instructor), silent: true }),
+  updateInstructor: (id: number, body: { full_name?: string; title?: string | null; email?: string | null }) => request(`/instructors/${id}`, { method: "PUT", body, schema: Instructor, silent: true }),
+  deleteInstructor: (id: number) => request(`/instructors/${id}`, { method: "DELETE", schema: Deleted, silent: true }),
+  coursesPage: (q: { search?: string; limit?: number; offset?: number }) => request(`/courses`, { query: pageQuery(q), schema: page(Course), silent: true }),
+  deleteCourse: (id: number) => request(`/courses/${id}`, { method: "DELETE", schema: Deleted, silent: true }),
+  programsPage: (q: { search?: string; limit?: number; offset?: number }) => request(`/programs`, { query: pageQuery(q), schema: page(ProgramRow), silent: true }),
+  deleteProgram: (id: number) => request(`/programs/${id}`, { method: "DELETE", schema: Deleted, silent: true }),
+  facultiesPage: (q: { search?: string; limit?: number; offset?: number }) => request(`/faculties`, { query: pageQuery(q), schema: page(Faculty), silent: true }),
+  updateFaculty: (id: number, name: string) => request(`/faculties/${id}`, { method: "PUT", body: { name }, schema: Faculty, silent: true }),
+  deleteFaculty: (id: number) => request(`/faculties/${id}`, { method: "DELETE", schema: Deleted, silent: true }),
+  sectionsPage: (q: { term_id: number; search?: string; limit?: number; offset?: number }) => request(`/sections`, { query: { ...pageQuery(q), term_id: q.term_id }, schema: page(SectionRow), silent: true }),
+  updateSection: (id: number, body: { label?: string | null; program_id?: number | null; enrolment?: number | null; mode?: string; notes?: string | null; class_years?: number[] }) =>
+    request(`/sections/${id}`, { method: "PUT", body, schema: SectionAdmin, silent: true }),
+  archiveSection: (id: number) => request(`/sections/${id}`, { method: "DELETE", schema: Deleted, silent: true }),
+};
+
 export { Pair };

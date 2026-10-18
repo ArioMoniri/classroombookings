@@ -581,7 +581,7 @@ async def disconnect(provider: str, db: DB, access: CurrentAccess) -> Response:
     row = await _connection(db, access.user, provider)
     before = {"provider": row.provider, "export_scopes": list(row.export_scopes or ["my_bookings"])}
     conn_id = row.id
-    out = await conn_svc.disconnect(db, row)
+    out = await conn_svc.disconnect(db, row, notify=True)  # RF-11: the person's own record of the removal
     await audit.record(
         db,
         "calendar.push_disconnect",

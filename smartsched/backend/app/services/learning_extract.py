@@ -482,8 +482,11 @@ async def _corrections(session: AsyncSession, ctx: _Ctx, rep: Report) -> list[Ob
     return out
 
 
-async def _assignments(session: AsyncSession, ctx: _Ctx, rep: Report) -> list[Obs]:
-    """Manual / AI moves (+2 to the new rooms, -2 away from the parent run's rooms) and locks (+2)."""
+async def _assignments(
+    session: AsyncSession, ctx: _Ctx, rep: Report, *, skip_moves: set[int] | frozenset[int] = frozenset()
+) -> list[Obs]:
+    """Manual / AI moves (+2 to the new rooms, -2 away from the parent run's rooms) and locks (+2). Moves the
+    planning audit covers (``skip_moves``, assignment ids) are learned from the audit instead (AS-13)."""
     runs = {r.id: r for r in (await session.execute(select(ScheduleRun))).scalars()}
     q = select(Assignment).where(
         Assignment.meeting_request_id.is_not(None),
@@ -511,6 +514,8 @@ async def _assignments(session: AsyncSession, ctx: _Ctx, rep: Report) -> list[Ob
             continue
         ts = run.created_at or r.ts
         moved = a.origin in ("MANUAL", "AI_EDIT")
+        if moved and a.id in skip_moves:
+            continue  # learned from its audit row (one source per edit)
         kind = "move_to" if moved else "lock"
         if not moved and (a.origin == "IMPORT" or set(rooms) == set(r.definitive)):
             continue  # a lock that only repeats the planning list (already learned as definitive_room)
@@ -570,15 +575,53 @@ async def _bookings(session: AsyncSession, ctx: _Ctx) -> list[Obs]:
     return out
 
 
-async def _planning_audit(session: AsyncSession, ctx: _Ctx) -> list[Obs]:  # noqa: ARG001
-    """Hook for the planning audit (P19-02: ``audit_events`` rows of entity ``assignment`` / ``meeting_request``
-    written by ``services/planning_audit.py``).
+#: planning-audit actions that move a class (``services/planning_audit.py``; AS-13)
+AUDIT_MOVES = ("assignment.move", "assignment.bulk_move")
 
-    TODO(P19-02): once the planning audit has run for a term, read its ``assignment.move`` / ``.lock`` /
-    ``meeting_request.update`` rows (before -> after rooms) as ``move_to`` / ``move_away`` / ``correction_*``
-    observations with ``source_table="audit_events"``, and drop the parent-run comparison in
-    :func:`_assignments` for runs the audit covers (one source per edit, never both)."""
-    return []
+
+async def _planning_audit(session: AsyncSession, ctx: _Ctx, rep: Report | None = None) -> tuple[list[Obs], set[int]]:
+    """Moves from the planning audit (P19-02, AS-13): each ``assignment.move`` / ``assignment.bulk_move`` row
+    (single or bulk child) gives ``move_to`` the rooms after and ``move_away`` the rooms before, with
+    ``source_table="audit_events"`` and the audit row's id. Returns the observations and the assignment ids the audit
+    covers, so :func:`_assignments` does not also count them from the parent-run comparison (one source per edit)."""
+    from app.models import AuditEvent
+
+    q = select(AuditEvent).where(AuditEvent.action.in_(AUDIT_MOVES), AuditEvent.entity_type == "assignment")
+    out: list[Obs] = []
+    covered: set[int] = set()
+    for ev in (await session.execute(q.order_by(AuditEvent.id))).scalars():
+        before, after = ev.before or {}, ev.after or {}
+        mid = after.get("meeting_request_id") or before.get("meeting_request_id")
+        r = ctx.reqs.get(int(mid)) if mid else None
+        if r is None or not ctx.room_evidence(r):
+            continue
+        rooms = _ints(after.get("room_ids"))
+        old = _ints(before.get("room_ids"))
+        if not rooms or set(rooms) == set(old):
+            continue
+        try:
+            covered.add(int(ev.entity_id or 0))
+        except ValueError:
+            pass
+        if ctx.over_capacity(r, rooms):
+            if rep is not None:
+                rep.skip("move_to_over_capacity")
+            continue
+        detail = {**ctx.detail(r, rooms), "audit_id": ev.id, "run_id": after.get("run_id")}
+        lost = [x for x in old if x not in rooms]
+        kept_buildings = {v for at, v in ctx.room_values(rooms) if at == "building"}
+        for st, sk in ctx.subjects(r):
+            for attr, val in ctx.room_values(rooms):
+                out.append(
+                    Obs(ev.ts, r.term_id, "move_to", st, sk, attr, val, "audit_events", ev.id, ev.actor_id, detail)
+                )
+            for attr, val in ctx.room_values(lost):
+                if attr == "building" and val in kept_buildings:
+                    continue
+                out.append(
+                    Obs(ev.ts, r.term_id, "move_away", st, sk, attr, val, "audit_events", ev.id, ev.actor_id, detail)
+                )
+    return out, covered
 
 
 async def extract(session: AsyncSession) -> Report:
@@ -587,9 +630,10 @@ async def extract(session: AsyncSession) -> Report:
     ctx = await _load(session)
     candidates: list[Obs] = [*_definitive(ctx, rep), *_requests(ctx, rep)]
     candidates += await _corrections(session, ctx, rep)
-    candidates += await _assignments(session, ctx, rep)
+    audited, covered = await _planning_audit(session, ctx, rep)
+    candidates += await _assignments(session, ctx, rep, skip_moves=covered)
     candidates += await _bookings(session, ctx)
-    candidates += await _planning_audit(session, ctx)
+    candidates += audited
 
     cols = (
         LearnedObservation.source_table,

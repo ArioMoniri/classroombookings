@@ -1,6 +1,6 @@
 ## How to resume after an interruption
 
-0. **Cross-session hand-off:** read `docs/HANDOFF.md` first. A second session (`focused-wright`) continued the round-1 flow loop on `claude/focused-wright-ktt0ss` (tags `handoff/focused-wright-*`); merge it back with `git merge --ff-only` before relaunching anything.
+0. **Cross-session hand-off:** read `docs/HANDOFF.md (and docs/agents/LANES.md for the lanes)` first. A second session (`focused-wright`) continued the round-1 flow loop on `claude/focused-wright-ktt0ss` (tags `handoff/focused-wright-*`); merge it back with `git merge --ff-only` before relaunching anything.
 1. `git pull` on `claude/gracious-cerf-w1598m`; read this file, the last 30 lines of `docs/PROGRESS.md`, and `git log --oneline -20`.
 2. Run `python3 scripts/watchdog.py` (stale agents) and `cd smartsched/backend && make check`, `cd smartsched/frontend && npm run check`.
 3. For each agent under "Running agents" above whose work is not finished, relaunch an agent of the listed type with

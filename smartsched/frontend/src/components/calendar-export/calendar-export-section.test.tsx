@@ -64,12 +64,13 @@ describe("CalendarExportSection", () => {
     expect(screen.queryByTestId("cal-open")).toBeNull();
   });
 
-  it("resumes a push approval after ?calendar=connected: applies the scope and shows the progress", async () => {
+  it("resumes a push approval after ?calendar=connected: the backend applied the scope, the sheet shows the progress", async () => {
     window.sessionStorage.setItem("smartsched.calendarExport.pending", JSON.stringify({ provider: "google", kind: "department_classes", departmentId: 7, at: Date.now() }));
     window.history.replaceState(null, "", "/profile?calendar=connected&provider=google");
     renderIt(<CalendarExportSection />);
     expect(await screen.findByTestId("cal-push-done")).toHaveTextContent("Google Takvim takviminize ekleniyor…");
-    expect(api.calls.find((c) => c.path === "/calendar/connectors/google/scopes")?.body).toEqual({ scopes: ["department_classes:7"] });
+    // connect carried the scopes (API.md): nothing is PUT again on the way back
+    expect(api.calls.some((c) => c.path.endsWith("/scopes"))).toBe(false);
     expect(window.sessionStorage.getItem("smartsched.calendarExport.pending")).toBeNull();
   });
 
@@ -81,6 +82,27 @@ describe("CalendarExportSection", () => {
     await waitFor(() => expect(window.sessionStorage.getItem("smartsched.calendarExport.pending")).toBeNull());
     expect(api.calls.some((c) => c.path.endsWith("/scopes"))).toBe(false);
     expect(screen.queryByTestId("cal-sheet")).toBeNull();
+  });
+});
+
+describe("CalendarExportSection › ?calendar=1 (HX-06 hand-over)", () => {
+  it("opens the sheet on step 1", async () => {
+    window.history.replaceState(null, "", "/profile?calendar=1");
+    renderIt(<CalendarExportSection />);
+    expect(await screen.findByRole("heading", { name: "Neyi eklemek istiyorsunuz?" })).toBeInTheDocument();
+  });
+});
+
+describe("CalendarExportSection › account not verified (CAL-07)", () => {
+  it("says which account to use after ?calendar=error&reason=account_not_verified", async () => {
+    window.history.replaceState(null, "", "/profile?calendar=error&provider=google&reason=account_not_verified&domain=uni.edu.tr");
+    renderIt(<CalendarExportSection />);
+    expect(await screen.findByTestId("cal-not-verified")).toHaveTextContent("Bu hesap kurumunuzun doğrulanmış hesabı değil. uni.edu.tr uzantılı hesabınızla bağlanın.");
+  });
+  it("says kurumsal without a domain", async () => {
+    window.history.replaceState(null, "", "/profile?calendar=error&provider=google&reason=account_not_verified");
+    renderIt(<CalendarExportSection />);
+    expect(await screen.findByTestId("cal-not-verified")).toHaveTextContent("Kurumsal hesabınızla bağlanın.");
   });
 });
 

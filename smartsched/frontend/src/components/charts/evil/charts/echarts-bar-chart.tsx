@@ -2,7 +2,8 @@
 // Source: https://evilcharts.com (src/registry/charts/echarts-bar-chart.tsx) via shadcn registry @evilcharts/echarts-bar-chart (https://evilcharts.com/r/echarts-bar-chart.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter className> injected formatters and tooltip class (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters)
+// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter className> injected formatters and tooltip class (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters); `useReducedMotion` → `useReduce` from @/lib/motion
+/* eslint-disable react-hooks/refs -- vendored as is: the ECharts instance and its per-frame state live in refs by design; rewriting them would fork the upstream file */
 
 import {
   DEFAULT_ECHARTS_RENDERER,
@@ -58,7 +59,9 @@ import { LegendOverlay, type LegendVariant } from "@/components/charts/evil/ui/e
 import type { ComposeOption, ImagePatternObject } from "echarts/core";
 import { BarChart, type BarSeriesOption } from "echarts/charts";
 import { sampleGradient } from "@/components/charts/evil/ui/echarts-dot";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+// SmartSched patch: useReduce also honours Settings → Appearance → Reduce motion (<html data-motion>).
+import { useReduce as useReducedMotion } from "@/lib/motion";
 import * as echarts from "echarts/core";
 
 // Re-export the shared types that were previously declared inline here, so

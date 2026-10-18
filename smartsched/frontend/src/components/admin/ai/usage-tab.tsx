@@ -1,14 +1,13 @@
 "use client";
 /**
- * Yapay zekâ › Kullanım: KPI tiles, the org budget meter, "Günlük token kullanımı" (stacked columns by feature, fixed
- * colour per feature, one axis, a table twin that is always in the DOM), a by-feature list and the per-user table
+ * Yapay zekâ › Kullanım: KPI tiles, the org budget meter, "Günlük token kullanımı" (./usage-chart.tsx on the shared
+ * ChartCard, CH-05), a by-feature list and the per-user table
  * with search and a meter against each user's limit. Metadata only: no prompt or answer text exists to show.
  */
 import { useMemo, useState } from "react";
 import { Alert, Loading } from "@/components/admin/kit";
 import { BarList } from "@/components/ui/bar-list";
 import { Card } from "@/components/ui/card";
-import { EvilBarChart } from "@/components/ui/evilcharts/charts/recharts-bar-chart";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -16,7 +15,8 @@ import { useAiSummary, useAiUsage, type UsageRow } from "@/lib/api/ai-admin";
 import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { Meter, StatTile, Tokens, useAiLabels } from "./ai-kit";
-import { activeSeries, compactTokens, dayChartData, errorMessage, meterState, pctText, resetDate, SERIES_COLOR, sortUsers, usd, userPct, type ChartSeries } from "./ai-model";
+import { DailyChart } from "./usage-chart";
+import { audioDays, compactTokens, errorMessage, meterState, resetDate, sortUsers, usd, userPct } from "./ai-model";
 
 type Period = "7d" | "30d" | "month";
 
@@ -80,97 +80,9 @@ export function UsageTab() {
       </Card>
       <DailyChart rows={days.data?.rows ?? []} loading={days.isLoading} lastDays={period === "7d" ? 7 : undefined} />
       <ByFeature rows={features.data?.rows ?? []} />
+      <AudioUsage rows={days.data?.rows ?? []} />
       <UsersTable start={start} />
     </div>
-  );
-}
-
-function DailyChart({ rows, loading, lastDays }: { rows: UsageRow[]; loading: boolean; lastDays?: number }) {
-  const { t, locale } = useI18n();
-  const labels = useAiLabels();
-  const [view, setView] = useState<"chart" | "table">("chart");
-  const points = useMemo(() => dayChartData(rows, locale, lastDays), [rows, locale, lastDays]);
-  const series = activeSeries(points);
-  const label = (s: ChartSeries) => (s === "other" ? t("aiAdmin.feature.other") : labels.feature(s));
-  const config = Object.fromEntries(series.map((s) => [s, { label: label(s), colors: { light: [SERIES_COLOR[s]], dark: [SERIES_COLOR[s]] } }]));
-  const total = points.reduce((a, p) => a + p.total, 0);
-  const top = series.map((s) => ({ s, v: points.reduce((a, p) => a + p[s], 0) })).sort((a, b) => b.v - a.v)[0];
-  return (
-    <Card className="gap-3 px-4 py-4" data-testid="ai-daily-chart">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="type-headline text-label-1">{t("aiAdmin.usage.chart")}</h3>
-        <SegmentedControl<"chart" | "table">
-          aria-label={t("aiAdmin.usage.view")}
-          value={view}
-          onValueChange={setView}
-          options={[
-            { value: "chart", label: t("aiAdmin.usage.chartView"), testId: "ai-view-chart" },
-            { value: "table", label: t("aiAdmin.usage.table"), testId: "ai-view-table" },
-          ]}
-        />
-      </div>
-      {loading ? <Loading /> : null}
-      {!loading && !total ? <p className="type-callout text-label-2">{t("aiAdmin.usage.empty")}</p> : null}
-      {total ? (
-        <p className="type-footnote text-label-2" data-testid="ai-chart-summary">
-          {t("aiAdmin.usage.summary", { total: compactTokens(total, locale), top: top ? label(top.s) : "", pct: top ? pctText(Math.round((100 * top.v) / total), locale) : "" })}
-        </p>
-      ) : null}
-      {total && view === "chart" ? (
-        <div aria-hidden className="h-56 w-full overflow-x-auto">
-          <div className="h-full min-w-[480px]">
-            <EvilBarChart config={config as never} data={points as never[]} stackType="stacked" animationType="none" className="aspect-auto size-full">
-              <EvilBarChart.Grid vertical={false} />
-              <EvilBarChart.XAxis dataKey="label" />
-              <EvilBarChart.YAxis width={48} tickFormatter={(v: number) => compactTokens(v, locale)} />
-              <EvilBarChart.Tooltip variant="frosted-glass" />
-              <EvilBarChart.Legend />
-              {series.map((s) => (
-                <EvilBarChart.Bar key={s} dataKey={s} />
-              ))}
-            </EvilBarChart>
-          </div>
-        </div>
-      ) : null}
-      {total ? (
-        <div className={view === "table" ? "overflow-x-auto" : "sr-only"} data-testid="ai-chart-table">
-          <table className="w-full type-footnote">
-            <thead>
-              <tr className="text-left text-label-2">
-                <th scope="col" className="py-1 pr-3">
-                  {t("aiAdmin.usage.day")}
-                </th>
-                {series.map((s) => (
-                  <th key={s} scope="col" className="py-1 pr-3 text-right">
-                    {label(s)}
-                  </th>
-                ))}
-                <th scope="col" className="py-1 text-right">
-                  {t("aiAdmin.usage.total")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {points
-                .filter((p) => p.total > 0 || view === "table")
-                .map((p) => (
-                  <tr key={p.day} className="border-t border-hairline">
-                    <th scope="row" className="py-1 pr-3 text-left font-normal text-label-1">
-                      {p.label}
-                    </th>
-                    {series.map((s) => (
-                      <td key={s} className="py-1 pr-3 text-right tabular-nums">
-                        {compactTokens(p[s], locale)}
-                      </td>
-                    ))}
-                    <td className="py-1 text-right font-medium tabular-nums">{compactTokens(p.total, locale)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-    </Card>
   );
 }
 
@@ -182,6 +94,22 @@ function ByFeature({ rows }: { rows: UsageRow[] }) {
     <Card className="gap-3 px-4 py-4" data-testid="ai-by-feature">
       <h3 className="type-headline text-label-1">{t("aiAdmin.usage.byFeature")}</h3>
       <BarList aria-label={t("aiAdmin.usage.byFeature")} items={rows.map((r) => ({ key: String(r.key), label: labels.feature(String(r.key)), value: r.tokens, display: compactTokens(r.tokens, locale) }))} />
+    </Card>
+  );
+}
+
+/** Voice (VO-07): minutes of audio transcribed per day; nothing at all while nobody has used voice. */
+function AudioUsage({ rows }: { rows: UsageRow[] }) {
+  const { t, locale } = useI18n();
+  const days = useMemo(() => audioDays(rows, locale), [rows, locale]);
+  const total = days.reduce((a, d) => a + d.minutes, 0);
+  if (!total) return null;
+  const n = (v: number) => new Intl.NumberFormat(locale === "tr" ? "tr-TR" : "en-GB", { maximumFractionDigits: 1 }).format(v);
+  return (
+    <Card className="gap-3 px-4 py-4" data-testid="ai-audio-usage">
+      <h3 className="type-headline text-label-1">{t("voice.admin.usage.title")}</h3>
+      <p className="type-footnote text-label-2">{t("voice.admin.usage.total", { min: n(total) })}</p>
+      <BarList aria-label={t("voice.admin.usage.byDay")} items={days.map((d) => ({ key: d.day, label: d.label, value: d.minutes, display: t("voice.admin.usage.minutes", { n: n(d.minutes) }) }))} />
     </Card>
   );
 }

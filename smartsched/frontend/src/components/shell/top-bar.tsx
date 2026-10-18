@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { MoreHorizontal, Search } from "lucide-react";
 import { motion, useMotionValueEvent, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { useTintOnlyChrome } from "./blur-budget";
 import { breadcrumbs, type Crumb } from "./breadcrumbs";
+import { hasOwnBottomBar } from "./tab-bar";
 import { UserMenu } from "./user-menu";
 
 export function useBreadcrumbs(): Crumb[] {
@@ -183,10 +184,14 @@ export function TopBar() {
  * Phones: a chrome bar with the page title (large titles live in the content) and the account.
  * mobile-a fixes 4 + 14: on a short landscape screen (≤ 500 px tall) it scrolls away with the page instead of sticking
  * (header + tab bar took 27 % of 390 px); below 360 px wide it carries the search the tab bar has no room for.
+ * The width threshold is 22.5rem (360 px at the default size), so at 200 % text on a 390 px phone the search moves up
+ * here too (mobile audit B fix 10: the tab bar's search circle was pushed to x 407 and the page scrolled sideways).
  */
 export function MobileTopBar() {
   const { t } = useI18n();
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
+  const setDrawerOpen = useUiStore((s) => s.setDrawerOpen);
+  const ownBottomBar = hasOwnBottomBar(usePathname()); // Studio / wizard: no tab bar, so menu + search live here
   const crumbs = useBreadcrumbs();
   const { solid, tint, titleOpacity, reduce, scrolled } = useThickening();
   const title = crumbs.at(-1)?.label ?? "";
@@ -198,9 +203,14 @@ export function MobileTopBar() {
       <motion.p className="type-headline min-w-0 flex-1 truncate text-label-1" style={{ opacity: reduce ? (scrolled ? 1 : 0) : titleOpacity }} aria-hidden>
         {title}
       </motion.p>
-      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("nav.search")} className="hidden max-[359px]:inline-flex" data-testid="open-palette-narrow">
+      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("nav.search")} className={ownBottomBar ? "inline-flex" : "hidden max-[22.5rem]:inline-flex"} data-testid="open-palette-narrow">
         <Search aria-hidden />
       </Button>
+      {ownBottomBar ? (
+        <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} aria-label={t("glass.shell.more")} data-testid="open-drawer-top">
+          <MoreHorizontal aria-hidden />
+        </Button>
+      ) : null}
       <WhatsNewIndicator />
       <NotificationBell />
       <UserMenu compact />

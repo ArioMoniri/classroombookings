@@ -21,7 +21,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const AUTH_COOKIE = "smartsched_token";
 const SIGNED_OUT_ONLY = new Set(["/login"]);
-const PUBLIC = new Set(["/reset-password", "/setup", "/login/sso"]);
+// AUX-04: the second step and the enrolment the policy forces run before (or without) a session
+const PUBLIC = new Set(["/reset-password", "/setup", "/login/sso", "/login/verify", "/login/setup-2fa"]);
 const PUBLIC_PREFIX = "/public";
 
 /** 128 random bits, base64 (a CSP nonce must be unguessable and new for every response). */

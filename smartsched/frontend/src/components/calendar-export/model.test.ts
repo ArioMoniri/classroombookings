@@ -1,6 +1,6 @@
 /** CAL-08 sheet model: scope cards with reasons, only the configured channels, the approval fields, the sample line. */
 import { describe, expect, it } from "vitest";
-import { ExportOptions, Subscription } from "@/lib/api/calendar-export";
+import { ExportOptions, Subscription, connectScopes } from "@/lib/api/calendar-export";
 import {
   approvalFields,
   channelChoices,
@@ -222,5 +222,29 @@ describe("CAL-B contract adapters", () => {
     expect(c[1]!.sample?.text_tr).toBe("PSY 101 — A 1 — Pzt 09:00–10:00");
     expect(c[2]!.sample).toBeNull();
     expect(sampleLine(c[1]!.sample!, "tr", "Şube")).toBe("PSY 101 — A 1 — Pzt 09:00–10:00");
+  });
+});
+
+describe("POST /calendar/subscriptions answer (API.md)", () => {
+  it("parses the contract's create answer, preview included", async () => {
+    const { SubscriptionCreated } = await import("@/lib/api/calendar-export");
+    const made = SubscriptionCreated.parse({
+      id: 41, label: "iPhone", hint: "x9Qa", channel: "link", scope_kind: "my_classes", scope_id: null, url_known: true, token: "sst_x",
+      url: "https://r.uni.edu.tr/api/v1/calendar/feeds/sst_x/classes.ics",
+      urls: { https: "https://r.uni.edu.tr/api/v1/calendar/feeds/sst_x/classes.ics", webcal: "webcal://r.uni.edu.tr/api/v1/calendar/feeds/sst_x/classes.ics", google: "https://calendar.google.com/calendar/r?cid=x", outlook: "https://outlook.office.com/calendar/0/addfromweb?url=x" },
+      preview: { scope_kind: "my_classes", upcoming_count: 13, sample: { summary: "PSY 262 · Şube 1", location: "C 504", start: "2026-02-23T13:30:00", end: "2026-02-23T15:50:00" }, fields: [{ key: "course_code", label_tr: "Ders kodu", label_en: "Course code" }] },
+    });
+    expect(made.urls.webcal).toMatch(/^webcal:/);
+  });
+});
+
+describe("connectScopes (API.md: the new sheet always sends scopes on connect)", () => {
+  it("keeps the given scopes once each, in order", () => {
+    expect(connectScopes(["my_classes", "department_classes:28", "my_classes"])).toEqual(["my_classes", "department_classes:28"]);
+  });
+  it("never sends an empty or missing list: a bookings-only legacy connection reconnects with my_bookings", () => {
+    expect(connectScopes([])).toEqual(["my_bookings"]);
+    expect(connectScopes(null)).toEqual(["my_bookings"]);
+    expect(connectScopes([" ", ""])).toEqual(["my_bookings"]);
   });
 });

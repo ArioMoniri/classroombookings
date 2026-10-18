@@ -467,6 +467,10 @@ class OrgSettingsIn(BaseModel):
     #: approval-first bookings: "rules" (only rooms with an approval rule) or "all" (every booking request is
     #: approved first; approvers, planning administrators and bookings.skip_approval book directly)
     approval_mode: Literal["rules", "all"] | None = None
+    #: RF-11: booking reminders this many hours before the start (0 = off; at most two weeks)
+    reminder_lead_hours: int | None = Field(default=None, ge=0, le=336)
+    #: RF-11: "sign-in from a new device" e-mails for the organisation
+    new_device_sign_in_mail: bool | None = None
 
     @field_validator("website")
     @classmethod

@@ -33,7 +33,7 @@ export function FreeSlotsList({ rooms, loading, week, fmt, deptFirst, onReserve,
       </p>
       <ul className="flex flex-col overflow-hidden rounded-xl bg-(--mat-thick-solid) edge-hairline">
         {rooms.map((r) => (
-          <li key={r.room.id} className="flex flex-col gap-2 px-3 py-3 not-last:edge-hairline-b sm:flex-row sm:items-start sm:gap-4" data-testid={`free-room-${r.room.code}`}>
+          <li key={r.room.id} className="flex flex-col gap-2 px-3 py-3 not-last:edge-hairline-b [contain-intrinsic-size:auto_320px] [content-visibility:auto] sm:flex-row sm:items-start sm:gap-4" data-testid={`free-room-${r.room.code}`}>
             <BareButton
               onClick={() => onRoomInfo(r.room.id, r.days[0]?.date ?? r.grid.date)}
               aria-label={t("crbs.roomInfo.open", { name: r.room.name })}

@@ -23,7 +23,7 @@ echarts.use([CanvasRenderer, SVGRenderer, AriaComponent]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Theme keys + config — replicated from the repo's <ChartStyle> so the ECharts
-// charts stay self-contained (no recharts ui imports). Shared by every ECharts
+// charts stay self-contained (no Recharts-variant ui imports). Shared by every ECharts
 // chart and the tooltip/legend/brush ui modules.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ export type ChartConfig = Record<
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Color plumbing — replicated from the repo's <ChartStyle> so the charts stay
-// self-contained (no @/components/charts/evil/ui/recharts imports).
+// self-contained (no imports from the Recharts variant).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Max slots a key needs = longest color array across themes (min 1). Both themes

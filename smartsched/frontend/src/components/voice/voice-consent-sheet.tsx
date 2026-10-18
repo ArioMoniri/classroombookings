@@ -28,11 +28,12 @@ export function VoiceConsentSheet({
   onAccepted: () => void;
   returnFocus?: RefObject<HTMLElement | null>;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const grant = useGrantVoiceConsent();
   const accept = useRef<HTMLButtonElement>(null);
-  const provider = status?.provider_label || t("voice.consent.providerUnknown");
-  const where = status?.provider_local ? t("voice.consent.whereLocal", { provider }) : status?.region ? t("voice.consent.whereRegion", { provider, region: status.region }) : t("voice.consent.where", { provider });
+  const provider = (locale === "en" ? status?.provider_label_en : null) || status?.provider_label || t("voice.consent.providerUnknown");
+  const region = status?.region ? status.region.toUpperCase() : null;
+  const where = region ? t("voice.consent.whereRegion", { provider, region }) : t("voice.consent.where", { provider });
   return (
     <Sheet open={open} onOpenChange={(o) => onOpenChange(o)}>
       <SheetContent side="bottom" className="mx-auto w-full max-w-lg" initialFocus={accept} finalFocus={returnFocus ?? true} data-testid="voice-consent">

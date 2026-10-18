@@ -58,6 +58,8 @@ class MeetingRequestUpdate(BaseModel):
     status: str | None = None
     notes: str | None = None
     archived: bool | None = None
+    #: RF-01: the class size ("Öğrenci" on /classes) is the section's; written there, audited as ``section.update``
+    enrolment: int | str | None = None
     #: persona Q8: pin rooms that cannot seat the class anyway (planning.admin, audited reason)
     override_reason: str | None = Field(default=None, max_length=1000)
 
@@ -123,6 +125,8 @@ class ExamRequestUpdate(BaseModel):
     status: str | None = None
     notes: str | None = None
     archived: bool | None = None
+    #: RF-01: the exam's own head count ("Öğrenci" on /classes, exam kind)
+    enrolment: int | str | None = None
 
 
 class ExamCohortOut(BaseModel):

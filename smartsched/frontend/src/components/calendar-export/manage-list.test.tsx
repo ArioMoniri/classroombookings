@@ -179,4 +179,14 @@ describe("CalendarExportManage", () => {
     await user.click(screen.getByTestId("cal-disconnect-confirm-google"));
     await waitFor(() => expect(api.calls.some((c) => c.method === "DELETE" && c.path === "/calendar/connectors/google")).toBe(true));
   });
+
+  it("a bookings-only legacy connection reconnects with scopes [my_bookings], never without scopes", async () => {
+    const user = userEvent.setup();
+    api.subs = { ...api.subs, push: [{ ...api.subs.push[0], export_scopes: [] }] };
+    renderList();
+    const account = await screen.findByTestId("cal-account-google");
+    await user.click(within(account).getByTestId("cal-reconnect-google"));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith("https://accounts.example/again"));
+    expect(api.calls.find((c) => c.path === "/calendar/connectors/google/connect")?.body).toEqual({ return_path: "/profile", scopes: ["my_bookings"] });
+  });
 });

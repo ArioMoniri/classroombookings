@@ -74,7 +74,7 @@ async def find(body: FindIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
     if await feat.ensure_tag_features(db):  # A-11: imported room tags are features (facets) too
         await db.commit()
     try:
-        out = await svc.find_rooms(db, access, to_query(body))
+        out = await svc.find_rooms(db, access, to_query(body), ledger=True)  # AS-05 demand ledger
     except svc.FindError as exc:
         raise HTTPException(exc.status, exc.as_detail()) from exc
     # the user's last searches (settings ``user.{id}.find``), newest first, without duplicates

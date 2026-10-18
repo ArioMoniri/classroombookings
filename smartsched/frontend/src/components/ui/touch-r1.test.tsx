@@ -41,7 +41,7 @@ describe("small fields are 44 px tall on touch (a native field has no ::after hi
       </>,
     );
     expect(screen.getByRole("textbox", { name: "Ara" })).toHaveClass("pointer-coarse:h-(--control-h-md)");
-    expect(screen.getByRole("combobox", { name: "Grup" })).toHaveClass("pointer-coarse:h-(--control-h-md)", "max-md:pointer-coarse:text-base");
+    expect(screen.getByRole("combobox", { name: "Grup" })).toHaveClass("pointer-coarse:h-(--control-h-md)", "pointer-coarse:text-base");
     expect(screen.getByRole("combobox", { name: "Görünüm" })).toHaveClass("data-[size=sm]:pointer-coarse:h-(--control-h-md)");
   });
 });

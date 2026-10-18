@@ -92,9 +92,10 @@
 <text x='1140.0' y='387.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Yenile</text>
 <text x='1074' y='426' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>10 dk ya da veri değişince (409) eskir</text>
 <rect x='24' y='560' width='330' height='300' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
+<rect x='24' y='560' width='330' height='8' rx='4' fill='#B45309' fill-opacity='1'/>
 <text x='40' y='590' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Kullanıcı davet et · invite_user</text>
-<rect x='300' y='574' width='29' height='20' rx='10' fill='#EFF6FF' fill-opacity='1'/>
-<text x='314.5' y='588' font-size='11' font-weight='600' fill='#2563EB' text-anchor='middle'>R2</text>
+<rect x='300' y='574' width='29' height='20' rx='10' fill='#FEF3C7' fill-opacity='1'/>
+<text x='314.5' y='588' font-size='11' font-weight='600' fill='#B45309' text-anchor='middle'>R3</text>
 <text x='40' y='622' font-size='12' font-weight='500' fill='#475569' text-anchor='start'>E-posta</text>
 <rect x='114' y='604' width='224' height='30' rx='8' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
 <text x='124' y='624' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>a.kaya@uni.edu.tr</text>
@@ -109,10 +110,10 @@
 <text x='124' y='744' font-size='12' font-weight='500' fill='#0F172A' text-anchor='start'>Psikoloji ▾</text>
 <rect x='40' y='766' width='298' height='30' rx='8' fill='#FEF3C7' fill-opacity='1'/>
 <text x='52' y='786' font-size='12' font-weight='500' fill='#B45309' text-anchor='start'>Etkilenen: A. K.'ye davet e-postası gider</text>
-<rect x='40' y='806' width='298' height='40' rx='20.0' fill='#2563EB' fill-opacity='1'/>
-<text x='189.0' y='830.68' font-size='13' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Davet gönder</text>
-<text x='24' y='876' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>R2: etkilenen kişi gösterilmeden düğme etkin değil;</text>
-<text x='24' y='892' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>rol listesi = yöneticinin verebildikleri</text>
+<rect x='40' y='806' width='298' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
+<text x='189.0' y='830.68' font-size='13' font-weight='600' fill='#0F172A' text-anchor='middle'>Davet penceresini aç</text>
+<text x='24' y='876' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>R3 devir: form sayfanın kendi davet penceresini doldurur;</text>
+<text x='24' y='892' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>yazma ve denetim o pencerede (v1’de yardımcı yazmaz)</text>
 <rect x='374' y='560' width='330' height='300' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
 <text x='390' y='590' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Bekleyen talepler · approvals_list</text>
 <rect x='650' y='574' width='29' height='20' rx='10' fill='#EFF6FF' fill-opacity='1'/>
@@ -129,7 +130,7 @@
 <text x='457.0' y='772.32' font-size='12' font-weight='600' fill='#FFFFFF' text-anchor='middle'>Onayla</text>
 <rect x='522' y='748' width='130' height='40' rx='20.0' fill='#FFFFFF' fill-opacity='1' stroke='#94A3B8' stroke-width='1'/>
 <text x='587.0' y='772.32' font-size='12' font-weight='600' fill='#0F172A' text-anchor='middle'>Reddet…</text>
-<text x='374' y='876' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>Reddet gerekçe ister (sayfadaki seçim)</text>
+<text x='374' y='876' font-size='11' font-weight='500' fill='#7C3AED' text-anchor='start'>R2: satır başına confirm; Reddet gerekçe ister</text>
 <rect x='724' y='560' width='330' height='300' rx='14' fill='#F1F5F9' fill-opacity='1' stroke='#E2E8F0' stroke-width='1'/>
 <rect x='724' y='560' width='330' height='8' rx='4' fill='#B45309' fill-opacity='1'/>
 <text x='740' y='590' font-size='14' font-weight='650' fill='#0F172A' text-anchor='start'>Planı yayınla · publish_run</text>

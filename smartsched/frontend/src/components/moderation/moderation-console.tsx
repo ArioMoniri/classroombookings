@@ -11,9 +11,10 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePhone } from "./use-media";
+import { usePhone, useTouchList } from "./use-media";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
+import { pageActionsCapsule } from "@/components/admin/kit";
 import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -78,12 +79,29 @@ export function ModerationConsole() {
   return can("planning.view") ? <CoordinatorConsole canEdit={can("planning.edit")} /> : <MyRequests />;
 }
 
+/** mobile-b phase 2 (CLS 0.31–0.47): the placeholder has the console's shape — title, subtitle, tabs, the chip
+ * row and the 560 px list — so the real header and list land where the skeleton stood */
 function ConsoleSkeleton() {
   return (
-    <div className="flex flex-col gap-3" aria-busy>
+    <div className="flex flex-col gap-3" aria-busy data-testid="moderation-skeleton">
       <Skeleton className="h-9 w-56" />
-      <Skeleton className="h-8 w-full max-w-xl" />
-      <Skeleton className="h-96 w-full" />
+      <Skeleton className="h-4 w-64" />
+      <Skeleton className="h-9 w-full max-w-xl" />
+      <ListSkeleton />
+    </div>
+  );
+}
+
+/** the chip / search row (44 px on touch) and the list's 560 px frame (ModTable's default height) */
+function ListSkeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-busy data-testid="moderation-list-skeleton">
+      <Skeleton className="h-8 w-full max-w-md pointer-coarse:h-11" />
+      <div className="flex h-[35rem] flex-col gap-1 overflow-hidden">
+        {Array.from({ length: 14 }, (_, i) => (
+          <Skeleton key={i} className="h-8 w-full shrink-0" />
+        ))}
+      </div>
     </div>
   );
 }
@@ -94,7 +112,8 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const reduce = useReduce();
-  const mobile = usePhone();
+  const mobile = useTouchList();
+  const phone = usePhone();
   const tab = parseTab(params.get("tab"));
   const { term, termId } = useTermContext();
   const matchings = useMatchings(termId);
@@ -192,10 +211,13 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
           ) : null}
           <ChangesLink termId={termId} canEdit={canEdit} />
           {canEdit && runId ? (
-            <Button variant={staged.length ? "default" : "outline"} onClick={() => setRecreate(true)} aria-keyshortcuts="Shift+R" data-testid="recreate-open">
-              <RefreshCw aria-hidden />
-              {t("moderation.recreate.open")}
-            </Button>
+            // the screen's one primary action: a capsule above the tab bar below lg (MOBILE.md M-05; mobile-b phase 2)
+            <div data-slot="page-actions" className={pageActionsCapsule}>
+              <Button variant={staged.length ? "default" : "outline"} onClick={() => setRecreate(true)} aria-keyshortcuts="Shift+R" data-testid="recreate-open">
+                <RefreshCw aria-hidden />
+                {t("moderation.recreate.open")}
+              </Button>
+            </div>
           ) : null}
         </>
       }
@@ -295,13 +317,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
   );
 
   // ------------------------------------------------------------------ body per tab
-  const loadingRows = (
-    <div className="flex flex-col gap-1" aria-busy>
-      {Array.from({ length: 12 }, (_, i) => (
-        <Skeleton key={i} className="h-8 w-full" />
-      ))}
-    </div>
-  );
+  const loadingRows = <ListSkeleton />;
 
   let body: React.ReactNode;
   if (tab === "classes") {
@@ -313,7 +329,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         {/* touch: wrapped chip rows 44 px apart so their hit areas do not overlap (M-02) */}
         <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-4">
           {(["all", "unmet", "streak"] as const).map((c) => (
-            <Chip key={c} selected={peopleChip === c} onSelectedChange={() => setPeopleChip(c)}>
+            <Chip key={c} selected={peopleChip === c} onSelectedChange={() => setPeopleChip(c)} className="pointer-coarse:min-h-11">
               {t(`moderation.peopleChip.${c}`)}
             </Chip>
           ))}
@@ -397,7 +413,7 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
         <div className="flex flex-wrap items-center gap-2 pointer-coarse:gap-y-4">
           {isMatch
             ? MATCH_CHIPS.map((c) => (
-                <Chip key={c} selected={chip === c} onSelectedChange={() => setChip(c)} data-testid={`chip-${c}`}>
+                <Chip key={c} selected={chip === c} onSelectedChange={() => setChip(c)} className="pointer-coarse:min-h-11" data-testid={`chip-${c}`}>
                   {t(`moderation.chip.${c}`)} <span className="tabular-nums">{n(chipCount(counts, c))}</span>
                 </Chip>
               ))
@@ -456,8 +472,8 @@ function CoordinatorConsole({ canEdit }: { canEdit: boolean }) {
       >
         {body}
       </motion.div>
-      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} onClose={() => setInspect(null)} side={mobile ? "bottom" : "right"} focusPriority={inspectPriority} />
-      {canEdit && runId ? <RecreateSheet open={recreate} onOpenChange={setRecreate} termId={termId} baseRunId={runId} staged={staged} side={mobile ? "bottom" : "right"} /> : null}
+      <MatchingInspector termId={termId} requestId={inspect} canEdit={canEdit} onClose={() => setInspect(null)} side={phone ? "bottom" : "right"} focusPriority={inspectPriority} />
+      {canEdit && runId ? <RecreateSheet open={recreate} onOpenChange={setRecreate} termId={termId} baseRunId={runId} staged={staged} side={phone ? "bottom" : "right"} /> : null}
     </div>
   );
 }

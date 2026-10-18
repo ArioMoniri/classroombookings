@@ -33,6 +33,8 @@ DEFAULT_WEIGHTS: dict[str, int] = {
     "max_exams_per_day": 10,
     "day_window": 5,
     "evening_programs_in_buildings": 5,
+    # AS-08: opt-in; a season profile sets it (0 = off, the rule is then not even in the model)
+    "peak_smoothing": 0,
 }
 
 #: capacity waste is counted in units of this many seats (a 156-seat hall for 20 students = 13 units)

@@ -21,6 +21,16 @@ async def _page(db: DB, q: Select[Any], limit: int, offset: int) -> tuple[list[A
     return items, total
 
 
+def _course_match(search: str) -> Any:
+    """Code or name contains the text; the code ignores spaces and dashes (imported codes are stored as ``ACU-1421``,
+    shown and typed as ``ACU 1421``; RF-05)."""
+    s = n.tr_upper(search).replace(" ", "").replace("-", "")
+    code = func.replace(func.replace(Course.code, "-", ""), " ", "")
+    return or_(
+        code.like(f"%{s}%"), Course.display_code.like(f"%{n.tr_upper(search)}%"), Course.name.like(f"%{search}%")
+    )
+
+
 @router.get("/faculties", response_model=Page[FacultyOut])
 async def faculties(
     db: DB, _: Viewer, search: str | None = None, limit: int = Query(100, le=500), offset: int = 0
@@ -67,8 +77,7 @@ async def courses(
 ) -> dict[str, Any]:
     q = select(Course).order_by(Course.code)
     if search:
-        s = n.tr_upper(search).replace(" ", "")
-        q = q.where(or_(Course.code.like(f"%{s}%"), Course.name.like(f"%{search}%")))
+        q = q.where(_course_match(search))
     items, total = await _page(db, q, limit, offset)
     return {"items": items, "total": total, "limit": limit, "offset": offset}
 
@@ -92,10 +101,7 @@ async def sections(
     if not include_archived:
         q = q.where(Section.archived.is_(False))
     if search:
-        s = n.tr_upper(search).replace(" ", "")
-        q = q.join(Course, Course.id == Section.course_id).where(
-            or_(Course.code.like(f"%{s}%"), Course.name.like(f"%{search}%"))
-        )
+        q = q.join(Course, Course.id == Section.course_id).where(_course_match(search))
     items, total = await _page(db, q, limit, offset)
     out = []
     for s_ in items:

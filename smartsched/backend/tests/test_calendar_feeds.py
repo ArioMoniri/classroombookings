@@ -176,6 +176,7 @@ async def test_room_acl_department_and_room_group_feeds(env):  # noqa: F811
     assert (await c.get(f"{base}/room/999999.ics")).status_code == 404
     dep = await c.get(f"{base}/department/{psy['id']}.ics")
     assert dep.status_code == 200
+
     # bookings (class meetings of the published run are in these feeds too since persona test A-14: only in the
     # rooms the guest may view, here A 102; CAL-01: class UIDs no longer name the room, so the live class events
     # are checked by LOCATION)

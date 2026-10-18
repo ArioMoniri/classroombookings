@@ -1172,3 +1172,93 @@ __all__ = [
     "update_program",
     "update_section",
 ]
+
+
+# --------------------------------------------------------------------------- usage + last change (RF-05)
+
+#: entity -> the audit ``entity_type`` values that describe its rows (a programme is also tracked as the CRBS
+#: ``department`` by :data:`app.services.audit.TRACKED`)
+USAGE_ENTITIES: dict[str, tuple[type, tuple[str, ...]]] = {
+    "instructor": (Instructor, ("instructor",)),
+    "course": (Course, ("course",)),
+    "faculty": (Faculty, ("faculty",)),
+    "program": (Program, ("program", "department")),
+    "section": (Section, ("section",)),
+}
+
+
+async def _count(session: AsyncSession, q: Any) -> int:
+    return int((await session.execute(q)).scalar_one() or 0)
+
+
+async def last_change(session: AsyncSession, entity_types: Sequence[str], obj_id: int) -> dict[str, Any] | None:
+    """The "Son değişiklik" line: the newest audit row of the record (who, when, what); ``None`` when untouched."""
+    ev = (
+        (
+            await session.execute(
+                select(AuditEvent)
+                .where(AuditEvent.entity_type.in_(list(entity_types)), AuditEvent.entity_id == str(obj_id))
+                .order_by(AuditEvent.id.desc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if ev is None:
+        return None
+    return {"actor": ev.actor_label, "at": ev.ts.isoformat() if ev.ts else None, "action": ev.action}
+
+
+async def usage(session: AsyncSession, entity: str, obj_id: int) -> dict[str, Any]:
+    """What a delete of the record would touch, before the admin confirms it: ``uses`` (non-zero counts only),
+    ``blocked`` (the matching ``DELETE`` would answer 409) and ``action`` (``delete`` or, for sections, ``archive``:
+    an archived section takes its meetings along and stays in every run that placed it)."""
+    if entity not in USAGE_ENTITIES:
+        raise Invalid(f"unknown catalogue entity {entity!r} (one of {', '.join(USAGE_ENTITIES)})")
+    model, audit_types = USAGE_ENTITIES[entity]
+    obj: Any = await _get(session, model, obj_id, entity)
+    uses: dict[str, int] = {}
+    blocked = False
+    action = "delete"
+    if isinstance(obj, Instructor):
+        links = select(func.count()).select_from(SectionInstructor)
+        uses["sections"] = await _count(session, links.where(SectionInstructor.instructor_id == obj.id))
+        blocked = bool(uses["sections"])
+    elif isinstance(obj, Course):
+        uses["sections"] = await _count(session, select(func.count(Section.id)).where(Section.course_id == obj.id))
+        blocked = bool(uses["sections"])
+    elif isinstance(obj, Faculty):
+        uses["programs"] = await _count(session, select(func.count(Program.id)).where(Program.faculty_id == obj.id))
+        blocked = bool(uses["programs"])
+    elif isinstance(obj, Program):
+        uses["sections"] = await _count(session, select(func.count(Section.id)).where(Section.program_id == obj.id))
+        uses["exam_requests"] = await _count(
+            session, select(func.count(ExamRequest.id)).where(ExamRequest.program_id == obj.id)
+        )
+        uses["users"] = await _count(session, select(func.count(User.id)).where(User.department_id == obj.id))
+        uses["bookings"] = await _count(
+            session, select(func.count(Booking.id)).where(Booking.department_id == obj.id)
+        ) + await _count(session, select(func.count(BookingSeries.id)).where(BookingSeries.department_id == obj.id))
+        blocked = any(uses.values())
+    elif isinstance(obj, Section):
+        action = "archive"
+        meeting_ids = list(
+            (
+                await session.execute(
+                    select(MeetingRequest.id).where(
+                        MeetingRequest.section_id == obj.id, MeetingRequest.archived.is_(False)
+                    )
+                )
+            ).scalars()
+        )
+        uses["meetings"] = len(meeting_ids)
+        uses["runs"] = len(await _runs_using(session, meeting_ids=meeting_ids))
+    return {
+        "entity": entity,
+        "id": obj_id,
+        "uses": {k: v for k, v in uses.items() if v},
+        "blocked": blocked,
+        "action": action,
+        "last_change": await last_change(session, audit_types, obj_id),
+    }
