@@ -115,18 +115,17 @@ export function I18nProvider({ initialLocale, children }: { initialLocale: Local
   use(loadMessages(locale));
 
   const setLocale = useCallback((next: Locale) => {
-    const apply = () => {
-      setLocaleState(next);
-      try {
-        document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-        document.documentElement.lang = next;
-      } catch {
-        /* non-browser */
-      }
-    };
-    // switch once the other language is in (no suspended frame, no keys on screen)
-    if (hasMessages(next)) apply();
-    else void loadMessages(next).then(apply);
+    // the cookie first: a router.refresh() right after (the palette's language toggle) renders the server's part in
+    // the new language
+    try {
+      document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
+      document.documentElement.lang = next;
+    } catch {
+      /* non-browser */
+    }
+    // the texts switch once the other language is in (no suspended frame, no keys on screen)
+    if (hasMessages(next)) setLocaleState(next);
+    else void loadMessages(next).then(() => setLocaleState(next));
   }, []);
 
   const overrides = loaded?.locale === locale ? loaded.overrides : NO_OVERRIDES;

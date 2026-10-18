@@ -4203,3 +4203,44 @@ Source: docs/testing/e2e-queue/results-2026-10-18.md (AU-B, AS-B, HB-02 note, co
   words; the helper's refusal prefers the service's message_tr, so writes.py is untouched; the booking UI keeps its
   own conflict texts (booking-errors.ts ignores message_tr for `conflict`); tests/helper/test_fix_a_slot_taken_copy.py
   2; unit level, e2e queued; fix-a-2026-10-18)
+
+### FIX-C: e2e results 2026-10-18 bundle, charts, welcome and voice fixes (fix-c-2026-10-18)
+Source: docs/testing/e2e-queue/results-2026-10-18.md (Charts, WG-F, VO-F). Unit level plus one measured `next build`
+before and after (resource rule: no stack, no Playwright); each item waits for its E2E check.
+- [ ] F-CH-1 (major) routes without charts +66–147 kB gz, root layout chunk 249 kB.
+  part done (cause: lib/i18n/index.ts imported messages/en.json and tr.json statically, ~250 kB gz in the root
+  layout chunk; the shell also pulled cmdk + the helper palette, the helper sheet, the welcome sheet/checklist/hints,
+  the privacy gate, runs-list's data table (bell + palette), and zod + lib/api/schemas into the root main files via
+  instrumentation-client → ops → client.ts. Now: one chunk per language (`messageLoaders`, `loadMessages`; the
+  provider `use()`s the active one, starts it at module load, loads the other before a switch; server.ts registers
+  both; roles.ts carries the shipped role texts of both languages), shell/lazy-shell.tsx (palette and shortcuts on
+  first open, welcome provider/page slot and privacy gate via next/dynamic ssr:false), helper sheet + spotlight on
+  first open, runs/run-status.ts, client.ts checks the error body by hand. Measured /reserve 880.1 → 510.0, /login
+  668.0 → 420.9, root layout entry files max 14.2 kB (sum 76.8), the tr chunk 128 kB loads beside it; table in the
+  FIX-C PROGRESS row. Tests: lib/i18n/lazy-messages.test.tsx 5, shell/lazy-shell.test.tsx 5, lib/api/client-root.test.ts 3.
+  open: E2E first paint/hydration in tr and en, language switch, helper ⌘J, palette ⌘K, welcome sheet)
+- [ ] F-CH-2 keyboard scrub at 390 touch showed an empty tooltip. part done (the 390 run focused the plot ~50 ms after
+  the lazy chart chunk arrived, so the key had no chart API; chart-keyboard.ts shows the focused bucket once the API
+  is ready, chart-api.ts retries showTip for up to 60 frames while the instance has no size; chart-scrub.test.tsx 7
+  (real engine at 350×200 and 900×240, through the card, re-push, the early-key race). open: e2e/charts-a11y.spec.ts 390)
+- [ ] F-CH-3 axis labels 10 px. part done (chart-tokens AXIS_FONT_PX = 12 (type-footnote) in the three vendored
+  EvilCharts forms, ticks and axis names; chart-axis-type.test.tsx 4. open: M-03 at 390 on /dashboard, /admin/ai, /admin/ops)
+- [ ] F-CH-4 AI usage 3 + "Diğer" instead of 5 + total. part done (ai-model: the five busiest features of the range
+  are named (any feature: booking_nl, voice_stt, guard…), the rest fold into Diğer (`foldOther`), colour follows the
+  feature, a feature without one takes the first free cat colour; ai-model/usage-chart tests +4. open: E2E CSV header)
+- [ ] F-WG-1 (major for WG-08) re-show after a text edit without "Güncellendi". part done (the sheet's own `shown`
+  event made the refetched state say updated:false while the sheet was open; the badge is now decided when the sheet
+  opens (SheetRequest.updated); welcome-provider.test.tsx +1. open: e2e/wg-admin.spec.ts:67 ×3; the one run without a
+  re-show is not explained at unit level, see the ask to WG-B in the FIX-C report)
+- [ ] F-VO-1 English provider text in the Turkish failure sentence. part done (admin/ai/provider-failure.ts maps the
+  backend ProviderError texts to 14 codes, `aiAdmin.provider.failure.*` TR/EN; providers tab (test line, connection
+  test, voice test); provider-failure.test.ts 17, ai-voice.test.tsx updated. open: e2e/vo-admin.spec.ts item 1)
+- [ ] F-VO-2 (major for VO-08) spoken injection: 200 + stream error, box emptied. part done (backend
+  app/api/v1/chat.py: /runs/{id}/chat/stream waits up to 2 s for its first event; a 4xx refusal before anything
+  streamed is the HTTP answer (422 prompt_injection_*, 429 limits, JSON detail as POST /chat), later failures stay
+  typed `error` events; tests/ai/test_chat_stream_guard.py 3 (contract changed from 200+event), test_vo_03 spoken
+  injection → 422. Frontend: chat-stream keeps the error body, chat-panel shows the refusal in the user's words without
+  the non-streaming retry and puts the text back (PromptComposer `restore`); chat-panel.test.tsx +2. open: vo-mounts test 3)
+- [ ] F-VO-3 flaky "Sesle girildi" chip. part done (the chip went on any input event without the voice flag; it now
+  stays while the box holds the text as the voice left it and goes on a real change; mic-button.test.tsx +1.
+  open: vo-mounts test 1 ×4 on fresh stacks)

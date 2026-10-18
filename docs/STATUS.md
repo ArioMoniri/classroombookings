@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `fa0c5e9` (committed 2026-10-18 13:49 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `87e55c5` (committed 2026-10-18 13:50 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,7 +177,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-395 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 368 · stopped 11 · superseded 7.
+395 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 369 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -189,7 +189,6 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
 | `FIX-A` | backend-engineer | 2026-10-18 13:03 |
-| `FIX-C` | frontend-engineer | 2026-10-18 13:03 |
 
 <!-- /AUTO:agents -->
 
@@ -256,7 +255,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **447 ticked · 432 open** checkboxes in 103 sections (97 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **447 ticked · 440 open** checkboxes in 104 sections (98 with open items).
 
 <details><summary>Per section</summary>
 
@@ -365,6 +364,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Bugs seen while recording the launch video (2026-10-18) | 2 | 0 |
 | FIX-B (e2e results 2026-10-18: phone layout stability, reflow, settings M-05, hydration… | 0 | 8 |
 | FIX-A: e2e results 2026-10-18 backend fixes (fix-a-2026-10-18) | 5 | 0 |
+| FIX-C: e2e results 2026-10-18 bundle, charts, welcome and voice fixes (fix-c-2026-10-18) | 0 | 8 |
 
 </details>
 
