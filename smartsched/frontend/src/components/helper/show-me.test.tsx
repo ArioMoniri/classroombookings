@@ -1,5 +1,6 @@
 /** HX-07 (helper.md §3.3): Göster = navigate, wait for the anchor, ring it, one step card; Esc ends on the target. */
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/lib/api/endpoints";
 import { useHelperStore } from "./helper-store";
@@ -185,9 +186,19 @@ describe("Göster on a page that loads in parts (HB18-F04)", () => {
   });
 
   it("follows the anchor when the page re-mounts it, and rings the new element", async () => {
-    const { rerender } = renderHelper(
+    const remount: { bump: (() => void) | null } = { bump: null };
+    function Section() {
+      const [n, setN] = useState(0);
+      remount.bump = () => setN((x) => x + 1);
+      return (
+        <button key={n} type="button" data-tour="admin-holidays-add">
+          Tatil ekle
+        </button>
+      );
+    }
+    renderHelper(
       <>
-        <button key="a" type="button" data-tour="admin-holidays-add">Tatil ekle</button>
+        <Section />
         <ShowMeHost />
       </>,
     );
@@ -196,12 +207,7 @@ describe("Göster on a page that loads in parts (HB18-F04)", () => {
     const first = screen.getByText("Tatil ekle");
     await waitFor(() => expect(first.getAttribute("aria-describedby")).toBeTruthy());
     const calls = (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.length;
-    rerender(
-      <>
-        <button key="b" type="button" data-tour="admin-holidays-add">Tatil ekle</button>
-        <ShowMeHost />
-      </>,
-    );
+    act(() => remount.bump!());
     const second = screen.getByText("Tatil ekle");
     expect(second).not.toBe(first);
     await waitFor(() => expect(second.getAttribute("aria-describedby")).toBeTruthy());
