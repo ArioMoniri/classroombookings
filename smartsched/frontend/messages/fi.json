@@ -151,5 +151,12 @@
     "usage": {
       "day": "päivää"
     }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "viikot"
+      }
+    }
   }
 }

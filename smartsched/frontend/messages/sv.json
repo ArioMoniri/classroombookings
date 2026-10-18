@@ -151,5 +151,12 @@
     "usage": {
       "day": "Dag"
     }
+  },
+  "adaptive": {
+    "peaks": {
+      "col": {
+        "weeks": "Veckor"
+      }
+    }
   }
 }

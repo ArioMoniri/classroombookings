@@ -61,6 +61,8 @@ dev = [
   "pytest-asyncio>=0.23",
   "ruff>=0.5",
   "mypy>=1.10",
+  # tests only: tests/council/test_ai_intake.py builds its scanned / ruled PDFs with reportlab
+  "reportlab>=4.0",
 ]
 
 [build-system]
