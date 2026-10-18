@@ -171,7 +171,8 @@ async def test_approvers_get_one_message_per_submission(env):  # noqa: F811
     assert "Ayşe Yılmaz" in note.body
     (mail,) = await _outbox(gid, "approval_requested")
     assert "10:10-12:30" in mail.subject and "Ayşe Yılmaz" in mail.body
-    assert await _inapp(aid) == []  # the requester gets nothing for her own submission
+    # the requester gets nothing for her own submission but her receipt, stored as read (RF-11)
+    assert [(n.kind, n.read_at is not None) for n in await _inapp(aid)] == [("approval.submitted", True)]
     # a single request still gets its own message
     r = await env.book(ayse, "A202", WED, "P3")
     assert r.status_code == 202, r.text
@@ -210,7 +211,8 @@ async def test_group_decision_advancing_a_step_sends_one_message_to_the_next_ste
     assert step2.data is not None and step2.data["step"] == 2 and step2.data["group_id"] == mb_id
     assert len(step2.data["request_ids"]) == 3 and "Işık" not in step2.body and "Ayşe Yılmaz" in step2.body
     assert len(await _outbox(mid, "approval_requested")) == 1
-    assert await _inapp(aid) == []  # not decided yet: nothing for the requester
+    # not decided yet: nothing for the requester but her receipt of the submission (RF-11, stored as read)
+    assert [n.kind for n in await _inapp(aid)] == ["approval.submitted"]
     r = await c.post(f"{APPR}/groups/{mb_id}/decide", json={"decision": "approve"}, headers=murat)
     assert [x["status"] for x in r.json()["results"]] == ["APPROVED"] * 3, r.text
     assert len(await _inapp(aid, "approval.approved")) == 1

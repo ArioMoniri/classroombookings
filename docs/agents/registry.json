@@ -2789,7 +2789,8 @@
       "goal": "You are lane CAL-B (calendar export backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first…",
       "ledger": "CAL-B: calendar export backend",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:25"
     },
     {
       "id": "a39411690ed09401f",
@@ -2802,8 +2803,8 @@
       "ledger": "CAL-F: calendar export UI",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-18 00:17",
-      "left_off": "The checks moved to the background because the host is overloaded. I'll wait for that run to finish."
+      "finished_at": "2026-10-18 00:24",
+      "left_off": "The spec is ready. I'll wait for the stack build to finish."
     },
     {
       "id": "a188be943a3fea75a",
@@ -2994,7 +2995,8 @@
       "goal": "You are lane VO-B (voice backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pk…",
       "ledger": "VO-B: voice backend (cloud STT)",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 00:25"
     },
     {
       "id": "ad5cab851edb7febf",

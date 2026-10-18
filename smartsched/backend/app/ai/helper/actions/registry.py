@@ -175,8 +175,22 @@ def permitted_names(access: Access) -> list[str]:
 #: JSON Schema keywords strict tool use does not accept (claude-api skill, "JSON Schema Limitations"); the server
 #: enforces them anyway with the pydantic model in :func:`parse_args`
 _UNSUPPORTED = frozenset(
-    {"title", "default", "examples", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
-     "minLength", "maxLength", "pattern", "minItems", "maxItems", "uniqueItems"}
+    {
+        "title",
+        "default",
+        "examples",
+        "minimum",
+        "maximum",
+        "exclusiveMinimum",
+        "exclusiveMaximum",
+        "multipleOf",
+        "minLength",
+        "maxLength",
+        "pattern",
+        "minItems",
+        "maxItems",
+        "uniqueItems",
+    }
 )
 
 

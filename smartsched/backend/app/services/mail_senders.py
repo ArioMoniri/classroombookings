@@ -93,9 +93,12 @@ async def send(
     booking_id: int | None = None,
     request_id: int | None = None,
     data: dict[str, Any] | None = None,
+    read: bool = False,
     **ctx: Any,
 ) -> list[Any]:
-    """Render ``kind`` (template mode, the reader's language) and hand it to the dispatcher as one notice."""
+    """Render ``kind`` (template mode, the reader's language) and hand it to the dispatcher as one notice. ``read``:
+    a record of the person's own action (their submission, their consent): the bell keeps it without a badge, as
+    for a withdrawal (T-R1-15); the e-mail is the receipt."""
     from app.services import mail
     from app.services import notify_dispatch as nd
 
@@ -114,6 +117,7 @@ async def send(
             booking_id=booking_id,
             request_id=request_id,
             data=data or {},
+            read=read,
         ),
     )
 
@@ -273,6 +277,7 @@ async def series_created(session: AsyncSession, payload: dict[str, Any]) -> None
             "room_id": series.room_id,
             "actor": {"id": actor.id, "name": _who(actor)} if actor else None,
         },
+        read=actor is not None and actor.id == owner.id,
         by="self" if actor is not None and actor.id == owner.id else "other",
         who=_who(actor),
         room=room.display_name if room else str(series.room_id),
@@ -489,6 +494,7 @@ async def approval_submitted(session: AsyncSession, entries: Sequence[tuple[Any,
             "decision": "submitted",
             "booking_ids": [b.id for e in entries for b in e[2]],
         },
+        read=True,
         **ctx,
     )
 
@@ -509,6 +515,7 @@ async def calendar_consent(session: AsyncSession, user: User, *, granted: bool, 
         kind="calendar_consent",
         link="/profile#privacy",
         data={"purpose": "calendar_sync", "consent_id": consent_id, "granted": granted},
+        read=True,
         scope=state,
     )
 

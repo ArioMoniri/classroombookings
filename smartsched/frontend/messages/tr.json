@@ -1594,6 +1594,7 @@
       "deleteBody": "{n} kullanıcı, siz yeni bir rol verene kadar rolsüz (ve izinsiz) kalır; rolün salon erişim kayıtları da silinir."
     },
     "perm": {
+      "calendar_department_feed": "Bölüm ders takvimini dışa aktarma",
       "bookingsScope": "Rezervasyonlar (salon bazında da verilebilir)",
       "action": "İzin",
       "group": {

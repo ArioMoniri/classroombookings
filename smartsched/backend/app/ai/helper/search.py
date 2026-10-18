@@ -88,14 +88,18 @@ async def _planning(session: AsyncSession, q: str, limit: int, term_id: int | No
     folded, code = n.tr_casefold(q), n.tr_upper(q).replace(" ", "")
     courses = (
         await session.execute(
-            select(Course).where(or_(Course.code.like(f"%{code}%"), Course.name.like(f"%{q}%")))
-            .order_by(Course.code).limit(limit)
+            select(Course)
+            .where(or_(Course.code.like(f"%{code}%"), Course.name.like(f"%{q}%")))
+            .order_by(Course.code)
+            .limit(limit)
         )
     ).scalars()
     instructors = (
         await session.execute(
-            select(Instructor).where(Instructor.canonical_name.like(f"%{folded}%"))
-            .order_by(Instructor.full_name).limit(limit)
+            select(Instructor)
+            .where(Instructor.canonical_name.like(f"%{folded}%"))
+            .order_by(Instructor.full_name)
+            .limit(limit)
         )
     ).scalars()
     programs = (

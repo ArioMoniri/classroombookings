@@ -68,9 +68,7 @@ async def search(
     limit: int = Query(6, ge=1, le=6),
     term_id: int | None = None,
 ) -> dict[str, Any]:
-    return await run_search(
-        db, access, q, limit=limit, term_id=term_id, allowed_actions=reg.permitted_names(access)
-    )
+    return await run_search(db, access, q, limit=limit, term_id=term_id, allowed_actions=reg.permitted_names(access))
 
 
 @router.get("/schema")
@@ -105,14 +103,23 @@ async def build_card(name: str, args: dict[str, Any], db: DB, access: CurrentAcc
     if not a.allowed(access):
         raise refused(403, "not_allowed", "Bu işlem hesabınızda yok.", "This isn't available on your account.")
     if reg.RATE.hit(access.user_id, a):
-        raise refused(429, "rate_limited", "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
-                      "Too many tries; try again in a minute.")
+        raise refused(
+            429,
+            "rate_limited",
+            "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
+            "Too many tries; try again in a minute.",
+        )
     await gate(a, db, access)
     try:
         parsed = reg.parse_args(a, args)
     except reg.ArgsInvalid as exc:
-        raise refused(422, "invalid_args", "İşlemin bilgileri eksik ya da hatalı.",
-                      "The action's details are missing or invalid.", issues=exc.issues) from exc
+        raise refused(
+            422,
+            "invalid_args",
+            "İşlemin bilgileri eksik ya da hatalı.",
+            "The action's details are missing or invalid.",
+            issues=exc.issues,
+        ) from exc
     try:
         card = await a.run(reg.Ctx(db, access), parsed)
     except reg.ActionRefused as exc:

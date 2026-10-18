@@ -17,14 +17,54 @@ from tests.crbs_env import env  # noqa: F401
 from tests.helper.support import H, personas
 
 QUERIES = {
-    "teacher": ["salon ayır", "rezervasyonlarım", "iptal", "şifre", "takvim", "boş derslik", "A 102", "PHAR",
-                "bildirim", "kullanıcı davet"],
-    "approver": ["bekleyen talepler", "reddet", "onay", "A 102", "rezervasyon", "takvim", "bildirim", "şifre",
-                 "salon bul", "tatil"],
-    "planner": ["planı yayınla", "çalıştırma", "talepler", "PHAR", "PHAR 240", "A 102", "çizelge", "içe aktar",
-                "gözetmen", "rapor"],
-    "admin": ["tatil", "ders saatleri", "periods", "kullanıcı davet", "ldap", "salon ekle", "A 102", "PHAR",
-              "kvkk", "yapay zeka"],
+    "teacher": [
+        "salon ayır",
+        "rezervasyonlarım",
+        "iptal",
+        "şifre",
+        "takvim",
+        "boş derslik",
+        "A 102",
+        "PHAR",
+        "bildirim",
+        "kullanıcı davet",
+    ],
+    "approver": [
+        "bekleyen talepler",
+        "reddet",
+        "onay",
+        "A 102",
+        "rezervasyon",
+        "takvim",
+        "bildirim",
+        "şifre",
+        "salon bul",
+        "tatil",
+    ],
+    "planner": [
+        "planı yayınla",
+        "çalıştırma",
+        "talepler",
+        "PHAR",
+        "PHAR 240",
+        "A 102",
+        "çizelge",
+        "içe aktar",
+        "gözetmen",
+        "rapor",
+    ],
+    "admin": [
+        "tatil",
+        "ders saatleri",
+        "periods",
+        "kullanıcı davet",
+        "ldap",
+        "salon ekle",
+        "A 102",
+        "PHAR",
+        "kvkk",
+        "yapay zeka",
+    ],
 }
 
 
@@ -64,8 +104,11 @@ async def test_hb_02_forbidden_sources_are_skipped_not_fatal(env) -> None:  # no
     t = (await env.client.get(f"{H}/search", params={"q": "PHAR"}, headers=people["teacher"].headers)).json()
     assert {s["source"] for s in t["skipped"]} == {"courses", "instructors", "programs"}
     assert "courses" not in t["data"]
-    p = (await env.client.get(f"{H}/search", params={"q": "PHAR", "term_id": env.term_id},
-                              headers=people["planner"].headers)).json()
+    p = (
+        await env.client.get(
+            f"{H}/search", params={"q": "PHAR", "term_id": env.term_id}, headers=people["planner"].headers
+        )
+    ).json()
     assert p["skipped"] == []
     assert p["data"]["courses"] and all(c["label"].startswith("PHAR") for c in p["data"]["courses"])
     assert p["data"]["sections"]

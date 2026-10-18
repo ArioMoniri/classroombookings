@@ -128,3 +128,14 @@ describe("fix 1 · CLS: async cards reserve their visible height while loading",
     expect(src).toMatch(/q\.isLoading \? <div className="[^"]*min-h-\[70dvh\][^"]*" aria-busy="true" data-testid="calendar-push-loading"/);
   });
 });
+
+describe("fix 10 · Studio at 200 % text", () => {
+  const src = read("studio/studio-view.tsx");
+  it("the undo / redo / advanced row wraps", () => {
+    expect(src).toContain('<div className="flex flex-wrap items-center gap-2 xl:hidden">');
+  });
+  it("the bottom bar's 'Geri' keeps its icon and moves its word to sr-only once the text is large (rem media query)", () => {
+    const bar = src.slice(src.indexOf('data-glass="chrome"'), src.indexOf('data-testid="step-next"'));
+    expect(bar).toMatch(/<span className="max-\[24rem\]:sr-only">\{t\("common\.back"\)\}<\/span>/);
+  });
+});

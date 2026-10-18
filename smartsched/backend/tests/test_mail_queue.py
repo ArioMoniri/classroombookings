@@ -70,7 +70,8 @@ async def test_notifications_are_queued_and_sent_after_the_commit(env, monkeypat
     await worker.wait_idle()
     (row,) = await _rows("approval_requested")
     assert row.status == "SENT" and row.attempts == 1 and row.sent_at is not None
-    assert FakeSMTP.sent[-1]["To"] == "gozde.ayrancigil@uni.edu.tr"
+    # the approver's notice and (RF-11) the requester's receipt
+    assert sorted(m["To"] for m in FakeSMTP.sent) == ["ayse.yilmaz@uni.edu.tr", "gozde.ayrancigil@uni.edu.tr"]
 
 
 async def test_failures_back_off_then_fail(env, monkeypatch):  # noqa: F811

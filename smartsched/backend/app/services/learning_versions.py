@@ -396,7 +396,7 @@ async def calibration(session: AsyncSession) -> dict[str, Any]:
         c = counts.setdefault((str(attr), band_of(float(conf or 0.0))), [0, 0])
         c[0 if action == "ACCEPT" else 1] += 1
     current = await min_confidence(session)
-    classes = []
+    classes: list[dict[str, Any]] = []
     proposals = []
     for (attr, band), (acc, rej) in sorted(counts.items(), key=lambda kv: (kv[0][0], kv[0][1])):
         post = beta_summary(acc, rej)

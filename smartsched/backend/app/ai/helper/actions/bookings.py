@@ -16,6 +16,7 @@ from app.ai.helper.actions.common import ClockText, DayText, day_label, resolve_
 from app.ai.helper.actions.registry import ActionRefused, Args, Ctx, action
 from app.services import bookings as bsvc
 from app.services import find_room as fsvc
+from app.services.bookings_settings import get_group
 
 BOOKERS = ("book_single.create", "book_single.request")
 
@@ -47,7 +48,9 @@ class FindFreeRoomsArgs(Args):
     end: ClockText = ""
     headcount: Annotated[int, Field(ge=0, le=5000, description="seats needed; 0 = any")] = 0
     building: Annotated[str, Field(max_length=40, description="building name or code; '' = any")] = ""
-    text: Annotated[str, Field(max_length=100, description="room features in words, e.g. 'projeksiyon'; '' = none")] = ""
+    text: Annotated[str, Field(max_length=100, description="room features in words, e.g. 'projeksiyon'; '' = none")] = (
+        ""
+    )
 
 
 @action(
@@ -59,8 +62,14 @@ class FindFreeRoomsArgs(Args):
     description="Find rooms the user may book that are free on a date and time (and fit a headcount).",
     route="POST /rooms/find",
     card="list",
-    route_args={"date": "date", "start": "start", "end": "end", "headcount": "headcount", "building": "buildings",
-                "text": "text"},
+    route_args={
+        "date": "date",
+        "start": "start",
+        "end": "end",
+        "headcount": "headcount",
+        "building": "buildings",
+        "text": "text",
+    },
 )
 async def find_free_rooms(ctx: Ctx, args: FindFreeRoomsArgs) -> s.CardBase:
     d = await resolve_day(ctx, args.date) or await bsvc.today(ctx.session)
@@ -72,13 +81,20 @@ async def find_free_rooms(ctx: Ctx, args: FindFreeRoomsArgs) -> s.CardBase:
             risk="R1",
             missing=["start"],
             fields=[
-                s.FormField(name="date", label=cards.txt("Tarih", "Date"), kind="date", required=True,
-                            value=d.isoformat()),
+                s.FormField(
+                    name="date", label=cards.txt("Tarih", "Date"), kind="date", required=True, value=d.isoformat()
+                ),
                 s.FormField(name="start", label=cards.txt("Başlangıç", "Start"), kind="time", required=True),
-                s.FormField(name="end", label=cards.txt("Bitiş", "End"), kind="time", required=False,
-                            value=args.end or None),
-                s.FormField(name="headcount", label=cards.txt("Kişi sayısı", "Headcount"), kind="number",
-                            required=False, value=args.headcount or None),
+                s.FormField(
+                    name="end", label=cards.txt("Bitiş", "End"), kind="time", required=False, value=args.end or None
+                ),
+                s.FormField(
+                    name="headcount",
+                    label=cards.txt("Kişi sayısı", "Headcount"),
+                    kind="number",
+                    required=False,
+                    value=args.headcount or None,
+                ),
             ],
         )
     q = fsvc.FindQuery(
@@ -169,14 +185,28 @@ SLOT_TEXT = {
 async def room_day_schedule(ctx: Ctx, args: RoomDayArgs) -> s.CardBase:
     rooms = await resolve_rooms(ctx, args.room)
     if not rooms:
-        raise ActionRefused(404, "room_not_found", f"“{args.room}” adında bir salon bulunamadı.",
-                            f"No room called “{args.room}” was found.")
+        raise ActionRefused(
+            404,
+            "room_not_found",
+            f"“{args.room}” adında bir salon bulunamadı.",
+            f"No room called “{args.room}” was found.",
+        )
     if len(rooms) > 1:
         return _choice("room", rooms, args.model_dump(), "room_day_schedule")
     room = rooms[0]
     d = await resolve_day(ctx, args.date) or await bsvc.today(ctx.session)
     try:
-        grid = await bsvc.grid(ctx.session, ctx.access, display="room", d=d, room_id=room.id)
+        org = await get_group(ctx.session, "org")
+        grid = await bsvc.grid(
+            ctx.session,
+            ctx.access,
+            display="room",
+            d=d,
+            term_id=None,
+            room_group_id=None,
+            room_id=room.id,
+            use_room_groups=org["use_room_groups"],
+        )
     except bsvc.CalendarError as exc:
         raise ActionRefused(409, "calendar", str(exc), str(exc)) from exc
     periods = {p["id"]: p for p in grid["periods"]}
@@ -214,8 +244,10 @@ async def room_day_schedule(ctx: Ctx, args: RoomDayArgs) -> s.CardBase:
     return s.ListCard(
         id=cards.new_id(),
         action="room_day_schedule",
-        title=cards.txt(f"{room.display_name} · {tr_day} · {free} boş saat",
-                        f"{room.display_name} · {en_day} · {free} free period(s)"),
+        title=cards.txt(
+            f"{room.display_name} · {tr_day} · {free} boş saat",
+            f"{room.display_name} · {en_day} · {free} free period(s)",
+        ),
         columns=[
             s.Column(key="time", label=cards.txt("Saat", "Time"), kind="time"),
             s.Column(key="period", label=cards.txt("Ders saati", "Period"), kind="text"),

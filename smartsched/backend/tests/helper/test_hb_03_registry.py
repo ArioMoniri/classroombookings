@@ -44,12 +44,36 @@ READS = [
 ]
 #: persona -> read actions they may run (any-of permission at role level)
 MATRIX = {
-    "teacher": {"open_feature", "search_site", "find_free_rooms", "room_day_schedule", "my_bookings",
-                "my_requests_status", "my_ai_usage"},
-    "approver": {"open_feature", "search_site", "find_free_rooms", "room_day_schedule", "my_bookings",
-                 "my_requests_status", "approvals_inbox", "my_ai_usage"},
-    "planner": {"open_feature", "search_site", "find_free_rooms", "room_day_schedule", "my_bookings",
-                "my_requests_status", "run_status", "requests_needing_review", "my_ai_usage"},
+    "teacher": {
+        "open_feature",
+        "search_site",
+        "find_free_rooms",
+        "room_day_schedule",
+        "my_bookings",
+        "my_requests_status",
+        "my_ai_usage",
+    },
+    "approver": {
+        "open_feature",
+        "search_site",
+        "find_free_rooms",
+        "room_day_schedule",
+        "my_bookings",
+        "my_requests_status",
+        "approvals_inbox",
+        "my_ai_usage",
+    },
+    "planner": {
+        "open_feature",
+        "search_site",
+        "find_free_rooms",
+        "room_day_schedule",
+        "my_bookings",
+        "my_requests_status",
+        "run_status",
+        "requests_needing_review",
+        "my_ai_usage",
+    },
     "admin": set(READS),
 }
 ARGS: dict[str, dict[str, Any]] = {

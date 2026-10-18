@@ -12,9 +12,9 @@ import uuid
 from collections.abc import Iterable, Sequence
 
 from app.ai.guardrails import sanitize_output_text
-from app.ai.sanitize import strip_controls
 from app.ai.helper import schema as s
 from app.ai.helper.index import FeatureEntry, Hit
+from app.ai.sanitize import strip_controls
 
 #: helper.md A8: rows shown in a helper list by default (the full list stays on the page)
 LIST_ROWS = 5

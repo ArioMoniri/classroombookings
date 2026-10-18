@@ -34,6 +34,7 @@ router = APIRouter(prefix="/auth", tags=["auth-mfa"])
 admin_router = APIRouter(prefix="/admin", tags=["auth-mfa"])
 AuthAdmin = Annotated[User, Depends(require_permission("setup.authentication"))]
 
+
 async def _run[T](db: DB, work: Awaitable[T]) -> T:
     """Commit the work, or commit what a refusal recorded (failure counts, audit) and answer the refusal."""
     try:

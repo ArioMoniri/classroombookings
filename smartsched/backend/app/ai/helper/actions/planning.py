@@ -41,8 +41,14 @@ async def _term(ctx: Ctx, code: str) -> Term | None:
             raise ActionRefused(404, "term_not_found", f"{code} dönemi bulunamadı.", f"Term {code} was not found.")
         return t
     active_run = (
-        await ctx.session.execute(select(ScheduleRun).where(ScheduleRun.is_active.is_(True)).order_by(ScheduleRun.id.desc()))
-    ).scalars().first()
+        (
+            await ctx.session.execute(
+                select(ScheduleRun).where(ScheduleRun.is_active.is_(True)).order_by(ScheduleRun.id.desc())
+            )
+        )
+        .scalars()
+        .first()
+    )
     if active_run is not None:
         return await ctx.session.get(Term, active_run.term_id)
     return (await ctx.session.execute(select(Term).order_by(Term.is_active.desc(), Term.id.desc()))).scalars().first()
@@ -56,8 +62,10 @@ def _run_fact(label: tuple[str, str], run: Any) -> s.Fact:
         else ("", "")
     )
     name = cards.clean(run.label or "", 60)
-    status = "ok" if run.status in ("FEASIBLE", "OPTIMAL") and not run.partial else (
-        "warn" if run.status in ("FEASIBLE_PARTIAL", "QUEUED", "RUNNING") else "bad"
+    status = (
+        "ok"
+        if run.status in ("FEASIBLE", "OPTIMAL") and not run.partial
+        else ("warn" if run.status in ("FEASIBLE_PARTIAL", "QUEUED", "RUNNING") else "bad")
     )
     return s.Fact(
         label=cards.txt(*label),
@@ -82,15 +90,20 @@ async def run_status(ctx: Ctx, args: TermArgs) -> s.CardBase:
     from app.api.v1.runs import list_runs
 
     term = await _term(ctx, args.term)
-    runs = await list_runs(ctx.session, ctx.access.user, term_id=term.id if term else None, kind=None, status=None,
-                           limit=20)
+    runs = await list_runs(
+        ctx.session, ctx.access.user, term_id=term.id if term else None, kind=None, status=None, limit=20
+    )
     if not runs:
         return s.FactsCard(
             id=cards.new_id(),
             action="run_status",
             title=cards.txt("Çalıştırma durumu", "Run status"),
-            items=[s.Fact(label=cards.txt("Çalıştırma", "Runs"),
-                          value=cards.txt("Bu dönem için henüz çalıştırma yok.", "No run for this term yet."))],
+            items=[
+                s.Fact(
+                    label=cards.txt("Çalıştırma", "Runs"),
+                    value=cards.txt("Bu dönem için henüz çalıştırma yok.", "No run for this term yet."),
+                )
+            ],
             nav="generate",
         )
     items = []
@@ -98,16 +111,25 @@ async def run_status(ctx: Ctx, args: TermArgs) -> s.CardBase:
     if active is not None:
         items.append(_run_fact(("Yayındaki plan", "Published plan"), active))
     else:
-        items.append(s.Fact(label=cards.txt("Yayındaki plan", "Published plan"),
-                            value=cards.txt("Henüz yayınlanmış plan yok.", "No plan is published yet."), status="warn"))
+        items.append(
+            s.Fact(
+                label=cards.txt("Yayındaki plan", "Published plan"),
+                value=cards.txt("Henüz yayınlanmış plan yok.", "No plan is published yet."),
+                status="warn",
+            )
+        )
     latest = runs[0]
     if active is None or latest.id != active.id:
         items.append(_run_fact(("Son çalıştırma", "Latest run"), latest))
     running = sum(1 for r in runs if r.status in ("QUEUED", "RUNNING"))
     if running:
-        items.append(s.Fact(label=cards.txt("Sürenler", "In progress"),
-                            value=cards.txt(f"{running} çalıştırma sürüyor", f"{running} run(s) in progress"),
-                            status="info"))
+        items.append(
+            s.Fact(
+                label=cards.txt("Sürenler", "In progress"),
+                value=cards.txt(f"{running} çalıştırma sürüyor", f"{running} run(s) in progress"),
+                status="info",
+            )
+        )
     term_name = cards.clean(term.name if term else "", 60)
     return s.FactsCard(
         id=cards.new_id(),
@@ -151,13 +173,21 @@ async def requests_needing_review(ctx: Ctx, args: TermArgs) -> s.CardBase:
         action="requests_needing_review",
         title=cards.txt(f"Talepler · {term_name}", f"Requests · {term_name}"),
         items=[
-            s.Fact(label=cards.txt("İncelenecek", "Needs review"),
-                   value=cards.txt(f"{review} talep sizin kararınızı bekliyor", f"{review} request(s) wait for you"),
-                   status="warn" if review else "ok"),
-            s.Fact(label=cards.txt("Henüz kesinleşmemiş", "Not final yet"),
-                   value=cards.txt(f"{open_} talep", f"{open_} request(s)"), status="info"),
-            s.Fact(label=cards.txt("Kesinleşmiş", "Final"),
-                   value=cards.txt(f"{done} talep", f"{done} request(s)"), status="ok"),
+            s.Fact(
+                label=cards.txt("İncelenecek", "Needs review"),
+                value=cards.txt(f"{review} talep sizin kararınızı bekliyor", f"{review} request(s) wait for you"),
+                status="warn" if review else "ok",
+            ),
+            s.Fact(
+                label=cards.txt("Henüz kesinleşmemiş", "Not final yet"),
+                value=cards.txt(f"{open_} talep", f"{open_} request(s)"),
+                status="info",
+            ),
+            s.Fact(
+                label=cards.txt("Kesinleşmiş", "Final"),
+                value=cards.txt(f"{done} talep", f"{done} request(s)"),
+                status="ok",
+            ),
         ],
         nav="requests",
     )

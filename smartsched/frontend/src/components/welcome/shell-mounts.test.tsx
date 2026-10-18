@@ -102,7 +102,7 @@ describe("welcome guide in the shell", () => {
     const aside = await screen.findByRole("complementary", {}, { timeout: 15_000 });
     await within(aside).findByTestId("checklist-pill", {}, { timeout: 15_000 });
     act(() => useUiStore.getState().setPaletteOpen(true));
-    const input = await screen.findByPlaceholderText(/./, { selector: "input" });
+    const input = (await screen.findAllByPlaceholderText(/.+/))[0]!;
     await userEvent.type(input, ">tur");
     expect(await screen.findByText("Turu yeniden başlat")).toBeInTheDocument();
     await userEvent.clear(input);

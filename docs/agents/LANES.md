@@ -20,7 +20,6 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 
 | Lane | Ledger name | What | Brief / tickets | Ports | Waits on |
 |---|---|---|---|---|---|
-| CAL-B | `cal-b-2026-10-17` | Calendar export backend CAL-01..07 (stable UIDs, scoped links, .ics, push to a dedicated calendar); migration 0039 | ROADMAP "Calendar export & sync" | — | — |
 | CAL-F | `cal-f-2026-10-17` | "Takvimime ekle" 3-tap sheet + admin settings CAL-08/09 | same | 19750/19751 | CAL-B API |
 | Launch video | `media-launch` | Recordly + Lottie + Remotion launch/explainer/README videos, phone variants | MEDIA.md | own | final UI |
 | Mobile A, phase 2 | `mobile-a` | Fixes 1–15 of docs/testing/mobile/2026-10-17-mobile-a.md plus the shared primitives from mobile B (inputs, small buttons, tab/top bar) | that report | 19620/19621 | — |
@@ -28,7 +27,6 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | WG-F | `wg-f-2026-10-17` | Welcome sheet, tour (React Joyride), checklist, hints, /admin/welcome WG-04..08 | same | 19780/19781 | WG-B API |
 | Charts phase 2 | `charts-p2-2026-10-17` | EvilCharts ECharts install + ChartCard shell CH-01/02 | docs/design/v3/charts.md | — | — |
 | AS-B | `as-b-2026-10-17` | Adaptive scheduling backend AS-01..07, 09..11, 13, 18 (+ RF-02 weights, RF-07 learning refresh); migration 0041 | docs/research/2026-10-17-adaptive-scheduling.md | — | — |
-| VO-B | `vo-b-2026-10-18` | Voice backend VO-01..04, VO-10 (admin-moderated cloud speech-to-text, no on-prem) | docs/research/2026-10-17-voice-ai.md | — | security follow-up (providers/ai_usage) |
 | VO-F | `vo-f-2026-10-18` | Mic button, consent, /admin/ai voice UI, mounts VO-06..08 | same | 19790/19791 | VO-B API |
 | HB-A | `hb-a-2026-10-18` | Helper backend HB-01..05, 08, 09 (feature index, search without AI, action registry, guardrails, memory) | docs/research/2026-10-17-ai-helper-architecture.md | — | helper UX for the card contract |
 | RF-1 | `rf-1-2026-10-18` | Enrolment edit, invite e-mail switch, admin catalogue screens (instructors, courses, faculties, sections) | docs/testing/audits/2026-10-17-no-mock-and-editability.md | 19800/19801 | — |
@@ -43,7 +41,8 @@ Rules for every lane: docs/agents/briefs/COMMON.md (no commits by agents, tests 
 | WG-09 motion (one hosted transitions.dev fix) + WG-10 role testers | WG-B + WG-F | |
 | AS solver lane AS-08, AS-12, AS-14 | AS-B AS-02 (see `scratchpad/as/AS-B-STATUS.md`, or AS-B's report) | |
 | AS frontend AS-15..17, AS tester AS-20 | AS-B | |
-| VO-05 (`microphone=(self)` in nginx/Caddy) | security follow-up | |
+| VO-05 real-stack check of getUserMedia behind nginx and Caddy | VO-F e2e | headers done by VO-B |
+| CAL-13 exam/invigilation duties scope | a published invigilation plan in the fixtures | |
 | HB-06/12/13 (helper turn loop, capability detection, local-model fixes) | VO-01 | same gateway files |
 | HB-10/11 (quota chain org → faculty → department → role → user, limits in PostgreSQL: fixes the 2-worker doubling) | VO-02 | |
 | Helper frontend HX-01..13 | HB-A + WG-F + mobile A (shell mounts) | docs/design/v3/helper.md; helper UX design done 2026-10-18 |

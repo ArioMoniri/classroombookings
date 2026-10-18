@@ -1595,6 +1595,7 @@
       "deleteBody": "{n, plural, one {# user} other {# users}} will have no role (and no permissions) until you give them one; the role's room access entries go too."
     },
     "perm": {
+      "calendar_department_feed": "Export department class calendar",
       "bookingsScope": "Bookings (can also be granted per room)",
       "action": "Permission",
       "group": {

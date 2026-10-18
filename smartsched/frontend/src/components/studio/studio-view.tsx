@@ -392,7 +392,7 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
             <h2 id="studio-step-title" className="mr-auto type-title-2 text-label-1">
               {index + 1} · {t(STEP_KEY[step])}
             </h2>
-            <div className="flex items-center gap-2 xl:hidden">
+            <div className="flex flex-wrap items-center gap-2 xl:hidden">
               <UndoRedo />
               <label className="flex items-center gap-2 text-xs">
                 <Switch size="sm" checked={advanced} onCheckedChange={setAdvanced} />
@@ -436,7 +436,8 @@ function StudioShell({ onKind }: { onKind: (k: StudioKind) => void }) {
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] lg:sticky lg:inset-x-auto lg:bottom-3 lg:mt-4 lg:px-0 xl:hidden" data-testid="studio-bottom-bar">
         <div data-glass="chrome" className="glass-chrome pointer-events-auto mx-auto flex max-w-3xl items-center gap-2 rounded-full p-1.5 pointer-coarse:[--control-h-sm:var(--control-h-md)]">
           <Button variant="ghost" size="sm" disabled={index === 0} onClick={() => goStep(STUDIO_STEPS[index - 1])}>
-            <ChevronLeft aria-hidden /> {t("common.back")}
+            {/* 200 % text (rem media query = the user's font size): the icon stays, the word goes to sr-only */}
+            <ChevronLeft aria-hidden /> <span className="max-[24rem]:sr-only">{t("common.back")}</span>
           </Button>
           <BareButton onClick={() => setSummaryOpen(true)} className="min-h-(--control-h-sm) min-w-0 flex-1 truncate rounded-full bg-fill-3 px-3 text-left type-footnote focus-visible:outline-2 focus-visible:outline-(--focus)" data-testid="summary-pill">
             <SummaryPill />

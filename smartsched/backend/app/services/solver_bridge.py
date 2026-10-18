@@ -1368,7 +1368,7 @@ async def _apply_scenario(
     for e in events:
         ids = members.get(e.id, [e.id])
         if pct and (in_scope is None or any(i in in_scope for i in ids)):
-            e = replace(e, size=int(math.ceil(e.size * (1 + pct / 100.0))))
+            e = replace(e, size=int(math.ceil(round(e.size * (1 + pct / 100.0), 6))))
         out.append(e)
     closed = {int(x) for x in scenario.get("rooms_closed") or []}
     return out, tuple(r for r in rooms if r.id not in closed)

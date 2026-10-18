@@ -2828,7 +2828,8 @@ Gate: the voice backend tickets (VO-01, VO-02, VO-04) **start only after the sec
 
 Collisions are marked per ticket.
 
-- [ ] VO-01 · ai-engineer · no migration · Speech core in the gateway.
+- [x] VO-01 · ai-engineer · no migration · Speech core in the gateway.
+  done (voice_stt in FEATURES / FEATURE_LABELS "Sesle yazma" / PERSONAL_FEATURES, DEFAULT_CAPS; ProviderSpec.capabilities/regions/retention_tr|en, ModelInfo.modalities tagged at sync; validate_route model_not_speech / model_not_text; voice_stt route source "none", kept out of all_routes; SpeechAdapter + Transcript + HttpSpeechAdapter (url_guard on every real request), openai_audio.py for openai / azure_openai. Owner 2026-10-18: openai_compatible / local Whisper get no stt; voice_tts not added (VO-13 later). Files app/ai/{context,gateway,client}.py, app/ai/providers/{__init__,base}.py, app/ai/voice/{speech,registry,openai_audio}.py; tests tests/ai/test_vo_01_speech_core.py (10); vo-b-2026-10-18)
   - `voice_stt` and `voice_tts` go into `FEATURES` / `FEATURE_LABELS` ("Sesle yazma", "Sesli okuma") and `PERSONAL_FEATURES`.
   - `DEFAULT_CAPS["voice_stt"] = {timeout_s: 60, max_audio_s: 120, max_bytes: 5_000_000}`.
   - `ProviderSpec.capabilities` (`text`/`stt`/`tts`/`audio_native`); `ModelInfo.modalities` filled at sync (OpenAI-style ids `*transcribe*|whisper*|*tts*`, Gemini audio-capable models, speaches `/v1/models`).
@@ -2845,7 +2846,8 @@ Collisions are marked per ticket.
   - existing `tests/ai` stays green; ruff + mypy clean.
   files: `backend/app/ai/context.py`, `backend/app/ai/gateway.py`, `backend/app/ai/providers/__init__.py`, `backend/app/ai/providers/base.py`, new `backend/app/ai/voice/{__init__,speech,openai_audio,fake}.py`, `backend/tests/ai/test_vo_01_*.py`; read-only `providers/url_guard.py`.
   collisions: security follow-up (gate above).
-- [ ] VO-02 · ai-engineer · **migration (next head at merge time; CAL-B, WG-01 `0040_welcome_guide` and AS-03 also plan one, so never two heads)** · Metering and limits.
+- [x] VO-02 · ai-engineer · **migration (next head at merge time; CAL-B, WG-01 `0040_welcome_guide` and AS-03 also plan one, so never two heads)** · Metering and limits.
+  done (alembic 0042_ai_usage_audio: ai_usage.audio_ms + modality, SQLite + PostgreSQL round trip; STT_PRICE_TABLE + estimate_stt_cost (table / admin prices_per_min / unpriced); ai.limits user_daily_audio_s 600, user_monthly_audio_s 6000, org_monthly_audio_s 0, roles/users audio_daily/audio_monthly; meter.reserve_audio (org totals in rls.system_scope via totals()); audio_minutes in report / day report, day/month audio in user_state and GET /ai/me/usage. No per-faculty quota exists yet, so none. Tests tests/ai/test_vo_02_metering.py (10); vo-b-2026-10-18)
   - Schema: `ai_usage.audio_ms` (Integer, default 0) and `ai_usage.modality` (String(12), `text|audio_in|audio_out`, default `text`).
   - Cost: `STT_PRICE_TABLE` beside `PRICE_TABLE_VERSION` (gpt-transcribe 0.0045, gpt-4o-transcribe 0.006, gpt-4o-mini-transcribe 0.003, whisper 0.006 USD/min, local 0; Gemini audio tokens = 32/s × model audio-in price); the cost counts toward the org USD budget.
   - Limits in `ai.limits` (no schema change): `user_daily_audio_s` (600), `user_monthly_audio_s` (6000), `org_monthly_audio_s` (0), `roles{}`/`users{}` `audio_daily`/`audio_monthly`.
@@ -2860,7 +2862,8 @@ Collisions are marked per ticket.
   - `alembic upgrade head` + downgrade on SQLite and PostgreSQL, one head.
   files: `backend/app/models/ai_usage.py`, `backend/app/services/ai_usage.py`, `backend/app/ai/client.py` (price table only), new `backend/alembic/versions/00NN_ai_usage_audio.py`, `backend/tests/ai/test_vo_02_*.py`.
   collisions: security follow-up (`ai_usage.py`), migration head (CAL-B, WG-01, AS-03).
-- [ ] VO-03 · ai-engineer · no migration · Transcribe endpoint, consent and voice settings.
+- [x] VO-03 · ai-engineer · no migration · Transcribe endpoint, consent and voice settings.
+  done (POST /ai/voice/transcribe takes the raw body (not multipart: no spool to disk), memory only, 5 MB cap; order target/permission → configured → consent `voice` (403 voice_consent_required) → empty/size/type+magic bytes/length by header (WAV, Ogg, WebM incl. live recordings, MP4) → transfer basis 409 → rate/concurrency → reserve_audio 429 → provider + one fallback → provider length re-check → strip_controls + NFC + target cap → one ai_usage row; GET /ai/voice/status (reason, hide_mic, targets, provider/region, usage). ai.voice settings: enabled, language, max_seconds ≤120, vocabulary catalog|off (codes only, never names), live_captions, prices_per_min; retention 0 and review-before-send fixed (no send_directly). KVKK purpose `voice`. Files app/api/v1/voice.py, app/ai/voice/{run,audio,vocabulary,errors}.py, router.py (+include), services/kvkk.py (+PURPOSES row); tests tests/ai/test_vo_03_transcribe.py (15) incl. no-disk, no transcript in logs, spoken injection 422 on /chat/stream; vo-b-2026-10-18)
   - `POST /api/v1/ai/voice/transcribe`: multipart `audio`, `feature` ∈ {chat, rules, booking_nl, guard}, `lang`. Checks in order:
     - consent `voice` active (403 `voice_consent_required`);
     - `ai.voice.enabled`;
@@ -2887,7 +2890,8 @@ Collisions are marked per ticket.
   - the vocabulary prompt has no instructor names for a non-grantee;
   - the spoken-injection fixture transcript, posted to `/chat/stream`, gives 422 `prompt_injection` (the guard runs on send).
   files: new `backend/app/api/v1/voice.py`, new `backend/app/ai/voice/{run,policy,vocabulary}.py`, `backend/app/ai/gateway.py` (`ai.voice` getters), `backend/tests/ai/test_vo_03_*.py`; asks: one `include_router` line in `backend/app/api/v1/router.py` (router owner), one `PURPOSES` row in `backend/app/services/kvkk.py:90` (KVKK owner).
-- [ ] VO-04 · ai-engineer · no migration · Admin API for voice.
+- [x] VO-04 · ai-engineer · no migration · Admin API for voice.
+  done (sync tags modalities and lists speech-only providers' fixed models; test call transcribes the bundled 5 s Turkish clip app/ai/voice/assets/tr-test.ogg (MediaSpeech CC BY 4.0, SOURCES.md) → kind stt + transcript_preview ≤60, metered as test with audio_ms; GET/PUT /ai/admin/voice audited ai.voice; transfer record processes_voice + audio_retention; limits accept audio fields; routes accept voice_stt. Files app/api/v1/ai_admin.py, tests/test_audit_coverage.py (+2 rows); tests tests/ai/test_vo_04_admin.py (6); API contract scratchpad voice/API.md; vo-b-2026-10-18)
   - `POST /ai/admin/providers/{p}/sync` stores modalities. `…/test` for an STT-capable provider transcribes the bundled 4 s Turkish clip and stores `{ok, detail, model, transcript_preview≤60}`.
   - `GET/PUT /ai/admin/voice` (settings above; audited `ai.voice_update`).
   - `PUT /ai/admin/routes` accepts `voice_stt` / `voice_tts`.
@@ -2902,6 +2906,7 @@ Collisions are marked per ticket.
   files: `backend/app/api/v1/ai_admin.py`, `backend/app/schemas/ai_admin.py` (if separate), `backend/tests/fixtures/voice/tr-test-4s.opus` (+ `SOURCES.md`), `backend/tests/ai/test_vo_04_*.py`.
   collisions: security follow-up.
 - [ ] VO-05 · devops · no migration · Browser permission + edge + optional local Whisper.
+  part done (headers + edge only, taken by VO-B on the coordinator's go: Permissions-Policy microphone=(self) in smartsched/deploy/nginx/default.conf and caddy/Caddyfile; nginx `location = /api/v1/ai/voice/transcribe` with client_max_body_size 6m and the /api/ CSRF fence; Caddy request_body 6MB on that path; assertions in tests/test_w3_sec_hardening.py; nginx -t and caddy validate pass (scratch binaries). The voice-local Whisper profile is dropped by the owner decision 2026-10-18; open: getUserMedia check on a real stack behind nginx and Caddy; vo-b-2026-10-18)
   - `Permissions-Policy` `microphone=()` → `microphone=(self)` in `deploy/nginx/default.conf:108` and `deploy/caddy/Caddyfile:24`, with an assertion in `backend/tests/test_w3_sec_hardening.py` (W3-SEC owner informed).
   - nginx `location = /api/v1/ai/voice/transcribe` with `client_max_body_size 6m` and no request-body logging.
   - Compose profile `voice-local`:
@@ -2977,7 +2982,8 @@ Collisions are marked per ticket.
   - Persona runs on own stack, desktop 1440 and phone 390: planner dictates in chat and studio; admin configures, tests, limits and checks usage; teacher withdraws consent and the mic asks again; keyboard-only and screen-reader pass.
   accept: bench report + persona report `docs/testing/2026-10-xx-persona-voice.md` with pass/fail per step, screenshots per viewport, and tickets for failures.
   files: `backend/tests/fixtures/voice/**`, `frontend/e2e/fixtures/voice/**`, the two reports; scratch otherwise.
-- [ ] VO-10 · ai-engineer · no migration · Cloud speech adapters (after VO-09 picks one).
+- [x] VO-10 · ai-engineer · no migration · Cloud speech adapters (after VO-09 picks one).
+  done (thin httpx adapters, no SDKs: gemini_audio.py (inline audio, fixed verbatim instruction, responseJsonSchema {text} and the answer re-validated, length from AUDIO tokens/32), azure_speech.py (fast transcription api-version 2025-10-15, tr-TR, phraseList), google_stt.py (Speech-to-Text v2 Chirp 3, location eu → eu-speech.googleapis.com, inline phrase set, API-key auth), deepgram.py (api.eu.deepgram.com, nova-3, keyterm, mip_opt_out); new speech-only ProviderSpecs azure_speech / google_stt / deepgram with regions + retention notes; request shapes checked against the vendors' docs 2026-10-17. Tests tests/ai/test_vo_10_adapters.py (18) against doc-shaped fixtures tests/fixtures/voice/responses/*.json; live smoke tests/ai/test_vo_live_smoke.py (skipped without OPENAI_API_KEY). open: a test call on a real account per chosen provider; vo-b-2026-10-18)
   - `gemini_audio.py`: inline audio + fixed "transcribe verbatim" instruction + JSON schema; Gemini API paid tier, or Vertex EU.
   - Speech-only providers with `capabilities={stt}` and the encrypted-key pattern: `azure_speech` (fast transcription REST, region config, `tr-TR`), `google_stt` (Chirp 3 / Gemini transcribe, `eu` location), `deepgram` (`api.eu.deepgram.com`).
   - Each adapter: model list (static where the provider has no list endpoint), a test call, error translation to `ProviderError`, and price per minute.

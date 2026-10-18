@@ -38,9 +38,15 @@ install -d -m 755 "$DEST.new"
 cp -r "$HERE/podci" "$HERE/gates" "$DEST.new/"
 find "$DEST.new" -name '__pycache__' -prune -exec rm -rf {} +
 chmod 755 "$DEST.new"/gates/*.sh
-if [[ -d "$DEST" ]]; then mv "$DEST" "$DEST.old"; fi
-mv "$DEST.new" "$DEST"
-rm -rf "$DEST.old"
+# Replace the contents in place, keeping the directory itself: a worker started from $DEST (WorkingDirectory)
+# would otherwise lose its cwd mid-run ("Unable to read current working directory", pod runs #60/#61).
+if [[ -d "$DEST" ]]; then
+  find "$DEST" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  cp -a "$DEST.new"/. "$DEST"/
+  rm -rf "$DEST.new"
+else
+  mv "$DEST.new" "$DEST"
+fi
 
 # Config: written once; later edits on the pod are kept.
 if [[ ! -f "$CONF" ]]; then

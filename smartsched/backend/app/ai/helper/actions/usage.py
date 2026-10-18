@@ -9,8 +9,11 @@ from app.ai.helper.actions.registry import Args, Ctx, action
 STATE_TEXT = {
     "ok": ("Sınırın altındasınız.", "You are within your limit.", "ok"),
     "soft": ("Sınırınıza yaklaştınız.", "You are close to your limit.", "warn"),
-    "hard": ("Sınırınıza ulaştınız; arama ve kısayollar çalışmaya devam eder.",
-             "You reached your limit; search and shortcuts still work.", "bad"),
+    "hard": (
+        "Sınırınıza ulaştınız; arama ve kısayollar çalışmaya devam eder.",
+        "You reached your limit; search and shortcuts still work.",
+        "bad",
+    ),
     "org_soft": ("Kurumun bu ayki payı azaldı.", "The institution's monthly budget is running low.", "warn"),
     "none": ("Sizin için bir sınır tanımlı değil.", "No limit is set for you.", "info"),
 }
@@ -48,10 +51,14 @@ async def my_ai_usage(ctx: Ctx, _args: NoArgs) -> s.CardBase:
         action="my_ai_usage",
         title=cards.txt("Yapay zekâ kullanımım", "My AI usage"),
         items=[
-            s.Fact(label=cards.txt("Bugün", "Today"), value=cards.txt(*_tokens(st.get("day_tokens"),
-                                                                                st.get("daily_limit")))),
-            s.Fact(label=cards.txt("Bu ay", "This month"), value=cards.txt(*_tokens(st.get("month_tokens"),
-                                                                                   st.get("monthly_limit")))),
+            s.Fact(
+                label=cards.txt("Bugün", "Today"),
+                value=cards.txt(*_tokens(st.get("day_tokens"), st.get("daily_limit"))),
+            ),
+            s.Fact(
+                label=cards.txt("Bu ay", "This month"),
+                value=cards.txt(*_tokens(st.get("month_tokens"), st.get("monthly_limit"))),
+            ),
             s.Fact(label=cards.txt("Durum", "Status"), value=cards.txt(tr, en), status=status),  # type: ignore[arg-type]
         ],
         nav="profile.ai_usage",

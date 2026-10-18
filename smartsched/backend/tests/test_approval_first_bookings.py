@@ -131,8 +131,9 @@ async def test_all_mode_teacher_request_is_pending_and_approvers_are_notified_on
         ("approval.requested", "email", "sent"),
         ("approval.requested", "in_app", "sent"),
     ]
-    # the requester's own copy of nothing: approvers only
-    assert await _inapp(aid) == []
+    # the requester's own submission is a record, not news (RF-11): only her receipt, stored as read
+    (own,) = await _inapp(aid)
+    assert own.kind == "approval.submitted" and own.read_at is not None
 
 
 async def test_all_mode_admins_and_skip_approval_roles_book_directly(env):  # noqa: F811
@@ -206,7 +207,8 @@ async def test_reject_needs_a_reason_and_the_requester_gets_it_in_app_and_by_ema
     mine = (await c.get(f"{APPR}/mine", headers=ayse)).json()[0]
     assert mine["reason"] == clean and mine["decided_by"]["name"] == "Gözde Ayrancıgil"
 
-    (note,) = (await c.get("/api/v1/me/notifications", headers=ayse)).json()
+    notes = (await c.get("/api/v1/me/notifications", headers=ayse)).json()
+    (note,) = [n for n in notes if n["kind"] != "approval.submitted"]  # RF-11: her receipt (read) aside
     assert note["kind"] == "approval.rejected"
     assert clean in note["body"] and "Gözde Ayrancıgil" in note["body"] and "Oda uygun değil" in note["body"]
     data = note["data"]
@@ -369,7 +371,8 @@ async def test_no_duplicate_notifications_on_retry(env):  # noqa: F811
     assert len(await _outbox(aid, "approval_expired")) == 1
     async with dbmod.get_session_factory()() as s:
         q = select(func.count()).select_from(NotificationDelivery).where(NotificationDelivery.user_id == aid)
-        assert (await s.execute(q)).scalar_one() == 4  # rejected + expired, two channels each
+        # RF-11 receipts of the two submissions + rejected + expired, two channels each
+        assert (await s.execute(q)).scalar_one() == 8
 
 
 def test_channel_registry_is_the_extension_point():

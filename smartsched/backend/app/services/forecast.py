@@ -156,7 +156,7 @@ def scale(needs: Sequence[Need], pct: float, keep: Any = None) -> list[Need]:
     out = []
     for x in needs:
         if keep is None or keep(x):
-            out.append(replace(x, size=int(math.ceil(x.size * (1 + pct / 100.0)))))
+            out.append(replace(x, size=int(math.ceil(round(x.size * (1 + pct / 100.0), 6)))))
         else:
             out.append(x)
     return out

@@ -85,7 +85,7 @@ for (const vp of viewports) {
       await expect(line).toHaveAttribute("data-renderer", vp.name === "390 touch" ? "svg" : "canvas");
       await page.emulateMedia({ media: "print" });
       await expect(line).toHaveAttribute("data-renderer", "svg");
-      await expect(page.locator("[data-chart-card='fx-line'] svg").first()).toBeVisible();
+      await expect(line.locator("svg").first()).toBeVisible();
       await expect(page.locator("[data-chart-card='fx-bar'] [data-chart-menu]")).toBeHidden();
       await expect(page.locator("[data-chart-card='fx-bar'] [data-chart-footer]")).toBeHidden();
       const box = await page.locator("[data-chart-table='fx-bar']").boundingBox();

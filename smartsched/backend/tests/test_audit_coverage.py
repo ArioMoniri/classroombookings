@@ -437,6 +437,11 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
     "DELETE /api/v1/seasons/segments/{segment_id}": (E, "app.api.v1.seasons"),
     "POST /api/v1/analytics/forecast/what-if": (E, "app.services.forecast"),
+    # AS-13 / RF-07: learning versions, calibration, per-habit controls, nightly switch
+    "POST /api/v1/learning/versions/{version_id}/revert": (E, "app.services.learning_versions"),
+    "POST /api/v1/learning/calibration/apply": (E, "app.services.learning_versions"),
+    "PUT /api/v1/learning/priors/{prior_id}/habit": (E, "app.services.learning_versions"),
+    "PUT /api/v1/learning/settings": (E, "app.api.v1.learning"),
 }
 #: frozen: may only shrink (a closed gap moves to event / tracked)
 KNOWN_GAPS = frozenset(k for k, (cat, _) in DECISIONS.items() if cat == G)

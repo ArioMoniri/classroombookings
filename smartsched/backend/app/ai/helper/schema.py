@@ -85,7 +85,7 @@ class AnswerCard(CardBase):
 
 
 class NavCard(CardBase):
-    """"Nerede?": a feature-index entry. The client resolves ``feature_id`` → href; the server sends no URL."""
+    """ "Nerede?": a feature-index entry. The client resolves ``feature_id`` → href; the server sends no URL."""
 
     type: Literal["nav"] = "nav"
     feature_id: Name

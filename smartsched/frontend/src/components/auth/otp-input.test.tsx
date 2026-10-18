@@ -4,10 +4,15 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { OtpInput } from "./otp-input";
 import { RecoveryCodeField } from "./recovery-code-field";
+
+// input-otp probes for a password-manager badge with elementFromPoint (absent in jsdom)
+beforeAll(() => {
+  if (!document.elementFromPoint) Object.defineProperty(document, "elementFromPoint", { value: () => null, configurable: true });
+});
 
 function Harness({ onComplete, state }: { onComplete?: (v: string) => void; state?: "idle" | "error" | "success" }) {
   const [v, setV] = useState("");
@@ -88,7 +93,7 @@ describe("OtpInput", () => {
 
   it("success: a polite status 'Doğrulandı'", () => {
     render(<Harness state="success" />);
-    expect(screen.getByRole("status")).toHaveTextContent("Doğrulandı");
+    expect(screen.getByText("Doğrulandı").closest('[role="status"]')).not.toBeNull();
   });
 });
 

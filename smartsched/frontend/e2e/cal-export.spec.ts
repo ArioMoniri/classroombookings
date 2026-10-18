@@ -44,6 +44,7 @@ const ctx = {} as {
   departmentId: number | null;
   departmentName: string;
   syncWasOn: boolean;
+  urlWasSet: boolean;
 };
 
 async function call<T = unknown>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, token = ctx.admin): Promise<{ status: number; body: T; headers: Record<string, string> }> {
@@ -80,9 +81,12 @@ test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   ctx.admin = await token(ADMIN_EMAIL, ADMIN_PASSWORD);
   // the organisation's KVKK sign-off for calendar sync (REC_CAL_SIGNOFF=0 leaves it off)
-  const settings = await api<{ calendar_sync_enabled: boolean }>("GET", "/calendar/admin/settings");
+  const settings = await api<{ calendar_sync_enabled: boolean; public_url: string | null }>("GET", "/calendar/admin/settings");
   ctx.syncWasOn = settings.calendar_sync_enabled;
   if (!ctx.syncWasOn) await api("PUT", "/calendar/admin/settings", { calendar_sync_enabled: true });
+  // absolute links (https + webcal) need the panel's public address; this stack's own when none is set
+  ctx.urlWasSet = !!settings.public_url;
+  if (!ctx.urlWasSet) await api("PUT", "/calendar/admin/settings", { public_url: `http://127.0.0.1:${process.env.PW_PORT ?? 3100}` });
 
   // an instructor of the current term with published classes nobody is linked to yet
   const me = await api<{ current_term: { id: number } | null }>("GET", "/moderation/me");
@@ -110,6 +114,7 @@ test.afterAll(async () => {
   await revokeAll(MEHMET.username, MEHMET.password).catch(() => undefined);
   if (ctx.ayseId && ctx.instructorId) await call("PUT", `/auth/sso/admin/users/${ctx.ayseId}/instructor`, { instructor_id: null });
   if (!ctx.syncWasOn) await call("PUT", "/calendar/admin/settings", { calendar_sync_enabled: false });
+  if (!ctx.urlWasSet) await call("PUT", "/calendar/admin/settings", { public_url: "" });
   await ctx.api.dispose();
 });
 
