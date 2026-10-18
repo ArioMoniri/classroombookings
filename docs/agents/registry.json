@@ -4057,6 +4057,18 @@
       "status": "finished",
       "finished_at": "2026-10-18 12:08",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "aeb64ec8f12d8bdfd",
+      "description": "CAL-13: exam duties calendar scope",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 12:23",
+      "scope": "",
+      "goal": "Ledger name `cal-13-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend (one small frontend option in smartsched/frontend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack;…",
+      "ledger": "CAL-13: exam duties calendar scope",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
