@@ -108,6 +108,8 @@ export function ImportWizard() {
     setPreview(null);
     setFile(null);
     setUpload({ phase: "idle" });
+    // E2EA2-F03: the preview unmounts; focus goes to the drop zone's first control, never to <body>
+    requestAnimationFrame(() => document.querySelector('[data-testid="import-dropzone"]')?.querySelector<HTMLElement>('button:not([disabled]), [tabindex="0"]')?.focus());
   };
 
   /** keep the file and import it as the kind the server recognised */

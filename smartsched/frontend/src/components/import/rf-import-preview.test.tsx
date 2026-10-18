@@ -85,6 +85,12 @@ async function uploadFile() {
 }
 
 describe("preview first (RF-06)", () => {
+  it("E2EA2-F03 (FIX-K): Vazgeç returns focus to the file drop zone, not <body>", async () => {
+    const card = await uploadFile();
+    fireEvent.click(within(card).getByRole("button", { name: "Vazgeç" }));
+    await waitFor(() => expect(screen.getByTestId("import-dropzone").contains(document.activeElement)).toBe(true));
+  });
+
   it("uploads as a dry run and the primary button says 'Önizle'", async () => {
     await uploadFile();
     expect(up.fn).toHaveBeenCalledTimes(1);
