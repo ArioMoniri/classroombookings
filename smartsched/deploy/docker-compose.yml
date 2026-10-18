@@ -108,8 +108,11 @@ services:
       DEPLOYED_AT: ${DEPLOYED_AT:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
       METRICS_TOKEN: ${METRICS_TOKEN:-}
+      # the last successful backup on /admin/ops: deploy/backup.sh's textfile metric (mounted read-only below)
+      OPS_BACKUP_TEXTFILE: ${OPS_BACKUP_TEXTFILE:-/host/textfile/backup.prom}
     volumes:
       - uploads:/data/uploads
+      - /var/lib/smartsched/textfile:/host/textfile:ro
     expose:
       - "8000"
     # Healthcheck comes from the image (GET /api/v1/health); repeated here so `depends_on` is explicit.

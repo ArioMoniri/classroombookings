@@ -151,7 +151,10 @@ async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any
     from app.ai.helper.actions import writes
 
     try:
-        p = cf.verify(body.token)
+        try:
+            p = cf.verify(body.token)
+        except reg.ActionRefused:
+            p = {}  # cf.confirm refuses it again and writes the audit row
         spec = writes.WRITES.get(str(p.get("a")))
         if spec is not None:
             if reg.RATE.hit(access.user_id, spec.action):

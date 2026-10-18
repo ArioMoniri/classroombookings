@@ -7,7 +7,10 @@ Everything lives in the ``settings`` table, so every call path reads one table:
 ``anthropic_api_key``                           the Anthropic key (historic row, encrypted; env fallback)
 ``ai.provider.<p>.<secret>``                    other providers' secrets (encrypted, ``is_secret``; never returned)
 ``ai.provider.<p>.config``                      plain config JSON (``base_url``, ``region``, ``enabled``)
-``ai.provider.<p>.models``                      synced models ``{"fetched_at", "models": [...], "error"}``
+``ai.provider.<p>.models``                      synced models ``{"fetched_at", "models": [...], "error"}``; each
+                                                model carries its sync-time ``capabilities`` (HB-12)
+``ai.provider.<p>.probe``                       probe results per model (``Test`` with ``probe=true``; HB-12)
+``ai.provider.<p>.cap_overrides``               the admin's capability overrides per model (audited; HB-12)
 ``ai.provider.<p>.test``                        the last test call ``{"at", "ok", "detail", "model"}``
 ``ai.provider.<p>.transfer``                    the KVKK transfer record (region, retention, mechanism, dates)
 ``ai.routes``                                   ``{"default": Route, "features": {feature: Route}}``
@@ -24,12 +27,10 @@ Every change is audited by the admin API (``app/api/v1/ai_admin.py``).
 
 from __future__ import annotations
 
-import ipaddress
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -260,28 +261,27 @@ async def store_synced_models(
     return record
 
 
-def is_local_url(url: str | None) -> bool:
-    """A loopback / private address: the data does not leave the institution (no transfer record needed)."""
-    host = urlparse(url or "").hostname or ""
-    if host in {"localhost"} or host.endswith(".local"):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return ip.is_loopback or ip.is_private
+def is_local_url(url: str | None, *, resolver: Any | None = None) -> bool:
+    """Every address the host resolves to is loopback / private: the data does not leave the institution (no transfer
+    record needed). Decided from the **resolved addresses**, never from the name (HB-13, the KVKK finding of the
+    architecture doc §1.4): ``gpu.local`` resolving to a public address is not local, ``llm.uni.edu.tr`` resolving
+    to 10.x is. A name that does not resolve is not local (the record is then required)."""
+    from app.ai.providers.url_guard import resolved_local
+
+    return resolved_local(url, resolver=resolver)
 
 
 async def transfer_record(session: AsyncSession, provider: str) -> dict[str, Any]:
     return dict(await get_json(session, f"ai.provider.{provider}.transfer", {}))
 
 
-def transfer_ok(provider: str, config: dict[str, Any], record: dict[str, Any]) -> bool:
-    """Whether personal data may go to ``provider``: a local server, or a transfer record with a KVKK mechanism.
-    The historic Anthropic path is governed by the intake sign-off (``app/ai/policy.py``) and stays as it was."""
+def transfer_ok(provider: str, config: dict[str, Any], record: dict[str, Any], *, local: bool | None = None) -> bool:
+    """Whether personal data may go to ``provider``: a local server (by its resolved addresses; ``local`` when the
+    caller already resolved it off the event loop), or a transfer record with a KVKK mechanism. The historic
+    Anthropic path is governed by the intake sign-off (``app/ai/policy.py``) and stays as it was."""
     if provider == DEFAULT_PROVIDER:
         return True
-    if provider == "openai_compatible" and is_local_url(config.get("base_url")):
+    if provider == "openai_compatible" and (is_local_url(config.get("base_url")) if local is None else local):
         return True
     return bool(record.get("kvkk_mechanism")) and record.get("kvkk_mechanism") != "none"
 
@@ -340,16 +340,69 @@ _NOT_SPEECH = (
 )
 
 
+async def model_capabilities(session: AsyncSession, provider: str) -> dict[str, dict[str, Any]]:
+    """Effective capabilities per synced model of ``provider``: sync ⊕ probe ⊕ admin override (HB-12)."""
+    from app.ai import capabilities as caps
+
+    synced = await synced_models(session, provider)
+    probes = await get_json(session, f"ai.provider.{provider}.probe", {})
+    overrides = await get_json(session, f"ai.provider.{provider}.cap_overrides", {})
+    out: dict[str, dict[str, Any]] = {}
+    for m in synced.get("models") or []:
+        mid = str(m.get("id") or "")
+        if not mid:
+            continue
+        sync_layer = m.get("capabilities")
+        if not isinstance(sync_layer, dict) and m.get("context_window"):
+            sync_layer = {"context_window": m.get("context_window"), "source": "provider"}
+        if PROVIDERS[provider].claude and not isinstance(sync_layer, dict):
+            sync_layer = caps.claude(m.get("context_window"))
+        out[mid] = caps.merge(sync_layer, probes.get(mid), overrides.get(mid))
+    return out
+
+
+async def all_capabilities(session: AsyncSession) -> dict[str, dict[str, dict[str, Any]]]:
+    return {p: await model_capabilities(session, p) for p in PROVIDERS if "text" in PROVIDERS[p].capabilities}
+
+
+def _route_models(route: dict[str, Any]) -> list[tuple[str, str, str]]:
+    out = []
+    for prov_field, model_field in (("provider", "model"), ("fallback_provider", "fallback_model")):
+        prov, model = route.get(prov_field), route.get(model_field)
+        if prov in PROVIDERS and model:
+            out.append((model_field, str(prov), str(model)))
+    return out
+
+
+def route_warnings(
+    route: dict[str, Any], *, feature: str | None, capabilities: dict[str, dict[str, dict[str, Any]]] | None
+) -> list[dict[str, str]]:
+    """Warnings of a route (HB-12): a capability the feature needs is unknown (probe it) or degrades the feature."""
+    from app.ai import capabilities as caps
+
+    out: list[dict[str, str]] = []
+    if capabilities is None or feature is None:
+        return out
+    for fld, prov, model in _route_models(route):
+        _, warns = caps.route_issues(feature, (capabilities.get(prov) or {}).get(model))
+        out.extend({**w, "field": fld} for w in warns)
+    return out
+
+
 def validate_route(
     route: dict[str, Any],
     synced: dict[str, set[str]],
     *,
     feature: str | None = None,
     speech: dict[str, set[str]] | None = None,
+    capabilities: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> list[dict[str, str]]:
     """Errors of a route change: unknown provider, a model that was not synced, an invalid effort / cap. With
     ``feature`` and ``speech`` (synced model ids whose modalities include ``stt``, per provider): a voice feature
-    accepts only speech models (``model_not_speech``), a text feature no speech model (``model_not_text``)."""
+    accepts only speech models (``model_not_speech``), a text feature no speech model (``model_not_text``). With
+    ``capabilities`` (provider -> model -> record, :func:`all_capabilities`; HB-12) a model that lacks what the
+    feature needs is refused (``model_lacks_capability``, ``context_too_small``); unknown is only a warning
+    (:func:`route_warnings`)."""
     errors: list[dict[str, str]] = []
 
     def err(fld: str, code: str, tr: str, en: str) -> None:
@@ -400,6 +453,15 @@ def validate_route(
         v = route.get(cap)
         if v not in (None, "") and not (isinstance(v, int | float) and 0 < float(v) <= hi):
             err(cap, f"invalid_{cap}", f"{cap} 1 ile {hi} arasında olmalı.", f"{cap} must be between 1 and {hi}.")
+    if capabilities is not None and feature not in (None, *VOICE_FEATURES):
+        from app.ai import capabilities as caps
+
+        bad_fields = {e["field"] for e in errors}
+        for fld, prov, model in _route_models(route):
+            if fld in bad_fields:
+                continue
+            found, _ = caps.route_issues(feature, (capabilities.get(prov) or {}).get(model))
+            errors.extend({**e, "field": fld} for e in found)
     return errors
 
 
@@ -453,6 +515,7 @@ __all__ = [
     "VOICE_MAX_SECONDS",
     "ResolvedRoute",
     "Route",
+    "all_capabilities",
     "all_routes",
     "get_guardrails",
     "get_json",
@@ -462,11 +525,13 @@ __all__ = [
     "is_local_url",
     "legacy_model",
     "masked",
+    "model_capabilities",
     "provider_config",
     "provider_secrets",
     "provider_usable",
     "put_json",
     "resolve_route",
+    "route_warnings",
     "set_provider_secret",
     "store_synced_models",
     "synced_models",

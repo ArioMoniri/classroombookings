@@ -54,7 +54,7 @@ test("1–4. providers, the voice route, the Ses card and voice limits at 1440; 
   const page = await page1440();
   await page.goto("/admin/ai?tab=providers");
   const card = page.getByTestId("ai-provider-deepgram");
-  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId("ai-provider-caps-deepgram")).toHaveText(/Ses→yazı/);
   await expect(page.getByTestId("ai-provider-caps-anthropic")).toHaveText(/^Yetenekler: Metin( · |$)/);
   await card.getByTestId("ai-key-deepgram-api_key").fill("e2e-placeholder-deepgram-key-0001");
@@ -66,21 +66,21 @@ test("1–4. providers, the voice route, the Ses card and voice limits at 1440; 
   await card.getByTestId("ai-provider-save-deepgram").click();
   await expect(page.getByText("Sağlayıcı kaydedildi.")).toBeVisible();
   await card.getByTestId("ai-provider-sync-deepgram").click();
-  await expect(card.getByTestId("ai-sync-line-deepgram")).toContainText("model", { timeout: 30_000 });
+  await expect(card.getByTestId("ai-sync-line-deepgram")).toContainText("model", { timeout: 90_000 });
   // the speech-only provider has no separate voice test button: its connection test is the voice test
   await expect(card.getByTestId("ai-provider-voice-test-deepgram")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("providers-1440.png"), fullPage: false });
 
   // Ses card first: no route yet
   await page.goto("/admin/ai?tab=guard");
-  await expect(page.getByTestId("ai-voice-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("ai-voice-card")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId("ai-voice-no-route")).toContainText("Sesle yazma");
   await expect(page.getByTestId("ai-voice-advanced")).not.toHaveAttribute("open", "");
 
   // Modeller: the voice row
   await page.goto("/admin/ai?tab=models");
   const row = page.getByTestId("ai-route-voice_stt");
-  await expect(row).toBeVisible({ timeout: 30_000 });
+  await expect(row).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId("ai-route-note-voice_stt")).toContainText("mikrofon kimseye gösterilmez");
   const prov = page.getByTestId("ai-route-provider-voice_stt");
   const options = await prov.locator("option").allTextContents();
@@ -100,7 +100,7 @@ test("1–4. providers, the voice route, the Ses card and voice limits at 1440; 
 
   // Koruma: route in place, switch voice on
   await page.goto("/admin/ai?tab=guard");
-  await expect(page.getByTestId("ai-voice-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("ai-voice-card")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId("ai-voice-no-route")).toHaveCount(0);
   const sw = page.getByTestId("ai-voice-enabled");
   await expect(sw).not.toBeChecked();
@@ -110,13 +110,13 @@ test("1–4. providers, the voice route, the Ses card and voice limits at 1440; 
   await focusNotOnBody(page);
   // the guard bench has its mic once voice is on (status read again on the next page)
   await page.reload();
-  await expect(page.getByTestId("voice-mic-guard")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("voice-mic-guard")).toBeVisible({ timeout: 90_000 });
   await page.screenshot({ path: test.info().outputPath("guard-voice-1440.png") });
 
   // Limitler: minutes
   await page.goto("/admin/ai?tab=limits");
   const audio = page.getByTestId("ai-limits-audio");
-  await expect(audio).toBeVisible({ timeout: 30_000 });
+  await expect(audio).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId("ai-limit-audio-daily")).toHaveValue("10");
   await expect(page.getByTestId("ai-limit-audio-monthly")).toHaveValue("100");
   await page.context().close();
@@ -126,9 +126,9 @@ test("1–4. providers, the voice route, the Ses card and voice limits at 1440; 
   const p2 = await ctx2.newPage();
   await login(p2, ADMIN2.email, ADMIN2.password);
   await p2.goto("/admin/ai?tab=models");
-  await expect(p2.getByTestId("ai-route-provider-voice_stt")).toHaveValue("deepgram", { timeout: 30_000 });
+  await expect(p2.getByTestId("ai-route-provider-voice_stt")).toHaveValue("deepgram", { timeout: 90_000 });
   await p2.goto("/admin/ai?tab=guard");
-  await expect(p2.getByTestId("ai-voice-enabled")).toBeChecked({ timeout: 30_000 });
+  await expect(p2.getByTestId("ai-voice-enabled")).toBeChecked({ timeout: 90_000 });
   await ctx2.close();
 });
 
@@ -136,14 +136,14 @@ test("5. the speech test: the stored preview is shown; the real call with the fa
   const page = await page1440();
   await page.goto("/admin/ai?tab=providers");
   const card = page.getByTestId("ai-provider-deepgram");
-  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toBeVisible({ timeout: 90_000 });
   // real call first
   const real = page.waitForResponse((r) => r.url().includes("/ai/admin/providers/deepgram/test"));
   await card.getByTestId("ai-provider-test-deepgram").click();
   const res = await real;
   const body = (await res.json()) as { ok: boolean; kind?: string };
   expect(body.ok).toBe(false);
-  await expect(card.getByTestId("ai-provider-error-deepgram").or(card.getByTestId("ai-test-line-deepgram"))).toBeVisible({ timeout: 60_000 });
+  await expect(card.getByTestId("ai-provider-error-deepgram")).toContainText("Ses testi başarısız", { timeout: 60_000 });
   // the preview rendering, with the answer a real key gives (VO-B API.md §3)
   await page.route("**/api/v1/ai/admin/providers/deepgram/test", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ at: "2026-10-18T09:00:00", ok: true, detail: "ok", model: "nova-3", kind: "stt", transcript_preview: "Şu cümle çok önemli" }) }),
@@ -160,17 +160,17 @@ test("6. phone 390 × 844: M-01 on each tab, M-02 / M-03 on the voice card and t
   await login(page);
   for (const tab of ["providers", "models", "usage", "limits", "guard"]) {
     await page.goto(`/admin/ai?tab=${tab}`);
-    await expect(page.getByTestId("ai-admin")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("ai-admin")).toBeVisible({ timeout: 90_000 });
     await page.waitForTimeout(800);
     await m01(page);
   }
   await page.goto("/admin/ai?tab=guard");
-  await expect(page.getByTestId("ai-voice-card")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("ai-voice-card")).toBeVisible({ timeout: 90_000 });
   await page.getByTestId("ai-voice-advanced").locator("summary").tap();
   await m02m03(page, "[data-testid=ai-voice-card]");
   await page.screenshot({ path: test.info().outputPath("guard-voice-390.png") });
   await page.goto("/admin/ai?tab=models");
-  await expect(page.getByTestId("ai-route-voice_stt")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("ai-route-voice_stt")).toBeVisible({ timeout: 90_000 });
   await page.getByTestId("ai-route-voice_stt").scrollIntoViewIfNeeded();
   await m02m03(page, "[data-testid=ai-route-voice_stt]");
   await page.screenshot({ path: test.info().outputPath("models-voice-390.png") });

@@ -199,3 +199,19 @@ async def test_au_b_postgres_rls_owner_only(pg):  # type: ignore[no-untyped-def]
             assert (await s.execute(text("select count(*) from webauthn_credentials"))).scalar_one() == 2
     finally:
         await s.close()
+
+
+def test_au_15_user_sessions_round_trip(tmp_path) -> None:
+    path = tmp_path / "s.db"
+    url = f"sqlite+aiosqlite:///{path}"
+    _run(url, command.upgrade, "0045_user_sessions")
+    assert "user_sessions" in _tables(path)
+    from app.models.mfa import UserSession
+
+    con = sqlite3.connect(path)
+    have = {r[1] for r in con.execute("pragma table_info(user_sessions)")}
+    assert {c.name for c in UserSession.__table__.columns} <= have
+    con.close()
+    _run(url, command.downgrade, REV)
+    assert "user_sessions" not in _tables(path)
+    _run(url, command.upgrade, "head")

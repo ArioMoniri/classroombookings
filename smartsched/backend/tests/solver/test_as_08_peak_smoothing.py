@@ -108,8 +108,10 @@ def test_evaluate_and_model_agree_and_repair_scores_the_same() -> None:
     assert ev.penalties["peak_smoothing"] == 2 * 10  # one room above 3 for P1 and P2
     assert any(v.kind == "peak_smoothing" and v.event_ids == [4] for v in ev.violations)
     assert repair_score(inp, monday)[2]["peak_smoothing"] == 20
-    # the CP-SAT objective term on the same (forced) placement
-    prep = prepare(replace(inp, events=tuple(replace(e, locked=a) for e, a in zip(inp.events, monday, strict=True))))
+    # the CP-SAT objective term on the same placement: the fixed classes locked, D still flexible by its request
+    # (no fixed day) but left with Monday only
+    forced = (*(replace(e, locked=a) for e, a in zip(inp.events[:3], monday, strict=False)), replace(inp.events[3], allowed_days=frozenset({1})))
+    prep = prepare(replace(inp, events=forced))
     ctx = build_model(prep)
     solver = cp_model.CpSolver()
     solver.parameters.num_workers = 1

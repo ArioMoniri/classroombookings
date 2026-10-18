@@ -206,6 +206,10 @@ class SsoTokenOut(TokenOut):
     next: str | None = None
     welcome: str | None = None
     inviter_name: str | None = None
+    #: AU-16: the policy requires 2FA for the role and the provider asserted no MFA (step-up notice, shown once)
+    idp_mfa_missing: bool = False
+    idp_mfa_message_tr: str | None = None
+    idp_mfa_message_en: str | None = None
 
 
 class SsoMeOut(BaseModel):

@@ -223,8 +223,12 @@ async def revoke_all(db: AsyncSession, user: User, *, actor: User | None, reason
         n = await _mark(db, rows, reason)
     revoke_tokens(user)
     await audit.record(
-        db, "auth.sessions_revoked_by_admin" if actor is not None and actor.id != user.id else "auth.session_revoked",
-        "user", user.id, after={"all": True, "count": n, "reason": reason}, actor=actor,
+        db,
+        "auth.sessions_revoked_by_admin" if actor is not None and actor.id != user.id else "auth.session_revoked",
+        "user",
+        user.id,
+        after={"all": True, "count": n, "reason": reason},
+        actor=actor,
     )
     return n
 

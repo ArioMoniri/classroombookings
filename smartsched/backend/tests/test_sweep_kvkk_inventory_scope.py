@@ -13,8 +13,6 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
-from sqlalchemy import select
-
 from app.core import db as dbmod
 from app.core import rls
 from app.core.security import hash_password
@@ -23,6 +21,7 @@ from app.models.welcome import WelcomeProgress
 from app.services import kvkk
 from app.services.bookings_perms import load_access
 from app.services.seed import seed_admin
+from sqlalchemy import select
 
 from tests.pg_support import pg_server, pg_url  # noqa: F401
 

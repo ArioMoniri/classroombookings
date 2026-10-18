@@ -22,7 +22,7 @@ import re
 import shutil
 import time
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -132,6 +132,55 @@ def _card(status_: str, **kw: Any) -> dict[str, Any]:
     return {"status": status_, **kw}
 
 
+BACKUP_METRIC = "smartsched_backup_last_success_timestamp_seconds"
+#: the SmartSchedBackupStale alert's threshold (deploy/observability); the nightly cron runs at 02:30
+BACKUP_STALE_H = 26
+_BACKUP_LINE = re.compile(rf"^{BACKUP_METRIC}(?:{{[^}}]*}})?\s+(?P<v>[0-9.eE+-]+)\s*$", re.MULTILINE)
+
+
+def parse_backup_metric(text: str) -> float | None:
+    """The value of the backup textfile metric (deploy/backup.sh writes ``backup.prom``), or None."""
+    m = _BACKUP_LINE.search(text or "")
+    if not m:
+        return None
+    try:
+        return float(m["v"])
+    except ValueError:
+        return None
+
+
+async def _backup_card(cfg: OpsConfig, prom_reachable: bool) -> dict[str, Any]:
+    """Last successful backup: the textfile (mounted read-only from the host), else Prometheus, else unknown."""
+    path = Path(os.environ.get("OPS_BACKUP_TEXTFILE") or "/var/lib/smartsched/textfile/backup.prom")
+    ts: float | None = None
+    source: str | None = None
+    try:
+        ts = parse_backup_metric(path.read_text(encoding="utf-8", errors="replace")[:65536])
+        source = "textfile" if ts is not None else None
+    except OSError:
+        ts = None
+    if ts is None and prom_reachable:
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as c:
+                r = await c.get(f"{cfg.prometheus}/api/v1/query", params={"query": f"max({BACKUP_METRIC})"})
+            result = r.json().get("data", {}).get("result", []) if r.status_code == 200 else []
+            if result:
+                ts, source = float(result[0]["value"][1]), "prometheus"
+        except (httpx.HTTPError, OSError, ValueError, KeyError, IndexError, TypeError):
+            ts = None
+    if ts is None:
+        return _card("unknown", last_success_at=None, age_h=None, source=None, stale_after_h=BACKUP_STALE_H)
+    age_h = round(max(0.0, time.time() - ts) / 3600, 1)
+    at = datetime.fromtimestamp(ts, tz=UTC).replace(tzinfo=None).isoformat(timespec="seconds") + "Z"
+    return _card(
+        "warn" if age_h > BACKUP_STALE_H else "ok",
+        last_success_at=at,
+        age_h=age_h,
+        source=source,
+        stale_after_h=BACKUP_STALE_H,
+    )
+
+
 @router.get("/status")
 async def ops_status(
     _admin: OpsAdmin, db: DB, creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
@@ -203,6 +252,7 @@ async def ops_status(
     oldest_min = round((utcnow() - oldest_pending).total_seconds() / 60, 1) if oldest_pending else None
     deliveries_failed = sum(v.get("FAILED", 0) for v in deliveries.values())
     alerts = await _firing_alerts(cfg) if prom.get("reachable") else []
+    backup = await _backup_card(cfg, bool(prom.get("reachable")))
 
     return {
         "generated_at": obs.now_iso(),
@@ -243,6 +293,7 @@ async def ops_status(
         ),
         "deliveries": _card("warn" if deliveries_failed else "ok", failed=deliveries_failed, by_queue=deliveries),
         "disk": disk,
+        "backup": backup,
         "errors": _card("warn" if errors_open else "ok", open=int(errors_open), seen_24h=int(errors_24h)),
         "services": {"grafana": grafana, "prometheus": prom, "loki": loki},
         "grafana_path": cfg.grafana_public,

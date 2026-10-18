@@ -21,6 +21,7 @@ Prompts and model outputs are only ever logged at DEBUG level and only as length
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -505,7 +506,13 @@ async def get_client(
     }
     secrets = {p: await gw.provider_secrets(session, p) for p in providers if p in PROVIDERS}
     configs = {p: await gw.provider_config(session, p) for p in providers if p in PROVIDERS}
-    transfer = {p: gw.transfer_ok(p, configs[p], await gw.transfer_record(session, p)) for p in configs}
+    transfer: dict[str, bool] = {}
+    for p in configs:
+        local = None
+        if p == "openai_compatible":  # by the resolved addresses (HB-13), off the event loop
+            local = await asyncio.to_thread(gw.is_local_url, configs[p].get("base_url"))
+        transfer[p] = gw.transfer_ok(p, configs[p], await gw.transfer_record(session, p), local=local)
+    capabilities = {p: await gw.model_capabilities(session, p) for p in configs}
     prices: dict[str, dict[str, tuple[float | None, float | None]]] = {}
     for p in configs:
         synced = await gw.synced_models(session, p)
@@ -523,6 +530,7 @@ async def get_client(
         guards=await gw.get_guardrails(session),
         limits=await gw.get_limits(session),
         synced_prices=prices,
+        capabilities=capabilities,
         user_id=user_id or current_actor() or actor_from_session(session),
         timeout_s=float(kwargs.get("timeout_s", DEFAULT_TIMEOUT_S)),
         max_retries=int(kwargs.get("max_retries", DEFAULT_MAX_RETRIES)),

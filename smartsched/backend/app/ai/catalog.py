@@ -418,6 +418,33 @@ _SPECS: list[KindSpec] = [
         {"buildings": _arr(_s("string"))},
         [{"nl": "İÖ dersleri B ve C bloklarda", "params": {"buildings": ["B", "C"]}, "hardness": "soft"}],
     ),
+    KindSpec(
+        "peak_smoothing",
+        {"tr": "Yoğun saatleri yumuşat", "en": "Smooth peak hours"},
+        {
+            "tr": (
+                "Günü veya başlangıç saati serbest olan dersler, oda grubunun %85'inden fazlasının dolu olduğu "
+                "gün-saatlerden uzak tutulur; saati sabit dersler hiç taşınmaz. Ağırlık sezon profilinden gelir "
+                "(varsayılan 0 = kapalı)."
+            ),
+            "en": (
+                "Classes with a flexible day or start stay out of day-periods where more than 85 % of a room "
+                "group is in use; fixed-time classes never move. The weight comes from the season profile "
+                "(default 0 = off)."
+            ),
+        },
+        {
+            "threshold_pct": _s("integer"),
+            "groups": _arr(_s("string")),
+            "cells": _arr(
+                {
+                    "type": "object",
+                    "properties": {"day": _s("integer"), "period": _s("integer"), "group": _s("string")},
+                }
+            ),
+        },
+        [{"nl": "Yoğun saatlere esnek dersleri koyma", "params": {"threshold_pct": 85}, "hardness": "soft"}],
+    ),
 ]
 
 
@@ -430,7 +457,7 @@ def _build_kinds() -> dict[str, KindSpec]:
         h = _HANDLERS.get(kind) if _HANDLERS else None
         if h is not None:
             allowed = HARDNESS if h.may_soften else ("hard",)
-            if spec.kind == "min_capacity_waste":
+            if spec.kind == "min_capacity_waste" or not getattr(h, "may_harden", True):
                 allowed = ("soft",)
             spec = KindSpec(
                 spec.kind,
@@ -899,6 +926,7 @@ MODEL_FIELDS_BY_KIND: dict[str, str] = {
     "room_closed": "room_codes=[one room], days, periods or earliest..latest, weeks / from_date / to_date, label",
     "day_window": "periods or earliest..latest (+ days)",
     "evening_programs_in_buildings": "buildings",
+    "peak_smoothing": "selector only (threshold and weight come from the season profile)",
 }
 
 

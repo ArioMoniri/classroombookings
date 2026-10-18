@@ -32,8 +32,8 @@ export function formatUptime(seconds: number, locale: string): string {
   return tr ? `${m} dk` : `${m} min`;
 }
 
-export type CardKey = "api" | "db" | "queues" | "mail" | "disk" | "errors" | "grafana" | "prometheus" | "loki" | "podci";
-export const CARD_ORDER: CardKey[] = ["api", "db", "queues", "mail", "disk", "errors", "grafana", "prometheus", "loki", "podci"];
+export type CardKey = "api" | "db" | "queues" | "mail" | "disk" | "backup" | "errors" | "grafana" | "prometheus" | "loki" | "podci";
+export const CARD_ORDER: CardKey[] = ["api", "db", "queues", "mail", "disk", "backup", "errors", "grafana", "prometheus", "loki", "podci"];
 
 export function cardStatus(s: OpsStatus, key: CardKey): CardStatus {
   switch (key) {
@@ -43,6 +43,8 @@ export function cardStatus(s: OpsStatus, key: CardKey): CardStatus {
       return s.services[key].status;
     case "podci":
       return s.podci.status;
+    case "backup":
+      return s.backup?.status ?? "unknown";
     default:
       return s[key].status;
   }

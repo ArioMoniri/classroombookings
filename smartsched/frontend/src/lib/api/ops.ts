@@ -51,6 +51,8 @@ export interface OpsStatus {
   deliveries: Card & { failed: number };
   disk: Card & { total_bytes?: number; used_bytes?: number; free_bytes?: number; used_pct?: number };
   errors: Card & { open: number; seen_24h: number };
+  /** the last successful backup (deploy/backup.sh textfile metric, else Prometheus); absent on older backends */
+  backup?: Card & { last_success_at: string | null; age_h: number | null; source: "textfile" | "prometheus" | null; stale_after_h: number };
   services: { grafana: Probe; prometheus: Probe; loki: Probe };
   grafana_path: string;
   podci: PodCi;

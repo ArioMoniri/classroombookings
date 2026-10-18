@@ -79,6 +79,8 @@ class GatewayContext:
     guards: dict[str, Any]
     limits: dict[str, Any]
     synced_prices: dict[str, dict[str, tuple[float | None, float | None]]]
+    #: provider -> model -> capability record (HB-12; :func:`app.ai.gateway.model_capabilities`)
+    capabilities: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)
     user_id: int | None = None
     timeout_s: float = 120.0
     max_retries: int = 3
@@ -91,6 +93,9 @@ class GatewayContext:
         if provider == "vertex" and not cfg.get("project_id"):
             return False
         return provider in PROVIDERS and has_credentials(provider, self.secrets.get(provider) or {})
+
+    def caps_of(self, provider: str, model: str) -> dict[str, Any] | None:
+        return (self.capabilities.get(provider) or {}).get(model)
 
     def adapter(self, provider: str, model: str, temperature: float | None) -> ProviderAdapter:
         key = (provider, model)
@@ -332,6 +337,7 @@ async def _call_with_fallback(
         payload = {**call, "model": mod}
         try:
             adapter = gw.adapter(prov, mod, route.temperature)
+            adapter.capabilities = gw.caps_of(prov, mod)  # named tool choice / emulation / PDF pages (HB-13)
             coro = adapter.stream(payload, on_event) if stream else adapter.create(payload)
             message = await asyncio.wait_for(coro, timeout=timeout)
             return message, prov, mod

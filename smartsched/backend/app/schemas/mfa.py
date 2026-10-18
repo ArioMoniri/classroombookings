@@ -68,3 +68,7 @@ class AdminResetIn(BaseModel):
 
 class ResetLinkIn(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
+
+
+class IdpMfaIn(BaseModel):
+    require: bool

@@ -38,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import rls, totp
 from app.core.config import get_settings
-from app.core.security import decrypt_secret, encrypt_secret, revoke_tokens, user_token, verify_password
+from app.core.security import decrypt_secret, encrypt_secret, user_token, verify_password
 from app.models import Setting, User
 from app.models.base import utcnow
 from app.models.mfa import AuthChallenge, MfaRecoveryCode, TrustedDevice, UserMfa, UserSession, WebAuthnCredential
@@ -1237,7 +1237,9 @@ async def admin_reset(
             delete(AuthChallenge).where(AuthChallenge.user_id == target.id, AuthChallenge.used_at.is_(None))
         )
         await db.flush()
-    from app.services import sessions as user_sessions  # AU-15: every session of the person ends (implies revoke_tokens)
+    from app.services import (
+        sessions as user_sessions,  # AU-15: every session of the person ends (implies revoke_tokens)
+    )
 
     await user_sessions.revoke_all(db, target, actor=actor, reason="mfa_reset")
     removed = {"totp": had_totp, "recovery_code_count": int(codes), "passkeys": n_keys, "trusted_devices": n_devices}
@@ -1459,6 +1461,146 @@ async def sign_in_history(db: AsyncSession, user: User, limit: int = 50) -> dict
     except ValueError:
         devices = []
     return {"events": events, "known_devices": len(devices), "last_login_at": user.last_login_at}
+
+
+# --------------------------------------------------------------------------------------------------
+# AU-16: MFA asserted by the identity provider (OIDC / Entra ``amr`` / ``acr``)
+# --------------------------------------------------------------------------------------------------
+
+#: RFC 8176 ``amr`` values that say "more than one factor" outright (Entra: ``mfa``; Windows Hello: ``ngcmfa``)
+AMR_MFA = frozenset({"mfa", "mca", "ngcmfa"})
+#: RFC 8176 factor values; two different ones also make a multi-factor sign-in
+AMR_FACTORS = frozenset(
+    {"pwd", "otp", "hwk", "swk", "sms", "tel", "sc", "pin", "fpt", "face", "iris", "retina", "vbm", "kba", "user"}
+)
+IDP_NOTICE_KEY = "idp_mfa_notice"
+
+
+def idp_asserted_mfa(claims: dict[str, Any]) -> bool:
+    """True when the ID token says the provider used more than one factor: an ``amr`` of ``mfa`` / ``mca`` (RFC 8176),
+    two different factors, or an ``acr`` naming multi-factor or NIST AAL2 / AAL3."""
+    amr = claims.get("amr")
+    values = {str(v).strip().lower() for v in amr if isinstance(v, str)} if isinstance(amr, list) else set()
+    if values & AMR_MFA or len(values & AMR_FACTORS) >= 2:
+        return True
+    acr = str(claims.get("acr") or "").strip().lower()
+    if not acr:
+        return False
+    return (
+        "mfa" in acr
+        or "multi-factor" in acr
+        or "multifactor" in acr
+        or acr.endswith(("aal2", "aal3", "/loa3", "/loa4"))
+    )
+
+
+async def role_requires(db: AsyncSession, user: User, policy: Policy | None = None) -> bool:
+    """The policy's role rule alone (any account type): ``required_for_roles`` and the person's role is listed."""
+    policy = policy or await get_policy(db)
+    if policy.mfa_policy != "required_for_roles":
+        return False
+    return (await _role_code(db, user)) in policy.mfa_roles or user.role in policy.mfa_roles
+
+
+def require_idp_mfa(provider: Any) -> bool:
+    return bool((getattr(provider, "options", None) or {}).get("require_idp_mfa"))
+
+
+async def idp_mfa_gate(db: AsyncSession, provider: Any, user: User, claims: dict[str, Any]) -> None:
+    """Called by the SSO sign-in (OIDC / Entra). When the policy requires 2FA for the person's role and the ID token
+    does not assert MFA: with "IdP MFA'yı zorunlu tut" on, the sign-in is refused (``idp_mfa`` → public code
+    ``idp_mfa_required``); off (default), the person signs in and the panel shows a step-up notice once
+    (``idp_mfa_missing`` on ``POST /auth/sso/exchange``). SAML sign-ins are not checked (no ``amr``)."""
+    from app.services.identity import kinds as idp_kinds
+
+    if getattr(provider, "kind", None) == idp_kinds.SAML:
+        return
+    if not await role_requires(db, user) or idp_asserted_mfa(claims):
+        return
+    enforced = require_idp_mfa(provider)
+    await audit.record(
+        db,
+        "auth.idp_mfa_missing",
+        "user",
+        user.id,
+        after={"provider": getattr(provider, "name", None), "enforced": enforced},
+        actor=user,
+    )
+    if enforced:
+        from app.services.sso import SsoError
+
+        raise SsoError("idp_mfa", f"provider {getattr(provider, 'name', '?')} asserted no MFA", user_id=user.id)
+    from app.services.bookings_settings import set_user_value
+
+    label = str(getattr(provider, "display_name", None) or getattr(provider, "name", "") or "")[:80]
+    await set_user_value(db, user.id, IDP_NOTICE_KEY, label or "1")
+
+
+async def pop_idp_notice(db: AsyncSession, user: User) -> dict[str, Any]:
+    """The step-up notice for ``POST /auth/sso/exchange`` (shown once)."""
+    from app.services.bookings_settings import get_user_value, set_user_value
+
+    label = await get_user_value(db, user.id, IDP_NOTICE_KEY)
+    if not label:
+        return {}
+    await set_user_value(db, user.id, IDP_NOTICE_KEY, None)
+    name = label if label != "1" else "kimlik sağlayıcınız"
+    name_en = label if label != "1" else "your identity provider"
+    return {
+        "idp_mfa_missing": True,
+        "idp_mfa_message_tr": (
+            f"Kurumunuz bu rol için iki adımlı doğrulama istiyor, ancak {name} bu girişte çok adımlı doğrulama "
+            "bildirmedi. Hesabınızda çok adımlı doğrulamayı açın; bir sonraki girişte istenebilir."
+        ),
+        "idp_mfa_message_en": (
+            f"Your institution requires two-step verification for this role, but {name_en} reported no multi-factor "
+            "sign-in this time. Turn on multi-factor authentication for your account; the next sign-in may require it."
+        ),
+    }
+
+
+async def set_idp_mfa(db: AsyncSession, actor: User, provider_id: int, require: bool) -> dict[str, Any]:
+    from app.models.sso import SsoProvider
+
+    row = await db.get(SsoProvider, provider_id)
+    if row is None:
+        raise MfaError(404, "not_found", "Kimlik sağlayıcı bulunamadı.", "Identity provider not found.")
+    before = require_idp_mfa(row)
+    opts = dict(row.options or {})
+    opts["require_idp_mfa"] = bool(require)
+    row.options = opts
+    await db.flush()
+    if before != bool(require):
+        await audit.record(
+            db,
+            "auth.idp_mfa_setting",
+            "sso_provider",
+            row.id,
+            before={"require_idp_mfa": before},
+            after={"require_idp_mfa": bool(require)},
+            actor=actor,
+        )
+    return idp_provider_out(row)
+
+
+def idp_provider_out(row: Any) -> dict[str, Any]:
+    from app.services.identity import kinds as idp_kinds
+
+    return {
+        "id": row.id,
+        "name": row.name,
+        "display_name": row.display_name,
+        "kind": row.kind,
+        "supported": row.kind != idp_kinds.SAML,
+        "require_idp_mfa": require_idp_mfa(row),
+    }
+
+
+async def idp_providers(db: AsyncSession) -> list[dict[str, Any]]:
+    from app.models.sso import SsoProvider
+
+    rows = (await db.execute(select(SsoProvider).order_by(SsoProvider.sort_order, SsoProvider.id))).scalars()
+    return [idp_provider_out(r) for r in rows]
 
 
 # --------------------------------------------------------------------------------------------------

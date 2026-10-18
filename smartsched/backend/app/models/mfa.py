@@ -115,8 +115,6 @@ class AuthChallenge(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
-
-
 class UserSession(Base):
     """AU-15: one row per signed-in token (its ``jti``, only as SHA-256), recorded on the token's first request; a
     revoked row makes the token answer 401 at once (``app/services/sessions.py``). ``tv`` is the token version the

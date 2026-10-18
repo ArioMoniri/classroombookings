@@ -181,12 +181,12 @@ async def test_hb_05_cancel_own_only_and_undo_last(env) -> None:  # noqa: F811
     people = await personas(env)
     t, admin = people["teacher"], people["admin"]
     # RA-03: the admin's booking cannot be cancelled by the teacher, whatever they type
-    other = await env.book(admin.headers, "A102", THU, "P3")
+    other = await env.book(admin.headers, "A102", THU, "P2")
     assert other.status_code == 201, other.text
     r = await card(env, t, "cancel_my_booking", booking_id=other.json()["id"])
     assert r.status_code in (403, 404) and r.json()["detail"]["card"]["type"] == "refusal"
     # the admin may cancel others' bookings on the page, but the helper cancels only their own
-    r = await card(env, admin, "cancel_my_booking", booking_id=(await env.book(t.headers, "A102", THU, "P4")).json()["id"])
+    r = await card(env, admin, "cancel_my_booking", booking_id=(await env.book(t.headers, "A201", date(2026, 2, 18), "P3")).json()["id"])
     assert r.status_code == 403 and r.json()["detail"]["code"] == "not_cancelable"
     # own cancel, then "Son yaptığımı geri al" re-books it
     mine = await env.book(t.headers, "A102", THU, "P1")

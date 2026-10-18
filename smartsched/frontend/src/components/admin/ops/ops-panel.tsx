@@ -20,7 +20,6 @@ import {
   useOpsError,
   useOpsErrors,
   useOpsLogs,
-  useOpsRequests,
   useOpsStatus,
   useSetErrorStatus,
   type CardStatus,
@@ -33,7 +32,8 @@ import { intlLocale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { CARD_ORDER, TONE, cardStatus, chartGeometry, formatBytes, formatUptime, overall, sameOrigin, totals, type CardKey } from "./ops-model";
+import { CARD_ORDER, TONE, cardStatus, formatBytes, formatUptime, overall, sameOrigin, type CardKey } from "./ops-model";
+import { RequestsChart } from "./requests-chart";
 
 const OPS_PERMS = ["setup.settings", "planning.admin"];
 
@@ -111,6 +111,9 @@ function StatusCards({ s }: { s: OpsStatus }) {
     queues: [t("ops.card.queues.line", { queued: s.queues.queued, running: s.queues.running }), t("ops.card.queues.failed", { n: s.queues.failed_24h }), ...(s.queues.stalled_runs?.length ? [t("ops.card.queues.stalled", { n: s.queues.stalled_runs.length })] : [])],
     mail: [t("ops.card.mail.line", { pending: s.mail.pending, failed: s.mail.failed }), s.mail.oldest_pending_min != null ? t("ops.card.mail.oldest", { min: Math.round(s.mail.oldest_pending_min) }) : t("ops.card.mail.unsent", { n: s.mail.unsent })],
     disk: s.disk.status === "unknown" ? [t("ops.status.unknown")] : [t("ops.card.disk.used", { pct: s.disk.used_pct ?? 0 }), t("ops.card.disk.free", { free: formatBytes(s.disk.free_bytes, intlLocale(locale)) })],
+    backup: s.backup?.last_success_at
+      ? [t("ops.card.backup.last", { when: when(s.backup.last_success_at) }), ...(s.backup.status === "warn" ? [t("ops.card.backup.stale", { h: s.backup.stale_after_h, age: Math.round(s.backup.age_h ?? 0) })] : [])]
+      : [t("ops.card.backup.none")],
     errors: [t("ops.card.errors.open", { n: s.errors.open }), t("ops.card.errors.day", { n: s.errors.seen_24h })],
     grafana: [probeLine(s.services.grafana)],
     prometheus: [probeLine(s.services.prometheus)],
@@ -171,50 +174,6 @@ function Alerts({ s }: { s: OpsStatus }) {
           </li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-/* ----------------------------------------------------------------------------------------------- mini chart */
-
-const RANGES = ["30", "60", "180"] as const;
-
-function RequestsChart() {
-  const { t, locale } = useI18n();
-  const [range, setRange] = useState<(typeof RANGES)[number]>("60");
-  const q = useOpsRequests(Number(range));
-  const points = q.data?.points ?? [];
-  const W = 600;
-  const H = 120;
-  const g = chartGeometry(points, W, H);
-  const tot = totals(points);
-  const nf = new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 });
-  return (
-    <section aria-labelledby="ops-chart-h" data-testid="ops-chart">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="ops-chart-h" className="type-title-3 text-label-1">
-          {t("ops.chart.title")}
-        </h2>
-        {/* 200 % text: the segment scrolls inside itself, the page does not (mobile-b phase 2) */}
-        <div className="max-w-full overflow-x-auto">
-          <SegmentedControl aria-label={t("ops.chart.range")} value={range} onValueChange={(v) => setRange(v as (typeof RANGES)[number])} options={RANGES.map((r) => ({ value: r, label: t("ops.chart.minutes", { n: Number(r) }), testId: `ops-range-${r}` }))} />
-        </div>
-      </div>
-      <Card className="gap-2 px-4 py-3">
-        <p className="type-footnote text-label-2" data-testid="ops-chart-summary">
-          {t("ops.chart.summary", { requests: nf.format(tot.requests), errors: nf.format(tot.errors), pct: nf.format(tot.errorPct), p95: tot.p95 == null ? "–" : nf.format(tot.p95) })}
-        </p>
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-28 w-full" role="img" aria-label={t("ops.chart.aria", { requests: tot.requests, errors: tot.errors })} preserveAspectRatio="none">
-          {g.bars.map((b) => (
-            <g key={b.t}>
-              <rect x={b.x + 1} y={H - b.h} width={Math.max(1, W / Math.max(1, points.length) - 2)} height={b.h} className="fill-tint/40" />
-              {b.err > 0 ? <rect x={b.x + 1} y={H - b.err} width={Math.max(1, W / Math.max(1, points.length) - 2)} height={b.err} className="fill-status-infeasible-solid" /> : null}
-            </g>
-          ))}
-          {g.line ? <polyline points={g.line} fill="none" strokeWidth={2} className="stroke-status-warning-solid" vectorEffect="non-scaling-stroke" /> : null}
-        </svg>
-        <p className="type-caption text-label-3">{q.data?.source === "prometheus" ? t("ops.chart.sourceProm") : t("ops.chart.sourceProcess")}</p>
-      </Card>
     </section>
   );
 }

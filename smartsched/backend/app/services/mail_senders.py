@@ -273,7 +273,7 @@ async def series_created(session: AsyncSession, payload: dict[str, Any]) -> None
         event="series.created",
         key=f"series:{series.id}:created",
         kind="series_created",
-        link=f"/bookings/mine?series={series.id}",
+        link=f"/bookings/mine?series={series.id}&booking={first.id}",  # the frontend opens the booking's sheet
         locale=lang,
         booking_id=first.id,
         data={
@@ -428,7 +428,11 @@ async def _on_booking_change(session: AsyncSession, ev: domain.DomainEvent) -> N
                 event="series.changed",
                 key=f"series:{sid}:changed:{ev.audit_id or ':'.join(map(str, ids))}",
                 kind="series_changed",
-                link=f"/bookings/mine?series={sid}" if to == "owner" else f"/bookings?series={sid}",
+                link=(
+                    f"/bookings/mine?series={sid}&booking={rows[0].id}"
+                    if to == "owner"
+                    else f"/bookings?series={sid}&booking={rows[0].id}"
+                ),
                 locale=lang,
                 booking_id=rows[0].id,
                 data={

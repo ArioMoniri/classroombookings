@@ -20,6 +20,7 @@ from app.schemas.mfa import (
     CodeIn,
     CredentialIn,
     DisableIn,
+    IdpMfaIn,
     PasswordIn,
     PolicyIn,
     RegisterIn,
@@ -281,7 +282,7 @@ async def sessions_revoke(session_id: int, db: DB, user: CurrentUser) -> Respons
 
 @router.post("/sessions/revoke-others")
 async def sessions_revoke_others(db: DB, user: CurrentUser, request: Request) -> dict[str, Any]:
-    """"Diğer cihazlardan çıkış yap": every session but this one."""
+    """ "Diğer cihazlardan çıkış yap": every session but this one."""
     from app.services import sessions as user_sessions
 
     n = await user_sessions.revoke_others(db, user, user_sessions.current_id(request))
@@ -313,6 +314,17 @@ async def _target(db: DB, me: User, user_id: int) -> User:
         raise HTTPException(404, "user not found")
     await guard_privileged(db, me, target=target)
     return target
+
+
+@admin_router.get("/auth/providers/idp-mfa")
+async def idp_mfa_list(db: DB, _me: AuthAdmin) -> list[dict[str, Any]]:
+    """Every identity provider with its "IdP MFA'yı zorunlu tut" switch (``supported`` false for SAML)."""
+    return await mfa.idp_providers(db)
+
+
+@admin_router.put("/auth/providers/{provider_id}/idp-mfa")
+async def idp_mfa_put(provider_id: int, body: IdpMfaIn, db: DB, me: AuthAdmin) -> dict[str, Any]:
+    return await _run(db, mfa.set_idp_mfa(db, me, provider_id, body.require))
 
 
 @admin_router.get("/users/{user_id}/mfa")

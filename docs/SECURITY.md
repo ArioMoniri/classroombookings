@@ -10,7 +10,7 @@ Update it when a control changes.
 
 | Asset | Where | Why it matters |
 |---|---|---|
-| Personal data (KVKK): names, e-mails, phone links, consents, DSR requests, notifications, teacher wishes, AI usage per person | PostgreSQL (`users`, `consents`, `dsr_requests`, `inapp_notifications`, `notify_channel_*`, `constraints` rows with source `TEACHER`, `ai_usage`) | KVKK Art. 12 requires technical measures. A leak has to be reported. |
+| Personal data (KVKK): names, e-mails, phone links, consents, DSR requests, notifications, teacher wishes, AI usage per person, welcome-guide state | PostgreSQL (`users`, `consents`, `dsr_requests`, `inapp_notifications`, `notify_channel_*`, `constraints` rows with source `TEACHER`, `ai_usage`, `welcome_progress`; the full processing inventory is `kvkk.DATA_CLASSES`, served at `GET /admin/kvkk/inventory`, counted inside `rls.system_scope`) | KVKK Art. 12 requires technical measures. A leak has to be reported. |
 | Bookings and approval requests | `bookings`, `booking_series`, `approval_requests` | Integrity: a forged or cancelled booking empties a lecture hall. |
 | Credentials | `users.password_hash` (argon2), JWT signing key (`APP_SECRET` / `JWT_SECRET`), Fernet-encrypted settings (AI keys, OAuth clients, SMTP), calendar feed tokens (SHA-256 only) | Any one of these lets an attacker take over accounts or integrations. |
 | Planning data and the solver | runs, assignments, imports | Integrity; the cost of a CP-SAT run (DoS). |

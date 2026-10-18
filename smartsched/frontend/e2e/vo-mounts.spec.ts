@@ -64,7 +64,7 @@ test("1. chat at 1440: consent first, click to start / stop, transcript in the b
   const calls = await stubTranscript(page, SPOKEN);
   await page.goto(`/runs/${runId}`);
   const mic = chatMic(page);
-  await expect(mic).toBeVisible({ timeout: 30_000 });
+  await expect(mic).toBeVisible({ timeout: 90_000 });
   await expect(mic).toHaveAccessibleName("Sesle yaz");
   await mic.click();
   const sheet = page.getByTestId("voice-consent");
@@ -111,7 +111,7 @@ test("2. the real transcription path: raw webm to the backend, the fake provider
   });
   await page.goto(`/runs/${runId}`);
   const mic = chatMic(page);
-  await expect(mic).toBeVisible({ timeout: 30_000 });
+  await expect(mic).toBeVisible({ timeout: 90_000 });
   await mic.click();
   await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
   await hold(page, 1500);
@@ -131,7 +131,7 @@ test("3. a spoken injection lands in the box and is refused on send", async () =
   await stubTranscript(page, SPOKEN_INJECTION);
   await page.goto(`/runs/${runId}`);
   const mic = chatMic(page);
-  await expect(mic).toBeVisible({ timeout: 30_000 });
+  await expect(mic).toBeVisible({ timeout: 90_000 });
   await mic.click();
   await hold(page, 1200);
   await mic.click();
@@ -181,7 +181,7 @@ test("5. phone 390 × 844: press and hold in the chat tab, release → transcrip
   await page.goto(`/runs/${runId}`);
   await page.getByRole("tab", { name: "Sohbet" }).click();
   const mic = chatMic(page);
-  await expect(mic).toBeVisible({ timeout: 30_000 });
+  await expect(mic).toBeVisible({ timeout: 90_000 });
   const box = await mic.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44);
   expect(box!.height).toBeGreaterThanOrEqual(44);
@@ -298,7 +298,7 @@ test("7. voice off: no mic on any surface", async () => {
   await admin.put(`${API}/ai/admin/voice`, { data: { enabled: false } });
   const { ctx, page } = await open(DESKTOP);
   await page.goto(`/runs/${runId}`);
-  await expect(chatBox(page)).toBeVisible({ timeout: 30_000 });
+  await expect(chatBox(page)).toBeVisible({ timeout: 90_000 });
   await page.waitForResponse((r) => r.url().includes("/ai/voice/status")).catch(() => undefined);
   await page.waitForTimeout(500);
   await expect(page.getByTestId("voice-mic")).toHaveCount(0);

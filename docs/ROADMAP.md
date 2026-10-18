@@ -3912,8 +3912,12 @@ scratchpad `auth/API.md` (summarised in the research §9). Alembic `0043_mfa`; d
   link / invite acceptance (same gate), passkey flags in `/org/public`, password minimum 12 (8 with 2FA) on
   change-password / reset / invite. done (test_au_b_ux_asks)
 - [x] AU-14 KVKK: export file `sign_in_security` (no secrets), erasure of the five tables; audit DECISIONS rows. done
-- [ ] AU-15 A sessions list (needs a server-side session table; today sessions are stateless JWTs, "sign out
-  everywhere" = `POST /auth/logout`). open: owner decision.
-- [ ] AU-16 Check the identity provider's `amr` / `acr` claims for MFA (ASVS 6.8.4). open.
+- [x] AU-15 Server-side sessions (coordinator decision 2026-10-18): `jti` in every token, `user_sessions` (alembic
+  0045_user_sessions, owner-only RLS), check per request with a 15 s cache, `GET /auth/sessions`, `DELETE
+  /auth/sessions/{id}`, `POST /auth/sessions/revoke-others`, `POST /admin/users/{id}/sessions/revoke`; MFA reset ends
+  them. done (app/services/sessions.py, deps.py hook; tests/test_au_b_sessions.py: revoked token 401 on its next request)
+- [x] AU-16 IdP-asserted MFA (`amr` / `acr`, OIDC / Entra) when the policy requires 2FA for the role: per-provider
+  "IdP MFA'yı zorunlu tut" (off by default) refuses with `idp_mfa_required`, else a one-time step-up notice on the
+  exchange; `GET/PUT /admin/auth/providers/.../idp-mfa`. done (mfa.idp_mfa_gate in sso._resolve_login; test_au_b_sessions)
 - [ ] AU-17 Frontend: route handler passes `mfa_required` through, stores `ss_td` cookie, forwards `X-Trusted-Device`
   (AUX / frontend lane). open.

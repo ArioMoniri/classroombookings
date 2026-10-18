@@ -215,7 +215,8 @@ async def test_series_created_goes_to_the_owner_once(env, monkeypatch):  # noqa:
     (row,) = await _rows("series_created")
     assert row.to_email == "hatice.ozturk@uni.edu.tr" and row.status == "SENT"
     assert row.subject == "Yinelenen rezervasyon: A 102 · her Perşembe P1"
-    assert row.link == f"/bookings/mine?series={sid}"
+    first_id = min(r.json()["created"], key=lambda b: b["date"])["id"]
+    assert row.link == f"/bookings/mine?series={sid}&booking={first_id}"  # the sheet of the first date opens
     assert await _rows("booking_created") == []  # no longer the single-booking mail
     (msg,) = _sent("hatice.ozturk@uni.edu.tr")
     text = _plain(msg)

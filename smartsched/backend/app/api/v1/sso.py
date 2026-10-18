@@ -99,12 +99,18 @@ async def exchange(body: ExchangeIn, db: DB) -> SsoTokenOut:
     got = await svc.exchange_ticket(db, body.ticket)
     if got is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid or expired sign-in ticket")
+    from app.services import mfa  # AU-16: the step-up notice when the provider asserted no MFA (shown once)
+
+    notice = await mfa.pop_idp_notice(db, got.user)
+    if notice:
+        await db.commit()
     return SsoTokenOut(
         access_token=user_token(got.user),
         expires_in=get_settings().jwt_expire_minutes * 60,
         next=got.next,
         welcome=got.welcome,
         inviter_name=got.inviter_name,
+        **notice,
     )
 
 

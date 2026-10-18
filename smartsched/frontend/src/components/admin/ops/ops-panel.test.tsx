@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   lokiUp: true,
   errors: [] as Record<string, unknown>[],
   statusPending: false,
+  backup: undefined as Record<string, unknown> | undefined,
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
@@ -63,6 +64,7 @@ function status() {
     deliveries: { status: "ok", failed: 0 },
     disk: { status: "ok", total_bytes: 100 * 2 ** 30, used_bytes: 40 * 2 ** 30, free_bytes: 60 * 2 ** 30, used_pct: 40 },
     errors: { status: "warn", open: 1, seen_24h: 2 },
+    ...(state.backup ? { backup: state.backup } : {}),
     services: { grafana: probe(state.grafanaUp), prometheus: probe(false, false), loki: probe(state.lokiUp) },
     grafana_path: "/grafana/",
     podci: { ...probe(true), last_run: { state: "success", branch: "main", sha: "abc1234", started: "2026-10-17 18:00:00 UTC" } },
@@ -96,6 +98,31 @@ describe("OpsPanel", () => {
     state.lokiUp = true;
     state.errors = [group(1), group(2, "acknowledged", { source: "backend", kind: "RuntimeError", route: "/api/v1/runs/{run_id}", method: "POST", status_code: 500, last_request_id: "req-42" })];
     toast.success.mockReset();
+    state.backup = undefined;
+  });
+
+  it("backup card: 'Son yedek' with the time, a warning past 26 h, and no crash on an older backend", async () => {
+    state.backup = { status: "ok", last_success_at: "2026-10-17T23:30:00Z", age_h: 3.2, source: "textfile", stale_after_h: 26 };
+    const first = renderIt();
+    const card = await screen.findByTestId("ops-card-backup");
+    expect(card).toHaveAttribute("data-status", "ok");
+    expect(card).toHaveTextContent(/Son yedek: \d/);
+    expect(card).not.toHaveTextContent("26 saatten eski");
+    first.unmount();
+
+    state.backup = { status: "warn", last_success_at: "2026-10-16T02:30:00Z", age_h: 30.5, source: "textfile", stale_after_h: 26 };
+    const second = renderIt();
+    const stale = await screen.findByTestId("ops-card-backup");
+    expect(stale).toHaveAttribute("data-status", "warn");
+    expect(stale).toHaveTextContent("Son yedek 26 saatten eski (31 sa önce).");
+    second.unmount();
+
+    state.backup = undefined;
+    renderIt("en");
+    const none = await screen.findByTestId("ops-card-backup");
+    expect(none).toHaveAttribute("data-status", "unknown");
+    expect(none).toHaveTextContent("No backup recorded yet");
+    expect(screen.getByTestId("ops-panel").textContent).not.toMatch(/ops\.|textfile/);
   });
 
   it("shows every service card in Turkish with its state, the release and the pod CI run", async () => {

@@ -24,6 +24,7 @@ import { bookingErrorMessage } from "@/components/bookings/booking-errors";
 import { Alert, Field, PageTitle, SectionTitle, SelectField } from "./kit";
 import { MyChannels } from "@/components/channels/my-channels";
 import { MicrosoftAccountSection, ProfileSsoNotice } from "@/components/identity/profile-microsoft";
+import { SecuritySection } from "@/components/profile/security/security-section";
 import { NotificationPreferencesPanel } from "@/components/notifications/preferences-panel";
 import { PrivacySection } from "@/components/privacy/privacy-section";
 import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
@@ -49,6 +50,8 @@ export function ProfileView() {
       <ProfileSsoNotice />
       {q.isLoading ? <ProfileFormSkeleton phone={compact} /> : q.data ? <ProfileForm key={q.data.id} data={q.data} phone={compact} /> : <Alert tone="error">{bookingErrorMessage(crbsError(q.error), t)}</Alert>}
       <MicrosoftAccountSection />
+      {/* AUX-06/07 (docs/design/v3/auth.md §6): Giriş ve güvenlik — 2FA, passkeys, remembered devices, recent sign-ins */}
+      <SecuritySection />
       <section aria-labelledby="pf-channels" id="channels" className="scroll-mt-20">
         <SectionTitle id="pf-channels">{t("channels.me.title")}</SectionTitle>
         <Card variant="glass" className="gap-3 px-4">

@@ -13,6 +13,7 @@ value; every change writes an audit event (values of secrets never reach the aud
 
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from datetime import UTC, datetime
@@ -81,6 +82,13 @@ class TestIn(BaseModel):
     model: str | None = Field(default=None, max_length=128)
 
 
+class CapabilitiesIn(BaseModel):
+    """An admin override of one model's capabilities (HB-12); ``null`` clears a field back to sync / probe."""
+
+    model: str = Field(min_length=1, max_length=128)
+    capabilities: dict[str, bool | int | None]
+
+
 class RoutesIn(BaseModel):
     default: dict[str, Any] | None = None
     features: dict[str, dict[str, Any] | None] = {}
@@ -138,6 +146,8 @@ async def _provider_out(db: DB, p: str) -> dict[str, Any]:
     synced = await gw.synced_models(db, p)
     transfer = await gw.transfer_record(db, p)
     allow_local = p == "openai_compatible" and cfg.get("allow_local") is True
+    # "local" from the resolved addresses (HB-13), resolved off the event loop
+    local = p == "openai_compatible" and await asyncio.to_thread(gw.is_local_url, cfg.get("base_url"))
     return {
         **spec.to_dict(),
         "keys": {name: gw.masked(secrets.get(name)) for name in spec.secrets},
@@ -150,8 +160,8 @@ async def _provider_out(db: DB, p: str) -> dict[str, Any]:
         "sync_error": synced.get("error"),
         "last_test": await gw.get_json(db, f"ai.provider.{p}.test", {}),
         "transfer": transfer,
-        "transfer_ok": gw.transfer_ok(p, cfg, transfer),
-        "local": p == "openai_compatible" and gw.is_local_url(cfg.get("base_url")),
+        "transfer_ok": gw.transfer_ok(p, cfg, transfer, local=local),
+        "local": local,
         "allow_local": allow_local,
         "warnings": [LOCAL_WARNING] if allow_local else [],
     }
@@ -324,8 +334,12 @@ async def sync_provider(provider: str, db: DB, user: AIAdmin) -> dict[str, Any]:
     adapter = await _adapter_for(db, p) if text_capable else await _speech_adapter_for(db, p)
     error: str | None = None
     models: list[dict[str, Any]] = []
+    server_kind: str | None = None
     try:
-        for m in await adapter.list_models():
+        listed = await adapter.list_models()
+        if text_capable:  # capability facts of a local server (HB-12): safe reads, through url_guard
+            server_kind = await adapter.sniff(listed)
+        for m in listed:
             m.modalities = speech.model_modalities(p, m.id)
             models.append(m.to_dict())
     except Exception as exc:  # noqa: BLE001 - surfaced as a short text, never with the key or the upstream body
@@ -339,16 +353,20 @@ async def sync_provider(provider: str, db: DB, user: AIAdmin) -> dict[str, Any]:
         "ai.provider.sync",
         "setting",
         f"ai.provider.{p}.models",
-        after={"models": len(record["models"]), "error": error},
+        after={"models": len(record["models"]), "error": error, "server_kind": server_kind},
         actor=user,
     )
     await db.commit()
-    return {"ok": error is None, **record}
+    return {"ok": error is None, **record, "server_kind": server_kind}
 
 
 @router.post("/ai/admin/providers/{provider}/test")
-async def test_provider(provider: str, body: TestIn, db: DB, user: AIAdmin) -> dict[str, Any]:
-    """A tiny real call (a few output tokens, no tools) with the stored credentials; metered as ``test``."""
+async def test_provider(
+    provider: str, body: TestIn, db: DB, user: AIAdmin, probe: bool = Query(False)
+) -> dict[str, Any]:
+    """A tiny real call (a few output tokens, no tools) with the stored credentials; metered as ``test``. With
+    ``probe=true`` (HB-12) three tiny calls find out what the model can do (forced tool, JSON schema, a 32×32
+    image; under 1000 tokens, one ``test`` row) and the result is stored as the model's ``probe`` capabilities."""
     p = _provider(provider)
     stored = (await gw.synced_models(db, p)).get("models") or []
     synced = [m.get("id") for m in stored]
@@ -360,6 +378,8 @@ async def test_provider(provider: str, body: TestIn, db: DB, user: AIAdmin) -> d
     if model in speech.speech_model_ids(stored) or "text" not in PROVIDERS[p].capabilities:
         return await _test_speech(db, p, model, user)
     adapter = await _adapter_for(db, p, model)
+    if probe:
+        return await _probe(db, p, model, adapter, user)
     started = time.monotonic()
     ok, detail, usage = False, "", None
     req: dict[str, Any] = {
@@ -406,6 +426,93 @@ async def test_provider(provider: str, body: TestIn, db: DB, user: AIAdmin) -> d
     await gw.put_json(db, f"ai.provider.{p}.test", result)
     await db.commit()
     return result
+
+
+async def _probe(db: DB, p: str, model: str, adapter: Any, user: User) -> dict[str, Any]:
+    from app.ai import capabilities as caps
+
+    started = time.monotonic()
+    found, usage = await caps.probe(adapter, model)
+    ok = usage.calls > 0
+    detail = (
+        f"probe ({model}): "
+        + ", ".join(f"{k}={'yes' if found[k] else 'no'}" for k in caps.BOOL_KEYS if found[k] is not None)
+    )[:300]
+    await meter.record(
+        user_id=user.id,
+        feature="test",
+        provider=p,
+        model=model,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        latency_ms=int((time.monotonic() - started) * 1000),
+        outcome="ok" if ok else "provider_error",
+        reason_code=None if ok else "provider_error",
+        detail="probe" if ok else "probe failed",
+        guard_verdict="skipped",
+    )
+    probes = await gw.get_json(db, f"ai.provider.{p}.probe", {})
+    probes[model] = found
+    await gw.put_json(db, f"ai.provider.{p}.probe", probes)
+    result = {
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "ok": ok,
+        "detail": detail,
+        "model": model,
+        "kind": "probe",
+        "capabilities": found,
+    }
+    await gw.put_json(db, f"ai.provider.{p}.test", result)
+    await audit.record(
+        db, "ai.provider.probe", "setting", f"ai.provider.{p}.probe", after={"model": model, **found}, actor=user
+    )
+    await db.commit()
+    return {**result, "effective": (await gw.model_capabilities(db, p)).get(model)}
+
+
+@router.put("/ai/admin/providers/{provider}/capabilities")
+async def put_capabilities(provider: str, body: CapabilitiesIn, db: DB, user: AIAdmin) -> dict[str, Any]:
+    """The admin's override of a synced model's capabilities (HB-12), for servers that hide them; audited."""
+    from app.ai import capabilities as caps
+
+    p = _provider(provider)
+    synced = {str(m.get("id")) for m in (await gw.synced_models(db, p)).get("models") or []}
+    if body.model not in synced:
+        raise _err(
+            422,
+            "model_not_synced",
+            "Bu model sağlayıcıdan eşitlenmedi; önce Eşitle'ye basın.",
+            "This model was not synced from the provider; press Sync first.",
+        )
+    unknown = [k for k in body.capabilities if k not in caps.CAP_KEYS]
+    window = body.capabilities.get("context_window")
+    if unknown or (window is not None and (isinstance(window, bool) or not 0 < int(window) <= 10_000_000)):
+        raise _err(
+            422,
+            "invalid_capabilities",
+            "Bilinmeyen ya da geçersiz yetenek alanı.",
+            "Unknown or invalid capability field.",
+            fields=unknown,
+        )
+    stored = await gw.get_json(db, f"ai.provider.{p}.cap_overrides", {})
+    before = dict(stored.get(body.model) or {})
+    layer = {k: v for k, v in {**before, **body.capabilities}.items() if k in caps.CAP_KEYS and v is not None}
+    if layer:
+        stored[body.model] = {**layer, "source": "admin", "checked_at": caps.now_iso()}
+    else:
+        stored.pop(body.model, None)
+    await gw.put_json(db, f"ai.provider.{p}.cap_overrides", stored)
+    await audit.record(
+        db,
+        "ai.provider.capabilities",
+        "setting",
+        f"ai.provider.{p}.cap_overrides",
+        before={"model": body.model, **before},
+        after={"model": body.model, **(stored.get(body.model) or {})},
+        actor=user,
+    )
+    await db.commit()
+    return {"model": body.model, "capabilities": (await gw.model_capabilities(db, p)).get(body.model)}
 
 
 async def _speech_adapter_for(db: DB, p: str) -> Any:
@@ -507,7 +614,9 @@ async def put_routes(body: RoutesIn, db: DB, user: AIAdmin) -> dict[str, Any]:
     stored = {p: (await gw.synced_models(db, p)).get("models") or [] for p in PROVIDERS}
     synced = {p: {str(m.get("id")) for m in models} for p, models in stored.items()}
     speech_ids = {p: speech.speech_model_ids(models) for p, models in stored.items()}
+    capabilities = await gw.all_capabilities(db)  # HB-12: a model that lacks what the feature needs is refused
     errors: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
     clean: dict[str, Any] = {"default": None, "features": {}}
 
     def prep(raw: dict[str, Any], where: str) -> dict[str, Any] | None:
@@ -515,8 +624,10 @@ async def put_routes(body: RoutesIn, db: DB, user: AIAdmin) -> dict[str, Any]:
         if not r:
             return None
         feature = where if where in FEATURES else "default"
-        for e in gw.validate_route(r, synced, feature=feature, speech=speech_ids):
+        for e in gw.validate_route(r, synced, feature=feature, speech=speech_ids, capabilities=capabilities):
             errors.append({**e, "route": where})
+        for w in gw.route_warnings(r, feature=feature, capabilities=capabilities):
+            warnings.append({**w, "route": where})
         route = gw.Route.from_dict(r)
         return route.to_dict() if route else None
 
@@ -546,7 +657,7 @@ async def put_routes(body: RoutesIn, db: DB, user: AIAdmin) -> dict[str, Any]:
     await gw.put_json(db, gw.ROUTES_KEY, clean)
     await audit.record(db, "ai.routes", "setting", gw.ROUTES_KEY, before=before, after=clean, actor=user)
     await db.commit()
-    return await _routes_out(db)
+    return {**await _routes_out(db), "warnings": warnings}
 
 
 # ---------------------------------------------------------------------------------------------- usage

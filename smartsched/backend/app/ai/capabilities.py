@@ -393,7 +393,8 @@ class ProbeUsage:
 
 
 def _tool_calls(message: Any, name: str) -> list[Any]:
-    return [b for b in getattr(message, "content", None) or [] if getattr(b, "type", "") == "tool_use" and b.name == name]
+    blocks = getattr(message, "content", None) or []
+    return [b for b in blocks if getattr(b, "type", "") == "tool_use" and b.name == name]
 
 
 def _text(message: Any) -> str:

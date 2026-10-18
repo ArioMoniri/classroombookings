@@ -105,6 +105,12 @@ DECISIONS: dict[str, tuple[str, str]] = {
     "PUT /api/v1/admin/auth/mfa-policy": (E, "app.services.mfa"),
     "POST /api/v1/admin/users/{user_id}/mfa/reset": (E, "app.services.mfa"),
     "POST /api/v1/admin/users/{user_id}/password-reset-link": (E, "app.services.mfa"),
+    # AU-15 server-side sessions (app/services/sessions.py)
+    "DELETE /api/v1/auth/sessions/{session_id}": (E, "app.services.sessions"),
+    "POST /api/v1/auth/sessions/revoke-others": (E, "app.services.sessions"),
+    "POST /api/v1/admin/users/{user_id}/sessions/revoke": (E, "app.services.sessions"),
+    # AU-16 "IdP MFA'yı zorunlu tut" per provider
+    "PUT /api/v1/admin/auth/providers/{provider_id}/idp-mfa": (E, "app.services.mfa"),
     # booking administration (CRBS setup)
     "PUT /api/v1/booking-admin/sessions/{term_id}": (T, "TermBookingSettings"),
     "PUT /api/v1/booking-admin/sessions/{term_id}/schedules": (T, "TermSchedule"),
