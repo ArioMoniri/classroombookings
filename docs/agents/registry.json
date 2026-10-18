@@ -4424,6 +4424,30 @@
       "resumed": false,
       "status": "finished",
       "finished_at": "2026-10-18 16:41"
+    },
+    {
+      "id": "a01bdcf695838e94a",
+      "description": "HB-23c frontend: file router UI",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 16:42",
+      "scope": "",
+      "goal": "Lane HB-23c (ledger name `hb23c-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; 44 px touch / 16 px text on phones; the…",
+      "ledger": "HB-23c frontend: file router UI",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "acd80cae1ea3f522d",
+      "description": "HB-23b backend: file classify + hand-over",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 16:42",
+      "scope": "",
+      "goal": "Lane HB-23b (ledger name `hb23b-2026-10-18`) in /home/user/classroombookings (branch claude/focused-wright-ktt0ss). Rules: read docs/agents/briefs/COMMON.md and follow it (NO git commits — the orchestrator commits; tests first; never `pkill -f`; Turkish first; light resource use: targeted pytest wit…",
+      "ledger": "HB-23b backend: file classify + hand-over",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
