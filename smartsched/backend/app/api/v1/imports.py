@@ -174,13 +174,14 @@ async def _new_job(
 
 def _runner(kind: str, path: Path, filename: str | None, term_code: str | None, params: dict[str, Any]) -> Any:
     """The importer call of one job kind (an upload and the apply of its preview run the same call)."""
+    term = term_code or ""  # the term-scoped kinds always carry one (a Form field of their upload)
     if kind == "planning-list":
         from app.importers.planning_list import import_planning_list
 
         return lambda s: import_planning_list(
             s,
             path,
-            term_code,
+            term,
             filename=filename,
             week_count=int(params.get("week_count") or 14),
             on_conflict=str(params.get("on_conflict") or "keep"),
@@ -189,13 +190,13 @@ def _runner(kind: str, path: Path, filename: str | None, term_code: str | None, 
         from app.importers.exam_list import import_exam_list
 
         return lambda s: import_exam_list(
-            s, path, term_code, filename=filename, on_conflict=str(params.get("on_conflict") or "keep")
+            s, path, term, filename=filename, on_conflict=str(params.get("on_conflict") or "keep")
         )
     if kind == "weekly-grid":
         from app.importers.weekly_grid import import_weekly_grid
 
         return lambda s: import_weekly_grid(
-            s, path, term_code, year=int(params["year"]), filename=filename, term_kind=params.get("term_kind")
+            s, path, term, year=int(params["year"]), filename=filename, term_kind=params.get("term_kind")
         )
     if kind == "room-master":
         from app.importers.room_master import import_room_master

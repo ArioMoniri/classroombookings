@@ -3566,7 +3566,8 @@
       "goal": "Ledger name `ch-m-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest with `--maxWo…",
       "ledger": "CH-M: remaining chart migrations",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:08"
     },
     {
       "id": "a863bacc212085413",
@@ -3667,6 +3668,26 @@
       "status": "finished",
       "finished_at": "2026-10-18 10:06",
       "left_off": "i added it as environment variable check again"
+    },
+    {
+      "id": "a0c98fc8f834d6915",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:08",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a30cb3ab124cfe62d",
+      "description": "CH-B: chart stats backend routes",
+      "subagent_type": "backend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 10:08",
+      "scope": "",
+      "goal": "Ledger name `ch-b-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest only on touched files); never `pkill …",
+      "ledger": "CH-B: chart stats backend routes",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
