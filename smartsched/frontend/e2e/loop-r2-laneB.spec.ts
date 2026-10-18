@@ -137,7 +137,9 @@ test("T-R2-13 + T-R2-17 a two-period submission is one Yaklaşan row; the multi 
   await expect(row).toContainText(`${periods[0]!.name}–${periods[1]!.name}`);
   await expect(row).toContainText(`${periods[0]!.time_start.slice(0, 5)}–${periods[1]!.time_end.slice(0, 5)}`);
   const dash = await api<{ totals: { active: number; session: number; all: number } }>("GET", "/bookings/dashboard", undefined, ctx.teacher);
-  await expect(page.getByTestId("mine-totals")).toContainText(`${dash.totals.active} etkin · bu dönem ${dash.totals.session} · toplam ${dash.totals.all}`);
+  // CH-11 replaced the "mine-totals" sentence with tiles: Etkin = totals.active, Bu dönem = totals.session
+  await expect(page.getByTestId("my-stat-active").locator("dd")).toHaveText(String(dash.totals.active));
+  await expect(page.getByTestId("my-stat-term").locator("dd")).toHaveText(String(dash.totals.session));
   // T-R2-17 (c) + (d)
   await api("PUT", "/org/settings", { approval_mode: "all" });
   const sel2 = await api<{ id: number; slots: { mbs_id: number }[] }>("POST", "/bookings/multi", { slots: [2, 3].map((i) => ({ date: D, period_id: periods[i]!.id, room_id: room.id })), term_id: grid.term.id }, ctx.teacher);

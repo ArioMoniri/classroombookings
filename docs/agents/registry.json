@@ -3771,7 +3771,8 @@
       "goal": "Ledger name `idp2-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorkers=1 --testTimeout=30000` and pytes…",
       "ledger": "IDP-2: SAML wizard fields, CBC rule",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:56"
     },
     {
       "id": "a9d1770407c4fcc45",
@@ -3848,6 +3849,14 @@
       "ledger": "HX design sign-off and audit",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a02d5264c6ae8676d",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:56",
+      "left_off": "is the pod up yet"
     }
   ]
 }

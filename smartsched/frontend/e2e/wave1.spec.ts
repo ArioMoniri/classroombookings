@@ -91,7 +91,7 @@ async function ownFree(date: string, n = 1, token = ctx.teacherToken): Promise<G
 const cell = (page: Page, s: { date: string; period_id: number; room_id: number }) => page.locator(`button[data-slot-key="${s.date}|${s.period_id}|${s.room_id}"]`);
 
 async function openPalette(page: Page) {
-  await page.getByTestId("open-palette").click();
+  await page.getByTestId("helper-trigger").click() // HX: the palette trigger is the helper's "Ara veya sor";
   await expect(page.getByRole("dialog")).toBeVisible();
 }
 
