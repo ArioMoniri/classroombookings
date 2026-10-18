@@ -301,7 +301,9 @@ export const councilApi = {
   create: (files: File[], opts: { mode?: "auto" | "general"; lang?: string; yearHint?: number; ai?: boolean; uploadTokens?: string[] } = {}) => {
     const fd = new FormData();
     for (const f of files) fd.append("files", f, f.name);
-    for (const tk of opts.uploadTokens ?? []) fd.append("upload_tokens", tk);
+    // N5: one live stage per person, so one token (`upload_token`); a second one would be refused (422)
+    const token = opts.uploadTokens?.[0];
+    if (token) fd.append("upload_token", token);
     fd.append("mode", opts.mode ?? "auto");
     fd.append("lang", opts.lang ?? "en");
     if (opts.yearHint) fd.append("year_hint", String(opts.yearHint));

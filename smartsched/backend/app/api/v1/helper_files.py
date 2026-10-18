@@ -64,13 +64,16 @@ async def classify(
     request: Request,
     db: DB,
     access: CurrentAccess,
-    file: list[UploadFile] = File(..., description="one file; several go to the setup wizard together"),
+    file: list[UploadFile] = File(..., description="one file; several (planners only) go to the setup wizard"),
     context: str | None = Form(None, max_length=64, description="feature_id of the page it was dropped on"),
     lang: str | None = Form(None, max_length=8, description="tr | en, for logs only (cards carry both)"),
     term_id: int | None = Form(None, description="the page's active term (default: the current term)"),
     kind: str | None = Form(None, max_length=48, description="a forced kind (chooser pick with HELPER_FILE_STAGE=off)"),
 ) -> dict[str, Any]:
     await _helper_on(db, access)
+    # one live file per person (HB-23d N9): every new drop drops the previous stage first, whatever its outcome
+    # (rate limit, refusal, 413, 422, resend, unknown); a routable file is staged again below
+    hf.clear(access.user_id)
     t0 = time.perf_counter()
     if not hf.rate_ok(access.user_id):
         card = cards.status(
@@ -84,8 +87,17 @@ async def classify(
     cap = cap_bytes()
     reads: list[tuple[str, bytes]] = []
     planner = any(p in access.perms for p in hf.ONBOARDING.perms)
-    # several files: the setup wizard reads them together (planners); everyone else gets the first file's card
-    for up in file if planner else file[:1]:
+    # several files: the setup wizard reads them together (planners only); anyone else picks one file (HB-23d N8)
+    if len(file) > 1 and not planner:
+        raise refused(
+            422,
+            "one_file_only",
+            "Yardımcıya bir seferde bir dosya bırakın. Birden çok dosyayı yalnızca planlama ekibi Kurulum "
+            "sihirbazına birlikte gönderebilir.",
+            "Drop one file at a time on the helper. Only the planning team can send several files to the setup "
+            "wizard together.",
+        )
+    for up in file:
         try:
             data = await safe_files.read_upload(up, cap)
         except safe_files.UnsafeFileError as exc:
@@ -134,8 +146,6 @@ async def classify(
                 built.card.args = {"upload_token": st.token}  # type: ignore[attr-defined]
         else:
             out["resend"] = True
-    else:
-        hf.clear(access.user_id)  # one live file per person: a new file drops the previous stage
     hf.telemetry(built.kind, built.score, sig.card_format, (time.perf_counter() - t0) * 1000, built.state)
     return {"card": cards.dump(built.card), **out}
 
@@ -201,7 +211,6 @@ async def _classify_many(db: DB, access: CurrentAccess, reads: list[tuple[str, b
         explain=s.Texts(tr=[hf.KINDS["intake_json"].hint[0]], en=[hf.KINDS["intake_json"].hint[1]]),
     )
     out: dict[str, Any] = {"card": cards.dump(card), "resend": True}
-    hf.clear(access.user_id)  # one live file card per person: the previous stage goes
     hf.telemetry("many", None, "mixed", (time.perf_counter() - t0) * 1000, "detected")
     return out
 
@@ -240,10 +249,11 @@ async def route(body: RouteIn, request: Request, db: DB, access: CurrentAccess) 
 
 
 class HandoffIn(BaseModel):
+    """Exactly one ``upload_token`` (HB-23d N5): a new stage clears the person's previous one, so there is never more
+    than one live token; several dropped files are never staged (the wizard uploads them itself)."""
+
     model_config = ConfigDict(extra="forbid")
-    upload_token: Token | None = None
-    #: several files dropped together (the setup wizard)
-    upload_tokens: list[Token] = Field(default_factory=list, max_length=25)
+    upload_token: Token
     kind: Annotated[str, Field(pattern=r"^[a-z_]{2,48}$")] | None = None
     feature_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$", max_length=64)]
     params: dict[str, str | int | None] = Field(default_factory=dict)
@@ -258,26 +268,20 @@ async def handoff(body: HandoffIn, request: Request, db: DB, access: CurrentAcce
 
     await _helper_on(db, access)
     sess = hf.session_tag(request, access.user)
-    tokens = ([body.upload_token] if body.upload_token else []) + list(body.upload_tokens)
-    if not tokens:
-        raise refused(422, "invalid_args", "Dosya eksik.", "The file is missing.")
-    metas = []
-    for tok in tokens:
-        try:
-            metas.append(hf.peek(tok, access.user_id, sess)[0])
-        except hf.StageError as exc:
-            raise stage_error(exc) from exc
+    try:
+        meta = hf.peek(body.upload_token, access.user_id, sess)[0]
+    except hf.StageError as exc:
+        raise stage_error(exc) from exc
     nope = refused(403, "route_not_allowed", "Bu sayfa bu dosya için açılamaz.", "This page can't take this file.")
     kind = body.kind or hf.CHOOSER_ONBOARDING
-    if len(tokens) > 1 or kind == hf.CHOOSER_ONBOARDING:
-        # the setup wizard with the file(s): planners only
+    if kind == hf.CHOOSER_ONBOARDING:
+        # the setup wizard with the file: planners only
         if body.feature_id != "onboarding" or not any(p in access.perms for p in hf.ONBOARDING.perms):
             raise nope
-        if not all(hf.CHOOSER_ONBOARDING in (m.get("kinds") or []) for m in metas):
+        if hf.CHOOSER_ONBOARDING not in (meta.get("kinds") or []):
             raise nope
         href: dict[str, Any] = {}
     else:
-        meta = metas[0]
         if kind not in (meta.get("kinds") or []) or kind not in hf.KINDS:
             raise refused(
                 403, "kind_not_allowed", "Bu dosya bu türe aktarılamaz.", "This file can't be routed to that type."
@@ -300,20 +304,19 @@ async def handoff(body: HandoffIn, request: Request, db: DB, access: CurrentAcce
             if not isinstance(year, int) or not 2000 <= year <= 2100:
                 raise refused(422, "bad_year", "Yıl geçerli değil.", "The year is not valid.")
             href["year"] = year
-    first = metas[0]
     await audit.record(
         db,
         "helper.file.handoff",
         "helper_file",
-        str(first.get("sha") or "")[:12],
+        str(meta.get("sha") or "")[:12],
         after={
-            "kind": kind if len(tokens) == 1 else "many",
+            "kind": kind,
             "feature_id": body.feature_id,
             "term_id": href.get("term_id"),
-            "ext": first.get("fmt"),
-            "size": first.get("size"),
-            "sha12": str(first.get("sha") or "")[:12],
-            "files": len(tokens),
+            "ext": meta.get("fmt"),
+            "size": meta.get("size"),
+            "sha12": str(meta.get("sha") or "")[:12],
+            "files": 1,
             "via": "helper",
         },
         actor=access.user,
@@ -366,6 +369,23 @@ async def example_file(name: str, _: CurrentAccess) -> RawResponse:
 # ------------------------------------------------------------------------------------- the target pages (§6.5)
 
 
+def one_token(upload_token: str | None, upload_tokens: list[str]) -> str | None:
+    """The one hand-over token of a request (HB-23d N5). ``upload_tokens`` is the deprecated list form; more than
+    one token answers 422 ``one_upload_token``: a new stage clears the person's previous one, so a second token
+    could never be live."""
+    tokens = [t for t in ([upload_token] if upload_token else []) + list(upload_tokens) if t]
+    if len(tokens) > 1:
+        from app.schemas.messages import problem
+
+        raise problem(
+            422,
+            "one_upload_token",
+            "Yardımcıdan bir seferde yalnızca bir dosya gelebilir. Diğer dosyaları sayfaya kendiniz ekleyin.",
+            "Only one file can come from the helper at a time. Add the other files on the page yourself.",
+        )
+    return tokens[0] if tokens else None
+
+
 def look(request: Request, user: Any, token: str) -> tuple[str, dict[str, Any]]:
     """Check a hand-over token without consuming it (owner, session, expiry): (extension, metadata). The target
     endpoints call this first and :func:`take` only after their own checks passed (KVKK review 12)."""
@@ -401,4 +421,4 @@ def handed_name(meta: dict[str, Any], ext: str, filename: str | None) -> str:
     return f"helper-{str(meta.get('sha') or '')[:12]}.{ext or 'bin'}"
 
 
-__all__ = ["cap_bytes", "handed_name", "look", "router", "take"]
+__all__ = ["cap_bytes", "handed_name", "look", "one_token", "router", "take"]

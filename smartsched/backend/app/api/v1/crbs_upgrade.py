@@ -3,6 +3,11 @@
 Multipart form: ``files`` (one or more SQL dumps / CRBS install scripts) **or** ``dsn`` (a live ``mysql://``
 DSN, read-only, admin + host allowlist), ``confirm`` (default false) and, with ``confirm``, the ``fingerprint``
 of the reviewed dry run. ``planning.admin`` only. See :mod:`app.services.crbs_upgrade` for the report.
+
+One upgrade at a time per process (HB-23d N6): the dumps are copied to a temporary directory under ``/tmp`` and
+parsed into a temporary SQLite file there, and ``/tmp`` is a size-capped tmpfs in the container (``BACKEND_TMPFS``,
+deploy/.env.example). A second request while one runs answers 409 ``crbs_upgrade_busy`` before it writes anything.
+The database-wide ``crbs-upgrade`` write lock (:mod:`app.services.term_lock`) still serialises across processes.
 """
 
 from __future__ import annotations
@@ -10,6 +15,7 @@ from __future__ import annotations
 import re
 import shutil
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -17,12 +23,24 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.api.deps import DB, Admin
 from app.core import safe_files
+from app.schemas.messages import problem
 from app.services import crbs_dsn, term_lock
 from app.services import crbs_upgrade as up
 
 router = APIRouter(prefix="/crbs-upgrade", tags=["crbs-upgrade"])
 _SAFE = re.compile(r"[^A-Za-z0-9._-]+")
 _SQL_TYPES = (".sql", ".txt")
+#: one upgrade at a time in this process: its temporary copies and SQLite file live on the /tmp tmpfs
+_RUNNING = threading.Lock()
+
+
+def _busy() -> HTTPException:
+    return problem(
+        409,
+        "crbs_upgrade_busy",
+        "Şu anda başka bir classroombookings yükseltmesi çalışıyor. O bitince yeniden deneyin.",
+        "Another classroombookings upgrade is running. Try again when it has finished.",
+    )
 
 
 @router.post("")
@@ -38,6 +56,17 @@ async def crbs_upgrade(
         raise HTTPException(400, "provide either SQL dump files or a dsn")
     if confirm and not fingerprint:
         raise HTTPException(422, "confirm needs the fingerprint of the reviewed dry run")
+    if not _RUNNING.acquire(blocking=False):
+        raise _busy()
+    try:
+        return await _upgrade(db, user, files, dsn, confirm=confirm, fingerprint=fingerprint)
+    finally:
+        _RUNNING.release()
+
+
+async def _upgrade(
+    db: DB, user: Admin, files: list[UploadFile], dsn: str | None, *, confirm: bool, fingerprint: str | None
+) -> dict[str, Any]:
     workdir: Path | None = None
     source: str | list[Path]
     if dsn:
