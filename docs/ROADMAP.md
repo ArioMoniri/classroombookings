@@ -4125,3 +4125,36 @@ scratchpad `auth/API.md` (summarised in the research §9). Alembic `0043_mfa`; d
   booking's room; audit-model `fieldLabel` (wave1.audit.f.* TR/EN, "Derslik"; plain words for unknown fields, never
   snake_case) + `diffValueText`; tests/test_bug02_audit_refs.py 2, bug02-audit-fields.test.ts 3; unit level, e2e
   queued; bugs-2026-10-18)
+
+### FIX-B (e2e results 2026-10-18: phone layout stability, reflow, settings M-05, hydration, sign-in hero; fix-b-2026-10-18)
+Source: docs/testing/e2e-queue/results-2026-10-18.md (RF-2, Mobile A, Mobile B, RF-M, AUX-10). Unit level only (resource
+rule: no stack, no next build, no Playwright); every item below waits for its E2E re-measure.
+- [ ] F-MB-1 (major) CLS at 390: /admin 0.43, /dashboard 0.48, /settings?tab=integrations 0.41, /exams/invigilation 0.12.
+  part done (root cause on /dashboard and /admin: the "Başlarken" card (WelcomePageSlot, GET /welcome after /auth/me,
+  lazy chunk) landed above a rendered page. New components/common/settle-gate.tsx (one reserved-height placeholder,
+  children mounted hidden so their queries run, ≤ 1.5 s cap, latched) + shell/welcome-settle.tsx (on /dashboard,
+  /reserve, /admin the slot and the page appear together once /welcome answered and the slot chunk is in);
+  dashboard QuietNumbers/hero title keep their rows and words while loading; Entegrasyonlar tab behind one
+  placeholder until its 4 settings answers are in; invigilation board-run notice comes with the panel; PageHeader adds
+  no gap for a fixed page-actions capsule below lg. Tests: fix-b-2026-10-18.test.tsx. open: E2E CLS re-measure)
+- [ ] F-RF2-1 (major) /settings?tab=general M-05. part done (settings/dirty-capsule.tsx: a changed card's save row
+  (mail-notices-save, security-contact-save) becomes the page-actions capsule above the tab bar, named after the
+  card, same element (focus kept), two changed cards stack; MOBILE.md §3 /settings row names the pattern; test in
+  fix-b-2026-10-18.test.tsx. open: E2E M-05 after one change)
+- [ ] F-RF2-2 intermittent #418 on /my-bookings?series=1. part done (page wrapped in HydrationGate: the view read
+  queries the shell had already answered plus the deep link, so its first client render differed from the server's.
+  open: E2E repeat of $E/probe-418.mjs ×5 with no #418)
+- [ ] F-MA-1 / F-MB-3 reflow at 200 % / 32 px root. part done (find-room: fieldsets min-w-0, one minmax(0,1fr) column
+  below lg; kit Field min-w-0; MyStats tiles auto-fit minmax(min(100%,6.5rem),1fr) + wrapping labels; Studio bar is a
+  container (`@max-[22rem]/sbar:sr-only` Back word, Generate shrinks/truncates); tab-bar search circle and item minimum
+  in min(rem,px) so they stay 48/44 px; the heatmap overflow was the tab-bar circle and its icon. open: E2E scrollWidth)
+- [ ] F-MA-2 tab labels clipped at 320/390. part done (labels two centred lines, no ellipsis, no side padding; TR
+  nav.tab.myBookings "Benim", nav.tab.myRequests "Talepler"; planner tab-only nav.tab.dashboard/timetable (EN
+  "Overview"/"Schedule"); shell-r1/r2 and mobile-a-shell tests updated. open: E2E M-09 at 320 and 390, TR and EN)
+- [ ] F-MB-2 column-tag 10 px. part done (time-grid column tag `type-footnote` 12 px at every pointer; test. open: E2E 768)
+- [ ] RF-M #5 phone lens menu stays open after "Ay". part done (closeOnClick on the three radio items in
+  mobile-calendar.tsx; rendered test: closes, focus back on the menu button. open: E2E phone /timetable)
+- [ ] AUX-10 LoAF 55-70 ms while typing on /login. part done (signin-hero.tsx: createHeroDriver steps whole 30 fps
+  frames from elapsed time and draws nothing of the hero in a frame after keydown/beforeinput/input/pointerdown or
+  while isInputPending(); the pass still ends at 4.67 s; SignInHero memoised, player props stable; signin-hero tests
+  +5. open: e2e/au-signin-hero.spec.ts ×3 under load)

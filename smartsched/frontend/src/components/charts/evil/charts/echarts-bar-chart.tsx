@@ -2,9 +2,10 @@
 // Source: https://evilcharts.com (src/registry/charts/echarts-bar-chart.tsx) via shadcn registry @evilcharts/echarts-bar-chart (https://evilcharts.com/r/echarts-bar-chart.json) — https://github.com/legions-developer/evilcharts
 // Licence: MIT, Copyright (c) 2026 Gurbinder (full text: src/components/ui/LICENSES/evilcharts-MIT.txt)
 // Added: 2026-10-17 (CH-01, `npx shadcn@4.22.0 add @evilcharts/echarts-{bar,line,area}-chart`), moved from src/components/evilcharts/** to src/components/charts/evil/**
-// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter className> injected formatters and tooltip class (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters); `useReducedMotion` → `useReduce` from @/lib/motion
+// Modified: import paths (code + comments); <Tooltip valueFormatter labelFormatter className> injected formatters and tooltip class (tooltip values used a bare `toLocaleString()`, so the browser picked the locale; the shell passes tr-TR `Intl` formatters); `useReducedMotion` → `useReduce` from @/lib/motion; axis label and axis name text 10 px → `AXIS_FONT_PX` (12 px, type-footnote; F-CH-3)
 /* eslint-disable react-hooks/refs -- vendored as is: the ECharts instance and its per-frame state live in refs by design; rewriting them would fork the upstream file */
 
+import { AXIS_FONT_PX } from "@/components/charts/chart-tokens";
 import {
   DEFAULT_ECHARTS_RENDERER,
   buildChartCss,
@@ -905,7 +906,7 @@ function buildMainAxes(ctx: OptionBuildContext): { xAxis: XAxisOption; yAxis: YA
     name: isLoading ? undefined : categorySlot.label,
     nameLocation: "middle" as const,
     nameGap: categoryNameGap,
-    nameTextStyle: { color: axisLabelColor, fontSize: 10 },
+    nameTextStyle: { color: axisLabelColor, fontSize: AXIS_FONT_PX },
     axisLine: { show: false },
     // Tick DOTS: a near-zero-length tick whose round caps form a true circle, in
     // the gridline gray (flattened opaque so the caps don't stack).
@@ -922,7 +923,7 @@ function buildMainAxes(ctx: OptionBuildContext): { xAxis: XAxisOption; yAxis: YA
     axisLabel: {
       show: !isLoading && categorySlot.present,
       color: axisLabelColor,
-      fontSize: 10,
+      fontSize: AXIS_FONT_PX,
       margin: 8,
       formatter: catFormatter
         ? (value: string, index: number) => catFormatter(value, index)
@@ -942,7 +943,7 @@ function buildMainAxes(ctx: OptionBuildContext): { xAxis: XAxisOption; yAxis: YA
     name: isLoading ? undefined : valueSlot.label,
     nameLocation: "middle" as const,
     nameGap: valueNameGap,
-    nameTextStyle: { color: axisLabelColor, fontSize: 10 },
+    nameTextStyle: { color: axisLabelColor, fontSize: AXIS_FONT_PX },
     axisLine: { show: false },
     // Same tick dots as the category axis, beside each value label.
     axisTick: {
@@ -962,7 +963,7 @@ function buildMainAxes(ctx: OptionBuildContext): { xAxis: XAxisOption; yAxis: YA
       // axes unmount during loading too.
       show: valueSlot.present && !isLoading,
       color: axisLabelColor,
-      fontSize: 10,
+      fontSize: AXIS_FONT_PX,
       margin: 8,
       formatter: isPercent
         ? (value: number) => `${Math.round(value * 100)}%`
