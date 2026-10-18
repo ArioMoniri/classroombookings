@@ -1,7 +1,7 @@
 /**
  * HB-23c helper file router (docs/design/v3/helper-file-router.md §11.1, §11.2 "E2E TO RUN"). Real backend only
  * (E2E_REAL=1, HB-23b's /helper/files/** on). NOT run by the builder lane (resource rule 2026-10-18): the e2e lane
- * runs it on one stack with the masked fixtures ($REC_WORKDIR/fixtures, e2e/fixtures-dir.ts).
+ * runs it on one stack with the masked fixtures ($REC_WORKDIR/fixtures, src/test/fixtures-dir.ts).
  *
  * Cases:
  *  1. admin 1440: ⌘J → drop the Bahar board (Güz active) → card + mismatch → primary → /import file row → Önizle →
