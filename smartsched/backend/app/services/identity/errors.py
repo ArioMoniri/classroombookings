@@ -40,11 +40,37 @@ CHECKS: dict[str, tuple[str, str, str, str]] = {
         "IdP imza sertifikasının süresi dolmuş. IdP meta verisini yeniden alın.",
         "The IdP signing certificate has expired. Fetch the IdP metadata again.",
     ),
+    "metadata_signature": (
+        "Meta veri imzası federasyon sertifikasıyla doğrulandı ({subject}).",
+        "The metadata signature was verified with the federation certificate ({subject}).",
+        "Meta veri imzası federasyon sertifikasıyla doğrulanamadı.",
+        "The metadata signature could not be verified with the federation certificate.",
+    ),
     "library": (
         "SAML kütüphanesi yüklü.",
         "The SAML library is installed.",
         "Kütüphane gerekli: sunucuda signxml yüklü değil (pip install signxml).",
         "Library required: signxml is not installed on the server (pip install signxml).",
+    ),
+}
+
+#: (check key, reason) -> (failed TR, failed EN): one plain sentence per refusal (RF-12)
+REASONS: dict[tuple[str, str], tuple[str, str]] = {
+    ("metadata_signature", "unsigned"): (
+        "Meta veri imzalı değil. Federasyon sertifikası girildiği için imzasız meta veri kabul edilmez: "
+        "federasyonun imzalı meta veri adresini kullanın.",
+        "The metadata is not signed. With a federation certificate set, unsigned metadata is refused: use the "
+        "federation's signed metadata URL.",
+    ),
+    ("metadata_signature", "invalid"): (
+        "Meta veri imzası girilen federasyon sertifikasıyla doğrulanamadı: belge değiştirilmiş ya da sertifika "
+        "yanlış. Sertifikayı federasyonun sitesinden yeniden alın.",
+        "The metadata signature could not be verified with the federation certificate: the document was changed "
+        "or the certificate is wrong. Fetch the certificate from the federation's site again.",
+    ),
+    ("metadata_signature", "expired"): (
+        "Meta verinin geçerlilik süresi (validUntil) dolmuş. Federasyonun güncel meta verisini alın.",
+        "The metadata has expired (validUntil). Fetch the federation's current metadata.",
     ),
 }
 
@@ -88,6 +114,28 @@ TRANSLATIONS: tuple[tuple[re.Pattern[str], str, str, int | None], ...] = tuple(
             r"audience",
             "Hedef kitle (Audience) SmartSched'in varlık kimliği değil. IdP'de 2. adımdaki varlık kimliğini kullanın.",
             "The audience is not SmartSched's entity id. Use the entity id from step 2 at the IdP.",
+            2,
+        ),
+        (
+            r"no SP decryption key",
+            "IdP onayı şifreli gönderiyor ama SmartSched'de SP çözme anahtarı yok. Sağlayıcıda SP anahtarı oluşturun ve "
+            "SP meta verisini IdP'ye yeniden yükleyin.",
+            "The IdP encrypts the assertion but SmartSched has no SP decryption key. Create an SP key for the provider "
+            "and import the SP metadata at the IdP again.",
+            2,
+        ),
+        (
+            r"rsa-1_5",
+            "IdP eski RSA 1.5 anahtar aktarımını kullanıyor. IdP'de RSA-OAEP'i seçin.",
+            "The IdP uses the old RSA 1.5 key transport. Choose RSA-OAEP at the IdP.",
+            None,
+        ),
+        (
+            r"decrypt",
+            "Şifreli onay SP anahtarıyla çözülemedi. IdP'nin SmartSched'in güncel SP meta verisini (şifreleme "
+            "sertifikası) kullandığını kontrol edin.",
+            "The encrypted assertion could not be decrypted with the SP key. Check that the IdP uses SmartSched's "
+            "current SP metadata (encryption certificate).",
             2,
         ),
         (
@@ -143,6 +191,7 @@ class _Safe(dict[str, str]):
 
 def check(key: str, ok: bool, reason: str = "", **values: str) -> dict[str, Any]:
     ok_tr, ok_en, bad_tr, bad_en = CHECKS.get(key, (key, key, key, key))
+    bad_tr, bad_en = REASONS.get((key, reason), (bad_tr, bad_en))
     v = _Safe({k: str(x) for k, x in values.items()})
     row: dict[str, Any] = {
         "key": key,

@@ -131,7 +131,7 @@ export function TabBar() {
           </ul>
         </nav>
       </LayoutGroup>
-      <IconButton label={t("nav.search")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent max-[22.5rem]:hidden [@media(max-height:500px)]:size-11 [&_svg]:size-5" data-testid="open-palette-mobile">
+      <IconButton label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className="glass-chrome pointer-events-auto size-12 shrink-0 rounded-full text-label-1 hover:bg-transparent max-[22.5rem]:hidden [@media(max-height:500px)]:size-11 [&_svg]:size-5" data-testid="open-palette-mobile">
         <Search aria-hidden />
       </IconButton>
     </div>

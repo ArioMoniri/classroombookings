@@ -25,6 +25,7 @@ import { useWorkspaceStore, useWorkspaceUser } from "./workspace";
 import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { PrivacyNoticeGate } from "@/components/privacy/notice-gate";
 import { WelcomePageSlot, WelcomeProvider } from "@/components/welcome";
+import { HelperRoot } from "@/components/helper/helper-root";
 
 function OfflineBanner() {
   const { t } = useI18n();
@@ -193,6 +194,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* T-R2-01: page-level fields scroll clear of the sticky save / search bars and the tab bar when the keyboard opens */}
       <KeyboardClearance scope="document" />
       <CommandPalette />
+      {/* HX-03: the helper sheet ("Yardımcı"), ⌘J and "Göster" */}
+      <HelperRoot />
       <ShortcutsSheet />
       <Shortcuts />
       <UserSync />

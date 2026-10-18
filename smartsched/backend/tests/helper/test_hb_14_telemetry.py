@@ -344,3 +344,17 @@ async def test_hb_14_turn_route_records_one_query(client) -> None:  # noqa: F811
     rows = await _events(kind="query")
     assert [(e.user_id, e.mode, e.outcome) for e in rows] == [(uid, "index", "index")]
     assert rows[0].turn_id and rows[0].turn_id in r.text and rows[0].latency_ms is not None
+
+
+async def test_hb_14_kvkk_inventory_lists_ai_reservations(session) -> None:
+    """Coordinator decision 2026-10-18: ``ai_reservations`` holds a user id for about 6 minutes; it is a transient
+    data class of its own in the processing inventory."""
+    from app.services import kvkk
+
+    spec = kvkk.DATA_CLASSES["ai_reservation"]
+    assert spec["tables"] == ["ai_reservations"] and spec["retention"] is None
+    assert spec["tr"] and spec["en"] and "6 dakika" in spec["kept"]
+    assert "helper_events" in kvkk.DATA_CLASSES["helper"]["tables"]
+    inv = await kvkk.inventory(session)
+    row = next(c for c in inv["classes"] if c["code"] == "ai_reservation")
+    assert row["rows"] == {"ai_reservations": 0} and row["label_tr"]

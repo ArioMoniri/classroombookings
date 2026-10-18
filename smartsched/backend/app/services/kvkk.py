@@ -196,7 +196,18 @@ DATA_CLASSES: dict[str, dict[str, Any]] = {
         "tables": ["helper_notes", "helper_threads", "helper_messages", "helper_action_invocations", "helper_events"],
         "legal_basis": "KVKK m.5/1 açık rıza (notlar: 'Bunu hatırla'), m.5/2(f) meşru menfaat (işlem kaydı, geri alma)",
         "retention": None,
-        "kept": "notlar son kullanımdan 180 gün, konuşmalar 30 gün; kullanım verisinde kişi 90 gün sonra silinir",
+        "kept": "notlar son kullanımdan 180 gün, konuşmalar 30 gün; kullanım verisinde kişi ve geri bildirim notu 90 "
+        "gün sonra silinir",
+    },
+    # AI quota chain HB-10 (app/services/ai_usage.py): the in-flight estimate of a call and the per-minute counter
+    "ai_reservation": {
+        "tr": "Yapay zekâ kota ayırmaları: süren bir çağrının tahmini ve dakikalık sayaç (kişi, özellik, birim)",
+        "en": "AI quota reservations: the estimate of a call in progress and the per-minute counter (person, feature, "
+        "unit)",
+        "tables": ["ai_reservations"],
+        "legal_basis": "KVKK m.5/2(f) meşru menfaat (kurumun yapay zekâ bütçesini ve kotalarını korumak)",
+        "retention": None,
+        "kept": "geçici, yalnızca sistem bağlamında: çağrı bitince ya da bırakılınca silinir, en geç yaklaşık 6 dakika",
     },
     # welcome guide per role (WG-03, app/services/welcome.py): show / hide the guide; no content, clicks or timings
     "welcome": {

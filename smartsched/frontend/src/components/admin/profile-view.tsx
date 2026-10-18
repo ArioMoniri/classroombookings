@@ -30,6 +30,7 @@ import { PrivacySection } from "@/components/privacy/privacy-section";
 import { CalendarConnectionsSection } from "@/components/settings/calendar-connections";
 import { CalendarExportSection } from "@/components/calendar-export/calendar-export-section";
 import { MyAiUsage } from "@/components/admin/ai/my-ai-usage";
+import { HelperMemorySection } from "@/components/helper/memory/memory-section";
 import { MyStats } from "@/components/profile/my-stats";
 import { MyLoad } from "@/components/profile/my-load";
 import { ChartPatternsToggle } from "@/components/charts/chart-patterns-toggle";
@@ -73,6 +74,8 @@ export function ProfileView() {
       <section id="ai-usage" className="scroll-mt-20">
         <MyAiUsage />
       </section>
+      {/* HX-08: Profil › Yardımcı — the helper's notes and history, all deletable */}
+      <HelperMemorySection />
       {/* the approval UI's panel: which event reaches you on which channel */}
       <section id="notifications" className="scroll-mt-20">
         <NotificationPreferencesPanel />
