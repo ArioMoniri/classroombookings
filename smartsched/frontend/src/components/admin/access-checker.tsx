@@ -54,7 +54,7 @@ export function AccessChecker() {
   return (
     <div className="flex flex-col gap-5">
       <PageTitle title={t("crbs.admin.access.title")} subtitle={t("crbs.admin.access.lead")} />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-3" data-tour="admin-access-rules">
         {can("setup.users") ? (
           <Field label={t("crbs.access.find")} htmlFor="ac-q">
             <Input id="ac-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("crbs.users.searchHint")} />

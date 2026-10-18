@@ -56,6 +56,19 @@ describe("faculty usage", () => {
     expect(screen.getByTestId("faculty-usage").textContent).not.toMatch(/token/i);
   });
 
+  it("HX-18 M8: the server's share of the allowance (HB-21) wins over the client's sum", async () => {
+    vi.spyOn(helperAdminApi, "facultyUsage").mockResolvedValue({
+      ...usage,
+      allocation: { monthly_tokens: null, monthly_cost_usd: 5 },
+      faculty: { id: 3, name: "Eczacılık Fakültesi", share_of_allowance: 0.4 },
+      by_department: [{ ...usage.by_department[0]!, share_of_allowance: 0.25 }],
+    } as FacultyUsage);
+    renderHelper(<FacultyUsageView />);
+    expect(await screen.findByTestId("faculty-total")).toHaveTextContent("Bu ay fakülte payından %40 kullanıldı (120 istek).");
+    expect(screen.getByTestId("faculty-usage")).toHaveTextContent("80 istek · bölüm payından %25");
+    expect(screen.getByTestId("faculty-usage")).not.toHaveTextContent("Fakülteye henüz aylık pay ayrılmadı.");
+  });
+
   it("HX-18 M8: with no allowance it says the requests and that no share is set", async () => {
     vi.spyOn(helperAdminApi, "facultyUsage").mockResolvedValue({ ...usage, allocation: null });
     renderHelper(<FacultyUsageView />);

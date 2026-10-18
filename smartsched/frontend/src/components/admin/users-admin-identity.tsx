@@ -288,7 +288,8 @@ export function InviteSheet({ open, onOpenChange, auth, canListRoles, prefill = 
   const fine = useFinePointer();
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={fine ? "right" : "bottom"} className="flex flex-col gap-0 overflow-y-auto sm:max-w-md" data-testid="invite-sheet">
+      {/* also opened by the `?invite=1` hand-over (no trigger was pressed): focus goes to "Davet et" on close */}
+      <SheetContent side={fine ? "right" : "bottom"} className="flex flex-col gap-0 overflow-y-auto sm:max-w-md" finalFocus={() => document.querySelector<HTMLElement>('[data-testid="users-invite"]') ?? true} data-testid="invite-sheet">
         {open ? <InviteForm onDone={() => onOpenChange(false)} domainHint={auth?.microsoft.domain_hint ?? null} canListRoles={canListRoles} prefill={prefill} /> : null}
       </SheetContent>
     </Sheet>

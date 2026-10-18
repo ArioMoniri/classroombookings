@@ -391,7 +391,7 @@ export function QuickReserveView() {
         </section>
 
         {/* 2 · Nerede? */}
-        <section aria-labelledby="qr-where" aria-busy={find.isFetching} className="flex min-w-0 flex-col gap-3">
+        <section aria-labelledby="qr-where" data-tour="reserve-room-list" aria-busy={find.isFetching} className="flex min-w-0 flex-col gap-3">
           <h2 id="qr-where" className="type-title-3 text-label-1">
             {step(2, "where")}
           </h2>

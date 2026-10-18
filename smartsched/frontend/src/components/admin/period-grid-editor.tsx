@@ -109,7 +109,7 @@ function GridForm({ grid }: { grid: PeriodGrid }) {
   };
 
   return (
-    <Card className="gap-4 px-5" data-testid="period-grid">
+    <Card className="gap-4 px-5" data-testid="period-grid" data-tour="admin-periods">
       <section aria-labelledby={`${id}-title`} className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <h2 id={`${id}-title`} className="type-title-3 font-semibold text-label-1">

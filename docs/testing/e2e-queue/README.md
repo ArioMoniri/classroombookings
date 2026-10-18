@@ -170,3 +170,7 @@ On pass: tick VO-06/07/08 and VO-05.
 ## Added 2026-10-18 11:15 UTC
 
 - **HB-D** (1440 and 390, tr-TR): "bunu hatırla: Pazartesi B blok" → confirm card → "Hatırla" → result → "Geri al", and Profil › Yardımcı notes update; memory off and no-consent each give a refusal card; turns from /my-bookings and a booking detail carry `context`; "Son işlemler" with "Geri al"; "Geçmişi sil" keeps notes; faculty usage shows a percentage.
+
+## Added 2026-10-18 11:20 UTC
+
+- **HX-18** (one stack; tr-TR): M1 at 1280/1440, "Göster" on `admin-users-invite` moves the sheet aside, the target can be clicked, "Yardımcıya dön" reopens with the thread (left-side anchor: sheet stays). M2 keyboard "Vazgeç" on confirm/form/choice puts focus on "Vazgeçildi.", never `body`; Enter on confirm keeps focus while "Kaydediliyor…". M3 dark result discs ≥ 3:1. M4 at 390 and 1440, Rehber modu "rezervasyon" shows ≤ 6 one-line rows (≥ 44 px, 56 px on phones) and ≤ 1 primary in view. M5/M6: "Devam" → "Rezerve et: …"; an expired card shows one "Yenile", the old one "· eskidi". M7: "Sohbet geçmişini sil" keeps notes; "Tüm notları sil" removes only notes. M8: `/ai/faculty` never says "token". m12/m13 at 390: the target sits in the upper half; status chip 24 px tall with a 44 px tap area; M-01/02/03/05 on /profile and the sheet. m2: forced colours keep "Düşünüyor…" visible.

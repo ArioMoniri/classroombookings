@@ -5,9 +5,9 @@
  * characters; "Sil" per note, "Not ekle"; the server refuses a person's name and says so), the conversation history
  * ("Son 30 günün konuşmaları saklanır", "Sohbet geçmişini sil" with a confirmation) and the plain notice.
  * HX-18 M7: the history button deletes the threads only and keeps the notes (HB-21 `DELETE /helper/threads`); the
- * notes are deleted only from the notes list ("Sil" per note, "Tüm notları sil"). Until HB-21 ships
- * (`helperCaps.threadsDelete`), the button reads "Notları ve geçmişi sil" and its dialog says the notes go too. A note exists only
- * after the person adds it here or taps "Hatırla"; the institution's switch (admin) can turn notes off for everyone.
+ * notes are deleted only from the notes list ("Sil" per note, "Tüm notları sil"). Without HB-21
+ * (`helperCaps.threadsDelete` off), the button reads "Notları ve geçmişi sil" and its dialog says the notes go too.
+ * A note exists only after the person adds it here or taps "Hatırla"; the institution's switch (admin) can turn notes off for everyone.
  */
 import { Trash2 } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";

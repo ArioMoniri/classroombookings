@@ -3898,7 +3898,8 @@
       "goal": "Ledger name `hx-18-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, frontend at smartsched/frontend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; vitest `--maxWorker…",
       "ledger": "HX-18: helper design-audit fixes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 11:25"
     },
     {
       "id": "ac3cb6fcaf64fee1a",
@@ -3915,6 +3916,26 @@
       "status": "finished",
       "finished_at": "2026-10-18 11:08",
       "left_off": "is the pod up yet"
+    },
+    {
+      "id": "ae539234a9400410c",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 11:20",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "a11a57824677ce7c3",
+      "description": "HX-15/16/17 helper frontend + consent",
+      "subagent_type": "frontend-engineer",
+      "isolation": null,
+      "started_at": "2026-10-18 11:26",
+      "scope": "",
+      "goal": "Ledger name `hx-15-17-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (frontend smartsched/frontend; one backend check in smartsched/backend). Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next…",
+      "ledger": "HX-15/16/17 helper frontend + consent",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

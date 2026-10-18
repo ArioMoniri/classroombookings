@@ -42,6 +42,7 @@ import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsCompact, useIsPhone } from "@/components/bookings/use-is-phone";
+import { PERIODS } from "@/lib/time";
 
 const STATUS: Record<string, { icon: LucideIcon; cls: string; key: MessageKey }> = {
   free: { icon: CheckCircle2, cls: "bg-status-feasible text-status-feasible-fg", key: "wave1.find.status.free" },
@@ -322,10 +323,10 @@ export function FindRoomView() {
                 {f.time === "clock" ? (
                   <div className="grid grid-cols-2 gap-2">
                     <Field label={t("wave1.find.start")} htmlFor="fr-start" error={formError === "start" ? t(ERROR_KEY.start) : null}>
-                      <Input id="fr-start" inputMode="numeric" placeholder="10:10" value={f.start} onChange={(e) => set("start", e.target.value)} data-testid="fr-start" />
+                      <Input id="fr-start" inputMode="numeric" placeholder={PERIODS[2].start} value={f.start} onChange={(e) => set("start", e.target.value)} data-testid="fr-start" />
                     </Field>
                     <Field label={t("wave1.find.end")} htmlFor="fr-end" error={formError === "end" || formError === "order" ? t(ERROR_KEY[formError]) : null}>
-                      <Input id="fr-end" inputMode="numeric" placeholder="12:30" value={f.end} onChange={(e) => set("end", e.target.value)} data-testid="fr-end" />
+                      <Input id="fr-end" inputMode="numeric" placeholder={PERIODS[4].end} value={f.end} onChange={(e) => set("end", e.target.value)} data-testid="fr-end" />
                     </Field>
                   </div>
                 ) : f.time === "periods" ? (
@@ -379,7 +380,7 @@ export function FindRoomView() {
               </label>
 
               {compact ? (
-                <Button variant="outline" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className="self-start" data-testid="fr-filters-open">
+                <Button variant="outline" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className="self-start" data-testid="fr-filters-open" data-tour="find-room-filters">
                   <SlidersHorizontal aria-hidden />
                   {moreCount ? t("reserve.filters.openCount", { n: moreCount }) : t("reserve.filters.open")}
                 </Button>

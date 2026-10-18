@@ -26,6 +26,11 @@ export function percentOf(used: number, of: number | null | undefined): number |
   return Math.round((used / of) * 100);
 }
 
+/** The server's share (HB-21, 0..1, also counts a cost allowance) when it sent one, else the token share. */
+export function sharePercent(server: number | null | undefined, used: number, of: number | null | undefined): number | null {
+  return server !== null && server !== undefined ? Math.round(server * 100) : percentOf(used, of);
+}
+
 /** The department split's total and whether it fits the faculty's monthly allowance (null = no allowance). */
 export function shareCheck(split: Record<string, number | null>, allowance: number | null | undefined): { sum: number; over: boolean } {
   const sum = Object.values(split).reduce<number>((a, v) => a + (v ?? 0), 0);
@@ -40,7 +45,7 @@ function Split({ data }: { data: Usage }) {
   const allowance = data.allocation?.monthly_tokens ?? null;
   const { sum, over } = shareCheck(split, allowance);
   const deptLine = (d: Usage["by_department"][number]) => {
-    const pct = percentOf(d.tokens, d.allocation?.monthly_tokens);
+    const pct = sharePercent(d.share_of_allowance, d.tokens, d.allocation?.monthly_tokens);
     return pct === null ? t("helper.faculty.deptRowNoShare", { calls: n(d.calls) }) : t("helper.faculty.deptRow", { calls: n(d.calls), pct: n(pct) });
   };
   const submit = async () => {
@@ -93,7 +98,7 @@ function Split({ data }: { data: Usage }) {
 export function FacultyUsageView() {
   const { t, locale, n } = useI18n();
   const totalLine = (u: Usage) => {
-    const pct = percentOf(u.totals.tokens, u.allocation?.monthly_tokens);
+    const pct = sharePercent(u.faculty?.share_of_allowance, u.totals.tokens, u.allocation?.monthly_tokens);
     return pct === null ? t("helper.faculty.totalNoShare", { calls: n(u.totals.calls) }) : t("helper.faculty.total", { pct: n(pct), calls: n(u.totals.calls) });
   };
   const [facultyId, setFacultyId] = useState<number | null>(null);
@@ -130,7 +135,7 @@ export function FacultyUsageView() {
           ) : null}
           <div className="flex flex-col gap-1 type-callout text-label-1">
             <p data-testid="faculty-total">{totalLine(d)}</p>
-            {d.allocation?.monthly_tokens ? null : <p className="text-label-2">{t("helper.faculty.noAllocation")}</p>}
+            {sharePercent(d.faculty?.share_of_allowance, d.totals.tokens, d.allocation?.monthly_tokens) === null ? <p className="text-label-2">{t("helper.faculty.noAllocation")}</p> : null}
             {busiest && busiest.tokens > 0 ? (
               <p className="text-label-2">
                 {t("helper.faculty.trend", { day: new Intl.DateTimeFormat(intlLocale(locale), { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(busiest.day)) })}

@@ -71,13 +71,13 @@ export function ProfileView() {
       <MyStats showTitle />
       <MyLoad />
       {/* wave 3 W3-AI: my AI usage against my limit (hidden for people who never used AI and have no limit) */}
-      <section id="ai-usage" className="scroll-mt-20">
+      <section id="ai-usage" className="scroll-mt-20" data-tour="profile-ai-usage">
         <MyAiUsage />
       </section>
       {/* HX-08: Profil › Yardımcı — the helper's notes and history, all deletable */}
       <HelperMemorySection />
       {/* the approval UI's panel: which event reaches you on which channel */}
-      <section id="notifications" className="scroll-mt-20">
+      <section id="notifications" className="scroll-mt-20" data-tour="profile-notifications">
         <NotificationPreferencesPanel />
       </section>
       {/* CH-03: Grafiklerde desen (hatch patterns in charts, per user, default off) */}

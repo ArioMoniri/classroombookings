@@ -16,7 +16,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Upload } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -76,6 +76,7 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   const { t, n, locale } = useI18n();
   const qc = useQueryClient();
   const [open, setOpen] = useState(autoOpen);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   // the hero moment (mobile-b phase 2): the check plays only after a publish in this session, never on load
   const [justPublished, setJustPublished] = useState(false);
   const reduce = useReduce();
@@ -151,6 +152,7 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
   return (
     <>
       <Button
+        ref={triggerRef}
         size="sm"
         onClick={() => {
           setRefusals([]);
@@ -162,11 +164,13 @@ export function PublishRunButton({ run, published, exceptions = [], truth = null
           setOpen(true);
         }}
         data-testid="run-publish"
+        data-tour="runs-publish"
       >
         <Upload aria-hidden /> {t("runs.publish.button")}
       </Button>
       <Dialog open={open} onOpenChange={(o) => !publish.isPending && setOpen(o)}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+        {/* opened by the trigger or by the `?publish=` hand-over: either way focus goes back to "Yayınla" */}
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg" finalFocus={() => triggerRef.current ?? true}>
           <DialogHeader>
             <DialogTitle>{t("runs.publish.title", { id: run.id })}</DialogTitle>
             <DialogDescription>{weeks.length ? t("runs.publish.scopeWeeks", { weeks: weekList(weeks, tr ? "tr" : "en"), term: run.term_code }) : t("runs.publish.scopeTerm", { term: run.term_code })}</DialogDescription>

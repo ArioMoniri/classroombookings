@@ -153,7 +153,7 @@ export function MyBookingsView() {
             ]}
           />
           {tab === "upcoming" && selected.size > 0 && !phone ? (
-            <Button variant="outline" className="text-status-infeasible-fg" onClick={() => (noteRows([...selected]), setCancelOpen(true))} data-testid="cancel-selected">
+            <Button variant="outline" className="text-status-infeasible-fg" onClick={() => (noteRows([...selected]), setCancelOpen(true))} data-testid="cancel-selected" data-tour="my-bookings-cancel">
               <Trash2 aria-hidden />
               {t("crbs.mine.cancelSelected", { n: selected.size })}
             </Button>
@@ -207,7 +207,7 @@ export function MyBookingsView() {
       {tab === "upcoming" && selected.size > 0 && phone ? (
         <div className="fixed inset-x-4 bottom-[calc(var(--shell-bottom-h)+0.75rem)] z-20 flex items-center justify-between gap-3 rounded-2xl glass-chrome px-4 py-2 shadow-elev-2" data-testid="cancel-selected-capsule">
           <span className="type-callout text-label-1">{t("crbs.mine.selectedN", { n: selected.size })}</span>
-          <Button variant="outline" className="text-status-infeasible-fg" onClick={() => (noteRows([...selected]), setCancelOpen(true))} data-testid="cancel-selected">
+          <Button variant="outline" className="text-status-infeasible-fg" onClick={() => (noteRows([...selected]), setCancelOpen(true))} data-testid="cancel-selected" data-tour="my-bookings-cancel">
             <Trash2 aria-hidden />
             {t("crbs.mine.cancelSelected", { n: selected.size })}
           </Button>
@@ -357,7 +357,7 @@ function ExportCard() {
           {t("crbs.export.includeCancelled")}
         </label>
         <div>
-          <Button render={<a href={href} download data-testid="export-csv" />} nativeButton={false}>
+          <Button render={<a href={href} download data-testid="export-csv" data-tour="bookings-export" />} nativeButton={false}>
             <Download aria-hidden />
             {t("crbs.export.download")}
           </Button>

@@ -97,6 +97,8 @@ export const HelperNote = z.object({
 export type HelperNote = z.infer<typeof HelperNote>;
 
 export const DeletedOut = z.object({ notes: z.number().catch(0), threads: z.number().catch(0) }).passthrough();
+/** HB-21 `DELETE /helper/threads`: the counts deleted and the notes kept. */
+export const ThreadsDeletedOut = z.object({ threads: z.number().catch(0), messages: z.number().catch(0), notes_kept: z.number().catch(0) }).passthrough();
 
 /* ---------------------------------------------------------------------------------------------- errors */
 
@@ -150,8 +152,8 @@ export const helperApi = {
   notes: () => request("/helper/notes", { ...s, schema: z.array(HelperNote) }),
   addNote: (text: string, source: "user_button" | "user_confirmed") => request("/helper/notes", { ...s, method: "POST", body: { text, source }, schema: HelperNote }),
   deleteNote: (id: number) => request<void>(`/helper/notes/${id}`, { ...s, method: "DELETE" }),
-  /** HB-21: the conversation history only; the notes stay (HX-18 M7). Used once {@link helperCaps}.threadsDelete is on. */
-  deleteThreads: () => request("/helper/threads", { ...s, method: "DELETE", schema: DeletedOut }),
+  /** HB-21: the conversation history only; the notes stay (HX-18 M7), while {@link helperCaps}.threadsDelete is on. */
+  deleteThreads: () => request("/helper/threads", { ...s, method: "DELETE", schema: ThreadsDeletedOut }),
   deleteAll: (history: boolean) => request("/helper/notes", { ...s, method: "DELETE", query: { history: history ? "true" : undefined }, schema: DeletedOut }),
 };
 
@@ -205,11 +207,11 @@ export function useDeleteHelperNote() {
   return useMutation({ mutationFn: (id: number) => helperApi.deleteNote(id), onSuccess: done });
 }
 /**
- * What this client may rely on from the server. `threadsDelete`: HB-21's threads-only `DELETE /helper/threads`. Until
- * it ships, "Geçmişi sil" calls `DELETE /helper/notes?history=true` and says that the notes go too (HX-18 M7).
- * Turn it on when HB-21 lands (a plain object so the tests can switch it).
+ * What this client relies on from the server. `threadsDelete`: HB-21's threads-only `DELETE /helper/threads` (on since
+ * HB-D shipped it, 2026-10-18). Off, "Geçmişi sil" falls back to `DELETE /helper/notes?history=true` and its button
+ * and dialog say that the notes go too (HX-18 M7). A plain object so the tests can switch it.
  */
-export const helperCaps = { threadsDelete: false };
+export const helperCaps = { threadsDelete: true };
 
 export function useDeleteHelperThreads() {
   const done = useMemoryInvalidate();
@@ -278,7 +280,8 @@ export type HelperSummary = z.infer<typeof HelperSummary>;
 /* ------------------------------------------------------------------- faculty quotas (HB-10 / HB-11, `/ai/faculty`) */
 
 export const FacultyUsage = z.object({
-  faculty: z.object({ id: z.number(), name: z.string() }).nullish(),
+  /** `share_of_allowance` (HB-21): 0..1 of the allowance used (the larger of the token and cost shares), null without one */
+  faculty: z.object({ id: z.number(), name: z.string(), share_of_allowance: z.number().nullish().catch(null) }).nullish(),
   faculties: z.array(z.object({ id: z.number(), name: z.string() })).catch([]),
   month: z.string().nullish(),
   allocation: z.object({ monthly_tokens: z.number().nullish(), monthly_cost_usd: z.number().nullish() }).passthrough().nullish().catch(null),
@@ -291,6 +294,7 @@ export const FacultyUsage = z.object({
         tokens: z.number().catch(0),
         calls: z.number().catch(0),
         allocation: z.object({ monthly_tokens: z.number().nullish(), monthly_cost_usd: z.number().nullish() }).passthrough().nullish().catch(null),
+        share_of_allowance: z.number().nullish().catch(null),
       }),
     )
     .catch([]),

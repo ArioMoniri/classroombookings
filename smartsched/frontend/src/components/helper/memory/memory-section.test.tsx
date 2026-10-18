@@ -13,7 +13,7 @@ let notes = [{ id: 7, text: "Tercih edilen bina: B blok", source: "user_confirme
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  helperCaps.threadsDelete = false;
+  helperCaps.threadsDelete = true;
   notes = [{ id: 7, text: "Tercih edilen bina: B blok", source: "user_confirmed", created_at: null, last_used_at: null, expires_at: null }];
   vi.spyOn(helperApi, "memory").mockImplementation(async () => mem({ notes: notes.length }));
   vi.spyOn(helperApi, "notes").mockImplementation(async () => notes);
@@ -72,7 +72,7 @@ describe("Profil › Yardımcı", () => {
 
   it("HX-18 M7: Sohbet geçmişini sil keeps the notes (threads-only DELETE /helper/threads)", async () => {
     helperCaps.threadsDelete = true;
-    const threads = vi.spyOn(helperApi, "deleteThreads").mockResolvedValue({ notes: 0, threads: 3 });
+    const threads = vi.spyOn(helperApi, "deleteThreads").mockResolvedValue({ threads: 3, messages: 12, notes_kept: 1 });
     const all = vi.spyOn(helperApi, "deleteAll");
     renderHelper(<HelperMemorySection />);
     const btn = await screen.findByTestId("helper-history-delete");

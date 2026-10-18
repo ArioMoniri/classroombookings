@@ -195,12 +195,12 @@ export function UsersAdmin() {
               {phone ? null : t("crbs.users.import")}
             </Button>
             {/* local accounts are the exception once Microsoft is on (break-glass, service accounts) */}
-            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone ? "icon" : "default"} onClick={() => setEditing("new")} data-testid="users-new" aria-label={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined} title={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined}>
+            <Button variant={msEnabled && usersAdmin ? "outline" : "default"} size={phone ? "icon" : "default"} onClick={() => setEditing("new")} data-testid="users-new" data-tour={msEnabled && usersAdmin ? undefined : "admin-users-invite"} aria-label={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined} title={phone ? (msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")) : undefined}>
               <UserPlus aria-hidden />
               {phone ? null : msEnabled && usersAdmin ? t("sso.users.createLocal") : t("crbs.users.new")}
             </Button>
             {msEnabled && usersAdmin ? (
-              <Button size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
+              <Button size={phone ? "icon" : "default"} onClick={() => setInviteOpen(true)} data-testid="users-invite" data-tour="admin-users-invite" aria-label={phone ? t("sso.users.inviteAction") : undefined} title={phone ? t("sso.users.inviteAction") : undefined}>
                 <Mail aria-hidden />
                 {phone ? null : t("sso.users.inviteAction")}
               </Button>
@@ -592,7 +592,8 @@ type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undef
 function UserDialog({ user, onClose, canListRoles, identityFor, prefill = null }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps; /** HX-06: a new user's fields from the invite hand-over */ prefill?: InvitePrefill | null }) {
   return (
     <Dialog open={user !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl lg:max-w-2xl" data-testid="user-dialog">
+      {/* a new user (the button or the `?invite=1` hand-over): focus goes back to "Yeni kullanıcı" */}
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl lg:max-w-2xl" finalFocus={user === "new" ? () => document.querySelector<HTMLElement>('[data-testid="users-new"]') ?? true : undefined} data-testid="user-dialog">
         {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} prefill={user === "new" ? prefill : null} /> : null}
       </DialogContent>
     </Dialog>

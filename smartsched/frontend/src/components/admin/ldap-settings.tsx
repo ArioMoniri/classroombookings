@@ -52,7 +52,7 @@ function LdapForm({ data }: { data: LdapSettings }) {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle title={t("crbs.admin.ldap.title")} subtitle={t("crbs.ldap.lead")} />
-      <Card className="gap-0 px-4 py-1">
+      <Card className="gap-0 px-4 py-1" data-tour="admin-sso">
         <FieldRow label={t("crbs.ldap.enabled")} hint={t("crbs.ldap.enabledHint")} htmlFor="ldap-on">
           <Switch id="ldap-on" checked={v.enabled} onCheckedChange={(x) => set("enabled", x)} />
         </FieldRow>

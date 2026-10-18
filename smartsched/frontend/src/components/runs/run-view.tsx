@@ -327,7 +327,7 @@ export function RunView({ id }: { id: number }) {
         subtitle={`${r.term_code} · ${kindText} · ${scope}${r.parent_run_id ? ` · ${t("glass.report.childOf", { id: r.parent_run_id })}` : ""}`}
         actions={
           <>
-            <Button variant="outline" nativeButton={false} render={<a href={api.runs.exportUrl(r.id, "xlsx")} download />}>
+            <Button variant="outline" nativeButton={false} render={<a href={api.runs.exportUrl(r.id, "xlsx")} download data-tour="runs-export" />}>
               <Download /> {t("runs.export")}
             </Button>
             {/* a new solve with this run as its parent (stability on) and its relaxation policy */}

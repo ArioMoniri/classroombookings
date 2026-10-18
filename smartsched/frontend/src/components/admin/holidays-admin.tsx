@@ -112,7 +112,7 @@ export function HolidaysAdmin() {
           <Field label={t("crbs.holidays.end")} htmlFor="hol-end">
             <DateField id="hol-end" min={start || term?.date_start || undefined} max={term?.date_end ?? undefined} value={end} onChange={(v) => setEnd(v)} />
           </Field>
-          <Button type="submit" disabled={!termId || !name.trim() || !start || add.isPending}>
+          <Button type="submit" disabled={!termId || !name.trim() || !start || add.isPending} data-tour="admin-holidays-add">
             <Plus aria-hidden />
             {t("crbs.common.add")}
           </Button>
