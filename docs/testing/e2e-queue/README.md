@@ -119,3 +119,9 @@ On pass: tick VO-06/07/08 and VO-05.
 8. Policy screen counts change after one person enrols. 9. Profil › Güvenlik › Uygulamayı değiştir: the old code works until
    the new one is confirmed, then fails; recovery codes still work; the `mfa_app_changed` mail arrives.
 10. The sign-in page shows the "iki aşamalı doğrulama" wording for idp_mfa_required.
+
+## Added 2026-10-18 09:35 UTC
+
+- **AS-F** (1440 mouse and 390×844 touch, tr-TR): `e2e/as-seasons.spec.ts`, `e2e/as-analytics.spec.ts` (gracious and empty stacks), `e2e/as-surfaces.spec.ts`. Steps are in the AS-F hand-off (PROGRESS row `as-f`): draft, activate and revert a profile on /admin/weeks with focus on the row; peaks tab P4/P8; "düşük güven" beside forecast ranges; a what-if draft-run link; the needs texts on an empty stack; the find-room peak chip on Wednesday P4; the advisor card for the Final term; "Profil:" in the run header; `slots` mode saves; Öğrenmeyi yenile and Bu sürüme dön.
+- **AS-B API checks:** an EXAM run shows `stats.class_plan` and no exam takes a room a class holds; the course run's data issues show "Sınavla çakışan dersler"; `/analytics/forecast/exams/advice` answers on Final 2026; POST `/learning/weights/propose` after 5 or more edits creates a draft profile.
+- **AUX-F:** `e2e/au-signin-security.spec.ts`: the 2FA tag and filter on /admin/users, the live policy sentence with counts, and "Uygulamayı değiştir" (an old-app code is refused).
