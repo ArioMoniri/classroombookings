@@ -6,7 +6,10 @@
    input, code / essays / translation / general knowledge, with the helper's own length cap (1000 characters);
 2. the **index vocabulary** as the scope signal: a text with no scheduling word *and* no word of the feature index
    (exact, or one typo away) is out of scope. So "şifre", "bildirim" or "takvim" are in scope because the index has
-   them, and "hava nasıl" is not. The refusal carries the top 3 index hits the person may open.
+   them, and "hava nasıl" is not. A time word alone (:data:`app.ai.guardrails.TEMPORAL_WORDS`: "yarın", "akşam",
+   "perşembe" …) is neither a scheduling signal nor an index word here (HB-F bug B: "Yarın İstanbul'da hava…" and
+   "Dün akşamki maç…" passed on it); "Yarın için boş bir salon bul" still passes on "salon". The refusal carries the
+   top 3 index hits the person may open.
 
 :func:`ground_answer` is the output rule: a model answer that names a page without a ``nav`` card for it is replaced
 by the index answer (hallucinated menus are impossible), and so is one whose letters drift out of Latin + Turkish
@@ -56,10 +59,15 @@ class Verdict:
     rule: str | None = None
 
 
-def _known_share(text: str) -> float:
-    """Share of the text's meaningful words the index knows (exact stem, surface form, or one typo away)."""
+def _known_share(text: str, skip: re.Pattern[str] | None = None) -> float:
+    """Share of the text's meaningful words the index knows (exact stem, surface form, or one typo away). Words and
+    phrases matching ``skip`` (on the folded text; the helper passes :data:`app.ai.guardrails.TEMPORAL_WORDS`) are
+    left out of both counts; ``0.0`` when nothing is left."""
     idx = get_index()
-    words = [w for w in _WORD.findall(g.fold(text)) if w not in STOPWORDS and len(w) >= 2]
+    folded = g.fold(text)
+    if skip is not None:
+        folded = skip.sub(" ", folded)
+    words = [w for w in _WORD.findall(folded) if w not in STOPWORDS and len(w) >= 2]
     if not words:
         return 0.0
     return sum(1 for w in words if idx.knows(w)) / len(words)
@@ -81,9 +89,9 @@ def check(text: str, perms: Iterable[str], *, min_coverage: float = MIN_COVERAGE
     if _ROLE_HANDOFF.search(g.fold(raw)):
         tr, en = g.message_for("prompt_injection_roleplay")
         return Verdict(False, "prompt_injection_roleplay", tr, en, hits, "helper_role_handoff")
-    if g.has_scheduling_signal(raw):
+    if g.has_scheduling_signal(raw, temporal=False):
         return Verdict(True, hits=hits)
-    if _known_share(raw) >= min_coverage:
+    if _known_share(raw, skip=g.TEMPORAL_WORDS) >= min_coverage:
         return Verdict(True, hits=hits)
     return Verdict(False, OUT_OF_SCOPE, REFUSAL_TR, REFUSAL_EN, hits, "index_vocabulary")
 

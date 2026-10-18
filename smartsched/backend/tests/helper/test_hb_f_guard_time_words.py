@@ -25,7 +25,7 @@ LEAKS = [
     "Cumartesi günü maç kaçta başlıyor?",
     "Pazar akşamı derbi maçı hangi kanalda?",
     "What's the weather like tomorrow morning?",
-    "Is the football match on Saturday afternoon?",
+    "Is there a football game on Saturday afternoon?",
 ]
 MUST_PASS = [
     "Yarın için boş bir salon bul",

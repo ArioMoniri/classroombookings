@@ -466,12 +466,21 @@ _SCOPE_RULES: list[tuple[str, str, re.Pattern[str], bool]] = [
 ]
 
 _SCHEDULING_WORDS = _rx(
-    r"\b(ders\w*|sinav\w*|derslik\w*|salon\w*|oda\w*|sinif\w*|saat\w*|gun\w*|hafta\w*|donem\w*|sube\w*|ogrenci\w*|kapasite\w*|"
-    r"rezervasyon\w*|program\w*|takvim\w*|pazartesi|sali|carsamba|persembe|cuma\w*|cumartesi|pazar|sabah|ogle\w*|aksam\w*|"
-    r"hoca\w*|ogretim|gozetmen\w*|kural\w*|kisit\w*|tasi\w*|bina\w*|amfi\w*|laboratuvar\w*|plan\w*|yarin\w*|"
-    r"room\w*|class\w*|course\w*|exam\w*|lecture\w*|schedul\w*|timetable\w*|slot\w*|booking\w*|reserv\w*|period\w*|week\w*|"
-    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|capacity|section\w*|instructor\w*|"
+    r"\b(ders\w*|sinav\w*|derslik\w*|salon\w*|oda\w*|sinif\w*|donem\w*|sube\w*|ogrenci\w*|kapasite\w*|"
+    r"rezervasyon\w*|program\w*|takvim\w*|"
+    r"hoca\w*|ogretim|gozetmen\w*|kural\w*|kisit\w*|tasi\w*|bina\w*|amfi\w*|laboratuvar\w*|plan\w*|"
+    r"room\w*|class\w*|course\w*|exam\w*|lecture\w*|schedul\w*|timetable\w*|slot\w*|booking\w*|reserv\w*|period\w*|"
+    r"capacity|section\w*|instructor\w*|"
     r"invigilat\w*|building\w*|move|swap|constraint\w*|rule\w*|semester|term)\b"
+)
+#: time words (weekdays, parts of the day, "yarın", "hafta", "saat"; on folded text). They were part of the scheduling
+#: signal and still are for the gateway guard (:func:`has_scheduling_signal` by default), but alone they say nothing
+#: about scope: "Yarın İstanbul'da hava nasıl?" and "Dün akşamki maç…" passed the helper guard on them (HB-F bug B), so
+#: the helper asks ``has_scheduling_signal(text, temporal=False)`` and leaves them out of its coverage count.
+#: ``hafta sonu`` is one phrase, so "sonu" is not counted as an index word either.
+TEMPORAL_WORDS = _rx(
+    r"\b(hafta ?sonu\w*|saat\w*|gun\w*|hafta\w*|pazartesi|sali|carsamba|persembe|cuma\w*|cumartesi|pazar|sabah|ogle\w*|"
+    r"aksam\w*|yarin\w*|week\w*|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon)\b"
 )
 _CODE_LIKE = re.compile(
     r"^\s*(def |class \w+[:(]|import |from \w+ import|function\s*\w*\(|#include|public static|select .+ from|<\?php|var |let |const )",
@@ -485,8 +494,13 @@ MAX_INPUT_CHARS = {"chat": 4000, "rules": 20000, "explain": 2000, "booking_nl": 
 DEFAULT_MAX_INPUT_CHARS = 20000
 
 
-def has_scheduling_signal(text: str) -> bool:
-    return bool(_COURSE.search(text or "") or _TIME.search(text or "") or _SCHEDULING_WORDS.search(fold(text)))
+def has_scheduling_signal(text: str, *, temporal: bool = True) -> bool:
+    """A course code, a clock time or a scheduling word. ``temporal=False`` (the helper guard, HB-F bug B): a time
+    word from :data:`TEMPORAL_WORDS` alone is not a signal."""
+    if _COURSE.search(text or "") or _TIME.search(text or ""):
+        return True
+    folded = fold(text)
+    return bool(_SCHEDULING_WORDS.search(folded) or (temporal and TEMPORAL_WORDS.search(folded)))
 
 
 def _code_like(text: str) -> bool:
@@ -715,6 +729,7 @@ __all__ = [
     "MARK_OPEN",
     "REASON_CODES",
     "REMOVED_MARK",
+    "TEMPORAL_WORDS",
     "ConcurrencyGate",
     "Finding",
     "RateLimiter",
