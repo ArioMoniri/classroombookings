@@ -10,6 +10,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { focusAfter } from "@/components/bookings/focus-after";
 import { applySessionLanguage } from "@/components/bookings/use-booking-format";
 import type { SignInStepOut } from "@/lib/api/auth-security";
 import { MeFull } from "@/lib/api/shell-extra";
@@ -64,6 +65,9 @@ export function useFinishSignIn(next: string | null) {
       }
       router.replace(target);
       router.refresh();
+      // the focused field leaves with the sign-in page: hand focus to the landing page's <main> once it renders, so it
+      // never stays on <body> (e2e 2026-10-18, AUX-F §16.1); any key or tap of the person ends the watch
+      focusAfter([], 320, 5000);
     },
     [locale, next, router, setLocale, t],
   );

@@ -150,3 +150,7 @@ On pass: tick VO-06/07/08 and VO-05.
 ## Added 2026-10-18 10:48 UTC
 
 - **IDP** (1440 and 390, tr-TR): Profil › Güvenlik link Keycloak (mock issuer `e2e/w3-idp-mock-issuer.py`) → "bağlandı" → unlink with password, focus on "Bağla", toast; the same with a SAML IdP and an encrypted assertion through the ACS; `?error=already_linked&provider=keycloak` shows on the Keycloak row only; admin with a federation certificate and unsigned metadata → provider "error" with the Turkish reason.
+
+## Added 2026-10-18 10:55 UTC
+
+- **RF-C:** /admin/schedules P1 → "08.00"–"08:40": a period habit ("sabah saatleri") in learning suggestions/priors shows "(08:00–13:20)", reset shows "(08:30–13:20)". On a stack seeded before RF-06 (or with `imported_snapshots` rows for entity 'exam' removed): edit a BME 419 exam head count, re-import a Final list where that cell differs as a preview → one conflict (planner, file, previous import); apply keeps the edit and `summary.extra.rebuilt_import_values.from_audit ≥ 1`.

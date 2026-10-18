@@ -143,6 +143,23 @@ describe("preview first (RF-06)", () => {
   });
 });
 
+describe("RF-C: previous values rebuilt from the audit log", () => {
+  it("shows a null previous value as 'bilinmiyor' and one plain line for the rebuilt counts", async () => {
+    const diff = { ...DIFF, rows: [{ ...DIFF.rows[0], conflicts: [{ field: "enrolment", planner: 30, file: 28, previous_import: null, resolution: "kept" }] }, ...DIFF.rows.slice(1)] };
+    up.fn.mockReset().mockResolvedValue(adaptJob({ ...PREVIEW, summary: { ...PREVIEW.summary, diff, extra: { rebuilt_import_values: { from_audit: 12, edited_unknown: 2 } } } }));
+    const card = await uploadFile();
+    expect(within(card).getByTestId("import-conflict-0")).toHaveTextContent("bilinmiyor");
+    const line = within(card).getByTestId("import-preview-rebuilt");
+    expect(line).toHaveTextContent("Önceki içe aktarmanın değerleri denetim kaydından yeniden kuruldu (12 satır).");
+    expect(line).toHaveTextContent("2 satırda önceki değer bilinmiyor.");
+  });
+
+  it("no rebuilt counts: no line", async () => {
+    const card = await uploadFile();
+    expect(within(card).queryByTestId("import-preview-rebuilt")).toBeNull();
+  });
+});
+
 describe("history: who imported, the report and the file (RF-08)", () => {
   const SEED = { id: 5, kind: "planning-list", filename: "bahar.xlsx", status: "DONE", created_at: "2026-10-16T07:00:00", actor: "system", source: "seed", created_by_name: null, summary: { rows_total: 1529, created: { sections: 900 }, updated: {}, rows_skipped: [{ row: 12, reason: "boş ders kodu" }], warnings: [] } };
   const CLI = { id: 6, kind: "exam-list", filename: "final.xlsx", status: "FAILED", error: "dosya okunamadı", created_at: "2026-10-16T07:05:00", actor: "system", source: "cli", created_by_name: null, summary: {} };

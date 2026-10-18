@@ -58,6 +58,7 @@ export function ImportPreview({ job, onApplied, onCancel }: { job: ImportJob; on
   const totals = diff ? diffTotals(diff) : null;
   const conflicts = (diff?.rows ?? []).filter((r) => r.change === "conflict");
   const others = (diff?.rows ?? []).filter((r) => r.change !== "conflict");
+  const rebuilt = { from_audit: job.summary.rebuilt_import_values?.from_audit ?? 0, edited_unknown: job.summary.rebuilt_import_values?.edited_unknown ?? 0 };
   const warnings = job.summary.warnings_count ?? job.summary.warnings.length;
   const canChoose = CONFLICT_KINDS.has(job.kind) && (diff?.conflicts_total ?? 0) > 0;
   const original: OnConflict = diff?.on_conflict === "take" ? "take" : "keep";
@@ -113,6 +114,12 @@ export function ImportPreview({ job, onApplied, onCancel }: { job: ImportJob; on
           <p className="type-callout text-label-2">{t("rf.preview.noDiff")}</p>
         )}
 
+        {rebuilt.from_audit || rebuilt.edited_unknown ? (
+          <p className="type-footnote text-label-2" data-testid="import-preview-rebuilt">
+            {[rebuilt.from_audit ? t("rf.preview.rebuilt", { n: n(rebuilt.from_audit) }) : null, rebuilt.edited_unknown ? t("rf.preview.rebuiltUnknown", { n: n(rebuilt.edited_unknown) }) : null].filter(Boolean).join(" ")}
+          </p>
+        ) : null}
+
         {conflicts.length ? (
           <section aria-labelledby={`${advId}-c`} className="space-y-2">
             <h3 id={`${advId}-c`} className="type-headline text-label-1">{t("rf.preview.conflictsTitle")}</h3>
@@ -140,7 +147,8 @@ export function ImportPreview({ job, onApplied, onCancel }: { job: ImportJob; on
                       ).map(([k, v]) => (
                         <div key={k} className="min-w-0">
                           <dt className="type-footnote text-label-3">{t(k)}</dt>
-                          <dd className="truncate font-medium text-label-1 tabular-nums">{valueText(v, t)}</dd>
+                          {/* RF-C: an exam imported before RF-06 may have no previous value (null) */}
+                          <dd className="truncate font-medium text-label-1 tabular-nums">{k === "rf.preview.previous" && (v === null || v === undefined) ? t("rf.preview.unknown") : valueText(v, t)}</dd>
                         </div>
                       ))}
                     </dl>

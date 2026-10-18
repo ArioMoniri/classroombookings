@@ -167,6 +167,9 @@ export function importJob(v: unknown): unknown {
       ...(num(summary.applied_job_id) !== null ? { applied_job_id: num(summary.applied_job_id) } : {}),
       ...(num(summary.preview_of) !== null ? { preview_of: num(summary.preview_of) } : {}),
       ...(isRec(summary.diff) ? { diff: summary.diff } : {}),
+      ...(isRec(summary.extra) && isRec(summary.extra.rebuilt_import_values)
+        ? { rebuilt_import_values: { from_audit: num(summary.extra.rebuilt_import_values.from_audit, 0) ?? 0, edited_unknown: num(summary.extra.rebuilt_import_values.edited_unknown, 0) ?? 0 } }
+        : {}),
     },
     error: str(v.error) ?? null,
     created_at: utcIso(v.created_at) ?? new Date().toISOString(),

@@ -228,6 +228,8 @@ export const ImportJob = z.object({
     preview_of: z.number().nullable().optional(),
     /** RF-06: `summary.diff` of a preview, parsed by `importDiff` (lib/api/rf-admin.ts) */
     diff: z.unknown().optional(),
+    /** RF-C: previous-import values of exams imported before RF-06, rebuilt from the audit log (`summary.extra`) */
+    rebuilt_import_values: z.object({ from_audit: z.number().optional(), edited_unknown: z.number().optional() }).optional(),
   }),
   /** short, path-free reason of a FAILED job */
   error: z.string().nullable().optional(),

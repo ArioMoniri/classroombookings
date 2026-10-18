@@ -3740,7 +3740,8 @@
       "goal": "Ledger name `rf-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack; `nice`, pytest only on touched files); never `pkill …",
       "ledger": "RF-C: RF-14 band times, RF-15 exam edits",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:46"
     },
     {
       "id": "a8917f02184aa4b6f",
@@ -3784,6 +3785,14 @@
       "subagent_type": "",
       "status": "finished",
       "finished_at": "2026-10-18 10:42",
+      "left_off": "is the pod up yet"
+    },
+    {
+      "id": "af111834e4a2d8215",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-18 10:44",
       "left_off": "is the pod up yet"
     }
   ]
