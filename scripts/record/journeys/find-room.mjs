@@ -35,7 +35,9 @@ export default {
     await page.goto("/find-room");
     await page.getByTestId("find-room").waitFor({ timeout: 30_000 });
     // date and time are filled off camera (a native date picker and two times are not worth watching)
+    // the date field is a text field that commits on blur (ui/date-field.tsx): fill, then leave it
     await page.getByTestId("fr-date").fill(date);
+    await page.getByTestId("fr-date").blur();
     await page.getByTestId("fr-start").fill(START);
     await page.getByTestId("fr-end").fill(END);
   },

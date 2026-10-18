@@ -122,6 +122,8 @@ class Executed:
     #: until when the undo makes sense (the booking's start); ``None`` = no undo
     undo_until: datetime | None = None
     follow_ups: list[s.FollowUp] | None = None
+    #: the invocation this write reversed (``undo_last_helper_action``)
+    undo_of: int | None = None
 
 
 async def _reject(session: AsyncSession, access: Access, code: str, action: str | None) -> None:
@@ -222,6 +224,7 @@ async def confirm(session: AsyncSession, access: Access, token: str) -> dict[str
     inv.entity_type = done.entity.kind if done.entity else None
     inv.entity_id = done.entity.id if done.entity else None
     inv.undo_event_id = done.undo_event_id
+    inv.undo_of = done.undo_of
     await session.commit()
     token_out = until = None
     if done.undo_event_id is not None and done.undo_until is not None:
@@ -265,8 +268,11 @@ async def last_undoable(session: AsyncSession, access: Access) -> HelperActionIn
     return (await session.execute(q)).scalars().first()
 
 
-async def undo_invocation(session: AsyncSession, access: Access, inv: HelperActionInvocation) -> dict[str, Any]:
-    """Reverse a done helper write through ``bookings_undo`` (which re-checks the window, later changes and the slot)."""
+async def undo_invocation(
+    session: AsyncSession, access: Access, inv: HelperActionInvocation, *, record: bool = True
+) -> dict[str, Any]:
+    """Reverse a done helper write through ``bookings_undo`` (which re-checks the window, later changes and the slot).
+    ``record=False``: the caller (a confirmed ``undo_last_helper_action``) writes the invocation row and the audit."""
     from app.services import bookings as bsvc
     from app.services import bookings_undo
 
@@ -274,6 +280,20 @@ async def undo_invocation(session: AsyncSession, access: Access, inv: HelperActi
         raise ActionRefused(403, "other_user", "Bu işlem başka bir hesaba ait.", "This belongs to another account.")
     if inv.status != "done" or inv.undo_event_id is None:
         raise ActionRefused(409, "not_undoable", "Bu işlem geri alınamaz.", "This cannot be undone.")
+    if inv.entity_type == "booking" and inv.entity_id is not None:
+        from app.models import Booking, BookingPeriod
+
+        b = await session.get(Booking, inv.entity_id)
+        period = await session.get(BookingPeriod, b.period_id) if b is not None else None
+        if b is not None and period is not None:
+            start = datetime.combine(b.date, period.time_start)
+            if await bsvc.now_local(session) >= start:  # helper.md §4.4: only before the booking starts
+                raise ActionRefused(
+                    409,
+                    "too_old",
+                    "Rezervasyon başladı; artık geri alınamaz.",
+                    "The booking has started; it can no longer be undone.",
+                )
     claimed = await session.execute(
         update(HelperActionInvocation)
         .where(HelperActionInvocation.id == inv.id, HelperActionInvocation.status == "done")
@@ -291,6 +311,9 @@ async def undo_invocation(session: AsyncSession, access: Access, inv: HelperActi
             exc.status, exc.code, str(d.get("message_tr") or exc.message), exc.message,
             **{k: v for k, v in d.items() if k in ("alternatives", "later")},
         ) from exc
+    if not record:
+        await session.flush()
+        return out
     now = utcnow()
     undo_row = HelperActionInvocation(
         user_id=access.user_id,

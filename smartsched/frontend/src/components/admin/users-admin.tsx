@@ -563,7 +563,7 @@ type IdentityProps = { s: UserIdentityStatus | undefined; invite: Invite | undef
 function UserDialog({ user, onClose, canListRoles, identityFor }: { user: AdminUser | "new" | null; onClose: () => void; canListRoles: boolean; identityFor: (u: AdminUser) => IdentityProps }) {
   return (
     <Dialog open={user !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl" data-testid="user-dialog">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-xl lg:max-w-2xl" data-testid="user-dialog">
         {user !== null ? <UserForm key={user === "new" ? "new" : user.id} user={user === "new" ? null : user} onClose={onClose} canListRoles={canListRoles} identity={user === "new" ? null : identityFor(user)} /> : null}
       </DialogContent>
     </Dialog>
@@ -639,7 +639,8 @@ function UserForm({ user, onClose, canListRoles, identity }: { user: AdminUser |
           });
         }}
       >
-        <div className="grid gap-3 sm:grid-cols-2">
+        {/* mobile-b phase 2 (M-10): columns of at least 280 px; one column at 768, two in the wider desktop dialog */}
+        <div className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(17.5rem,1fr))]">
           <Field label={t("crbs.users.username")} htmlFor="u-username" hint={t("crbs.users.usernameHint")}>
             <Input id="u-username" autoComplete="off" value={f.username} onChange={(e) => set("username", e.target.value)} />
           </Field>

@@ -74,7 +74,8 @@ function OpsPanelBody() {
 
   return (
     <div className="flex max-w-6xl flex-col gap-6" data-testid="ops-panel">
-      <PageTitle title={t("ops.title")} subtitle={t("ops.lead")} actions={status.data ? <StatusPill status={overall(status.data)} /> : null} />
+      {/* the overall status reads with the lead; as PageTitle actions it became a lone pill in the phone capsule (mobile-b phase 2) */}
+      <PageTitle title={t("ops.title")} subtitle={<span className="flex flex-wrap items-center gap-2"><span>{t("ops.lead")}</span>{status.data ? <StatusPill status={overall(status.data)} /> : null}</span>} />
       {status.isLoading ? <StatusCardsLoading /> : null}
       {status.isError && !forbidden ? <Alert tone="error">{t("ops.loadError")}</Alert> : null}
       {status.data ? <StatusCards s={status.data} /> : null}

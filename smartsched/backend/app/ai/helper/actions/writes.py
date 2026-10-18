@@ -400,7 +400,7 @@ async def preview_cancel(ctx: Ctx, a: CancelArgs) -> Preview | s.CardBase:
     from app.ai.helper.actions.bookings import my_bookings
 
     if not a.booking_id:
-        return await my_bookings(ctx, REGISTRY["my_bookings"].args())
+        return await my_bookings(ctx, REGISTRY["my_bookings"].args())  # pick one from the list
     b = await ctx.session.get(Booking, a.booking_id)
     room = await ctx.session.get(Room, b.room_id) if b is not None else None
     if b is None or room is None or not (ctx.access.can_view_room(room) or bsvc.is_owner(ctx.access, b)):
@@ -455,7 +455,7 @@ async def execute_cancel(ctx: Ctx, a: CancelArgs, p: Preview) -> cf.Executed:
 
 
 class RequestArgs(Args):
-    request_id: Annotated[int, Field(ge=1, description="id of the user's own pending request")] = 1
+    request_id: Annotated[int, Field(ge=0, description="id of the user's own pending request; 0 = not chosen")] = 0
 
 
 @write(
@@ -470,6 +470,8 @@ class RequestArgs(Args):
     route_args={"request_id": "request_id"},
 )
 async def preview_withdraw(ctx: Ctx, a: RequestArgs) -> Preview | s.CardBase:
+    if not a.request_id:
+        return await REGISTRY["my_requests_status"].run(ctx, REGISTRY["my_requests_status"].args())
     req = await ctx.session.get(ApprovalRequest, a.request_id)
     if req is None or req.requested_by != ctx.access.user_id:
         raise ActionRefused(404, "not_found", "Talep bulunamadı.", "Request not found.")
@@ -513,7 +515,7 @@ async def execute_withdraw(ctx: Ctx, a: RequestArgs, p: Preview) -> cf.Executed:
 
 
 class DecideArgs(Args):
-    request_id: Annotated[int, Field(ge=1, description="id of a pending request from approvals_inbox")] = 1
+    request_id: Annotated[int, Field(ge=0, description="id of a pending request from approvals_inbox; 0 = not chosen")] = 0
     decision: Literal["approve", "reject"] = "approve"
     reason_code: Literal["", "room_unavailable", "capacity", "policy", "other"] = ""
     reason: Annotated[str, Field(max_length=1000, description="why, for a rejection; '' = none")] = ""
@@ -532,6 +534,8 @@ class DecideArgs(Args):
     route_args={"request_id": "request_id", "decision": "decision", "reason_code": "reason_code", "reason": "reason"},
 )
 async def preview_decide(ctx: Ctx, a: DecideArgs) -> Preview | s.CardBase:
+    if not a.request_id:
+        return await REGISTRY["approvals_inbox"].run(ctx, REGISTRY["approvals_inbox"].args())
     req = await ctx.session.get(ApprovalRequest, a.request_id)
     room = await ctx.session.get(Room, req.room_id) if req is not None else None
     if req is None or room is None:
@@ -680,8 +684,12 @@ async def execute_undo(ctx: Ctx, _a: NoArgs, p: Preview) -> cf.Executed:
     inv = await ctx.session.get(HelperActionInvocation, int(p.facts["invocation"]))
     if inv is None:
         raise ActionRefused(404, "nothing_to_undo", "Geri alınacak bir işlem yok.", "There is nothing to undo.")
-    await cf.undo_invocation(ctx.session, ctx.access, inv)
-    return cf.Executed(entity=None, message=cards.txt("Geri alındı.", "Undone."))
+    await cf.undo_invocation(ctx.session, ctx.access, inv, record=False)
+    return cf.Executed(
+        entity=s.Entity(kind="booking", id=inv.entity_id, feature_id="my_bookings") if inv.entity_id else None,
+        message=cards.txt("Geri alındı.", "Undone."),
+        undo_of=inv.id,
+    )
 
 
 __all__ = ["WRITES", "Preview", "WriteSpec", "refusal"]

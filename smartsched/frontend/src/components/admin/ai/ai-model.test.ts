@@ -4,7 +4,10 @@ import type { Provider, UsageRow } from "@/lib/api/ai-admin";
 import {
   activeSeries,
   compactTokens,
+  dailyLegend,
   dayChartData,
+  foldWeeks,
+  lastIsToday,
   errorMessage,
   meterFill,
   meterState,
@@ -151,5 +154,32 @@ describe("usage", () => {
     expect(errorMessage(e, "tr", "x")).toBe("Model eşitlenmedi.");
     expect(errorMessage(e, "en", "x")).toBe("Not synced.");
     expect(errorMessage(new Error("boom"), "tr", "Bir hata oldu")).toBe("Bir hata oldu");
+  });
+});
+
+describe("CH-05 daily chart helpers", () => {
+  const day = (iso: string, chat: number, rules = 0) => ({ day: iso, label: iso, total: chat + rules, chat, rules, intake: 0, explain: 0, vision: 0, other: 0 });
+
+  it("the legend keeps the fixed order and the entity colour when a series is filtered out", () => {
+    const legend = dailyLegend(["chat", "intake", "other"], (s) => s.toUpperCase());
+    expect(legend.map((l) => l.key)).toEqual(["chat", "intake", "other"]);
+    expect(legend.map((l) => l.color)).toEqual(["var(--cat-1)", "var(--cat-3)", "var(--label-3)"]);
+    expect(legend[1]!.label).toBe("INTAKE");
+  });
+
+  it("folds days into weekly sums that end with the latest day (30 days → 5 columns)", () => {
+    const days = Array.from({ length: 30 }, (_, i) => day(new Date(Date.UTC(2026, 8, 17 + i)).toISOString().slice(0, 10), 10, 1));
+    const weeks = foldWeeks(days, (from, to) => `${from}–${to}`);
+    expect(weeks).toHaveLength(5);
+    expect(weeks.at(-1)).toMatchObject({ day: "2026-10-10", label: "2026-10-10–2026-10-16", chat: 70, rules: 7, total: 77 });
+    expect(weeks[0]).toMatchObject({ day: "2026-09-17", chat: 20, total: 22 });
+    expect(weeks.reduce((s, w) => s + w.total, 0)).toBe(330);
+  });
+
+  it("knows when the last day is today in Istanbul", () => {
+    const pts = [day("2026-10-16", 1), day("2026-10-17", 1)];
+    expect(lastIsToday(pts, new Date("2026-10-17T21:30:00Z"))).toBe(false); // already the 18th in Istanbul
+    expect(lastIsToday(pts, new Date("2026-10-17T20:30:00Z"))).toBe(true);
+    expect(lastIsToday([], new Date())).toBe(false);
   });
 });

@@ -305,7 +305,7 @@ def _load() -> None:
     if _loaded:
         return
     _loaded = True
-    from app.ai.helper.actions import approvals, bookings, nav, planning, usage  # noqa: F401
+    from app.ai.helper.actions import approvals, bookings, nav, planning, usage, writes  # noqa: F401
 
 
 __all__ = [

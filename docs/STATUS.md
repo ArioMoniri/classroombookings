@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `d8f6126` (committed 2026-10-18 00:22 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `4069185` (committed 2026-10-18 07:57 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -177,20 +177,20 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-276 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 248 · stopped 11 · superseded 7.
+281 agents in [`docs/agents/registry.json`](agents/registry.json): running 10 · finished 253 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
 | `Launch video producer (Recordly + Lottie)` | general-purpose | 2026-10-17 19:56 |
-| `CAL-B` | backend-engineer | 2026-10-17 21:54 |
 | `WG-F` | frontend-engineer | 2026-10-17 22:58 |
 | `AS-B` | backend-engineer | 2026-10-17 23:01 |
-| `VO-B` | ai-engineer | 2026-10-17 23:16 |
 | `VO-F` | frontend-engineer | 2026-10-17 23:16 |
 | `RF-1` | general-purpose | 2026-10-17 23:22 |
-| `RF-2` | backend-engineer | 2026-10-17 23:22 |
 | `HB-A` | ai-engineer | 2026-10-17 23:28 |
 | `AUX-F` | frontend-engineer | 2026-10-18 00:04 |
+| `AS-S` | solver-engineer | 2026-10-18 07:56 |
+| `HB-B` | ai-engineer | 2026-10-18 07:56 |
+| `Sweeper` | general-purpose | 2026-10-18 07:56 |
 
 <!-- /AUTO:agents -->
 
@@ -257,7 +257,7 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 
 <!-- AUTO:roadmap -->
 
-[`docs/ROADMAP.md`](ROADMAP.md): **365 ticked · 480 open** checkboxes in 100 sections (96 with open items).
+[`docs/ROADMAP.md`](ROADMAP.md): **384 ticked · 461 open** checkboxes in 100 sections (96 with open items).
 
 <details><summary>Per section</summary>
 
@@ -355,10 +355,10 @@ Not offered (owner decision 2026-10-15: Turkish and English only): cs cy da de e
 | Calendar export & sync for academicians (owner request 2026-10-17) | 7 | 6 |
 | Wave 3b — W3-IDP identity providers (2026-10-17) | 5 | 1 |
 | Welcome guide per role (owner request 2026-10-17) | 3 | 8 |
-| Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 0 | 20 |
-| Voice for AI features (owner request 2026-10-17) | 0 | 13 |
-| Charts & telemetry views (owner request 2026-10-17) | 2 | 10 |
-| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 0 | 12 |
+| Adaptive scheduling, seasons and predictions (owner request 2026-10-17) | 12 | 8 |
+| Voice for AI features (owner request 2026-10-17) | 5 | 8 |
+| Charts & telemetry views (owner request 2026-10-17) | 3 | 9 |
+| Real-not-fake & admin editability (owner request 2026-10-17; audit… | 1 | 11 |
 | AI helper: backend, governance, local models (owner request 2026-10-17) | 0 | 20 |
 | AI helper: search, "where is it", generative actions (owner request 2026-10-17) — UX | 0 | 14 |
 | Sign-in, 2FA and passkeys (owner request 2026-10-18) — UX | 0 | 12 |

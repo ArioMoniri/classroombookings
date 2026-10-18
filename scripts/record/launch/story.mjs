@@ -143,7 +143,7 @@ export function buildStory({ format = "landscape", story = "launch", take, steps
       render(c) {
         const a = c.alpha;
         const u = c.local / 1000;
-        const fr = Math.min(179, u * 30 * 1.35);
+        const fr = Math.min(150, u * 30 * 1.35); // the loop resets after ~frame 165: hold its solved state
         const logoA = c.easeOut((u - 0.15) / 0.6) * a;
         const tagA = c.easeOut((u - 0.9) / 0.7) * a;
         const L = format === "vertical"

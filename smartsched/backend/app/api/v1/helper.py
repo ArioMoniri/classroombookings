@@ -32,7 +32,10 @@ def refused(status: int, code: str, tr: str, en: str, **data: Any) -> HTTPExcept
     """The project's error shape (``code``, ``message`` = English, ``message_tr``, ``message_en``) plus the card the
     helper shows for it."""
     kind = "limit" if status == 429 else ("refusal" if status in (403, 404) else "error")
-    card = cards.dump(cards.status(kind, code if code.replace("_", "").isalpha() else "error", tr, en))
+    # a 409 "changed" brings the fresh card to show instead (a new preview with a new token, or a form)
+    card = data.pop("card", None) or cards.dump(
+        cards.status(kind, code if code.replace("_", "").isalpha() else "error", tr, en)
+    )
     return HTTPException(
         status, {"code": code, "message": en, "message_en": en, "message_tr": tr, "card": card, **data}
     )
@@ -130,3 +133,42 @@ async def build_card(name: str, args: dict[str, Any], db: DB, access: CurrentAcc
 @router.post("/actions/{name}/card")
 async def action_card(name: str, body: CardIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
     return await build_card(name, body.args, db, access)
+
+
+# ------------------------------------------------------------------------------------- confirm / undo (HB-05)
+
+
+class TokenIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token: str = Field(min_length=10, max_length=4000)
+
+
+@router.post("/actions/confirm")
+async def confirm(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """The card's button: verify the token, claim it once, re-run the preview, then write through the service.
+    403 bad / other user's token, 410 expired, 409 already done or changed (with the new card)."""
+    from app.ai.helper import confirm as cf
+    from app.ai.helper.actions import writes
+
+    try:
+        p = cf.verify(body.token)
+        spec = writes.WRITES.get(str(p.get("a")))
+        if spec is not None:
+            if reg.RATE.hit(access.user_id, spec.action):
+                raise refused(429, "rate_limited", "Çok sık denediniz; bir dakika sonra yeniden deneyin.",
+                              "Too many tries; try again in a minute.")
+            await gate(spec.action, db, access)
+        return await cf.confirm(db, access, body.token)
+    except reg.ActionRefused as exc:
+        raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc
+
+
+@router.post("/actions/undo")
+async def undo(body: TokenIn, db: DB, access: CurrentAccess) -> dict[str, Any]:
+    """"Geri al" on a result card (24 h, and only before the booking starts; ``bookings_undo`` decides)."""
+    from app.ai.helper import confirm as cf
+
+    try:
+        return await cf.undo(db, access, body.token)
+    except reg.ActionRefused as exc:
+        raise refused(exc.status, exc.code, exc.tr, exc.en, **exc.data) from exc

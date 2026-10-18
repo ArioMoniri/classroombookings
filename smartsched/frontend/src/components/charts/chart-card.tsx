@@ -345,7 +345,7 @@ export function ChartCard<R>(props: ChartCardProps<R>) {
       {ready ? (
         <div data-chart-footer className="flex flex-wrap items-center gap-2 max-md:[&>[data-slot=button]]:flex-1">
           {!tooFew ? (
-            <Button variant="secondary" size="md" onClick={() => setTableMode((v) => !v)}>
+            <Button variant="secondary" size="md" onClick={() => setTableMode((v) => !v)} data-testid={`chart-table-toggle-${id}`}>
               {tableMode ? t("charts.showChart") : t("charts.showTable")}
             </Button>
           ) : null}

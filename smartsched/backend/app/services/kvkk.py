@@ -46,6 +46,7 @@ from typing import Any
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import rls
 from app.core.config import get_settings
 from app.core.export_safety import safe_writer
 from app.core.security import hash_password, revoke_tokens
@@ -610,13 +611,16 @@ async def inventory(session: AsyncSession) -> dict[str, Any]:
     classes = []
     for code, spec in DATA_CLASSES.items():
         counts: dict[str, int] = {}
-        for t in spec["tables"]:
-            if "." in t:
-                continue
-            try:
-                counts[t] = int((await session.execute(text(f"select count(*) from {t}"))).scalar_one())  # noqa: S608
-            except Exception:  # noqa: BLE001 - a table of an optional feature may not exist on an old database
-                counts[t] = 0
+        # an org-wide count: on PostgreSQL the owner-only tables (welcome_progress, MFA, helper) would show the admin
+        # only their own rows, so the counts run as system (the route checks setup.settings)
+        async with rls.system_scope(session):
+            for t in spec["tables"]:
+                if "." in t:
+                    continue
+                try:
+                    counts[t] = int((await session.execute(text(f"select count(*) from {t}"))).scalar_one())  # noqa: S608
+                except Exception:  # noqa: BLE001 - a table of an optional feature may not exist on an old database
+                    counts[t] = 0
         p = policies.get(code)
         classes.append(
             {

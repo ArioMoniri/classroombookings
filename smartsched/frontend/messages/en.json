@@ -259,6 +259,7 @@
     "you": "You", "assistant": "Planner", "streaming": "Streaming…", "noKey": "Add an Anthropic API key in Settings to enable chat."
   },
   "settings": {
+    "mailNotices": {"title": "E-mail notifications", "lead": "Booking reminders and the new-device sign-in alert, for the whole organisation.", "hours": "Reminder: hours before the start", "hoursUnit": "hours before", "hoursHint": "Default 24 hours (a day before). Everyone can turn their own reminders off in Profile › Notifications.", "hoursOff": "0: no reminders are sent.", "hoursInvalid": "Enter a number of hours from 0 to 336 (0: no reminders).", "newDevice": "Sign-in from a new device e-mail", "newDeviceHint": "When an account is signed in on a device not seen before, its owner gets a security e-mail. People cannot turn it off.", "save": "Save", "saved": "E-mail notifications saved.", "failed": "Could not save. Try again."},
     "securityContact": {
       "title": "Security contact",
       "lead": "People reporting a vulnerability see these addresses in /.well-known/security.txt (RFC 9116). The file's expiry date moves one year ahead on every request.",
@@ -6966,6 +6967,7 @@
     }
   },
   "charts": {
+    "unit": {"tokens": "tokens"},
     "kb": {"label": "Chart, use the arrow keys to move", "total": "total {value}"},
     "patterns": {"label": "Patterns in charts", "hint": "Adds hatched patterns to chart colours. Turn it on if the colours are hard to tell apart."},
     "menu": "Chart options",

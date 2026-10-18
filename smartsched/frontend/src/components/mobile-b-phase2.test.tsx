@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { ScheduleRun } from "@/lib/api/schemas";
+import { api } from "@/lib/api/endpoints";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { PublishRunButton } from "./runs/publish-run";
 import { focusClassChip } from "./timetable/focus-chip";
@@ -196,4 +197,35 @@ describe("fix 13 · /admin/users new-user form: columns of at least 280 px (768 
   it("the dialog grows on desktop so two columns still fit there", () => {
     expect(lineOf("admin/users-admin.tsx", "user-dialog")).toContain("lg:max-w-2xl");
   });
+});
+
+describe("fix 17 · /admin/ops: the overall status is part of the title, not a lone pill floating above the tab bar", () => {
+  it("PageTitle gets no actions (the capsule held only 'Çalışıyor'); the pill sits next to the lead", () => {
+    const src = read("admin/ops/ops-panel.tsx");
+    const title = src.split("\n").find((l) => l.includes("<PageTitle")) ?? "";
+    expect(title).not.toContain("actions=");
+    expect(title).toContain("<StatusPill status={overall(status.data)} />");
+  });
+});
+
+describe("hero motion · publish → '✓ Yayında' confirms itself once (free transitions.dev success-check, ≤ 300 ms)", () => {
+  const wrap = (r: ReturnType<typeof run>) => (
+    <QueryClientProvider client={new QueryClient()}>
+      <I18nProvider initialLocale="en">
+        <PublishRunButton run={r} published={null} />
+      </I18nProvider>
+    </QueryClientProvider>
+  );
+  it("a run that is already published on load shows a still check (nothing performs on load, motion.md rule 3)", () => {
+    render(wrap(run({ is_active: true })));
+    expect(screen.getByTestId("run-published-check").getAttribute("data-state")).toBe("still");
+  });
+  it("after 'Yayınla' succeeds here, the check plays its appear transition", async () => {
+    vi.spyOn(api.runs, "activate").mockResolvedValueOnce(run({ is_active: true }));
+    const view = render(wrap(run({ horizon: "TERM", horizon_params: { weeks: [] }, status: "FEASIBLE", stats: { placed: 683, events_total: 683 } })));
+    await userEvent.click(screen.getByTestId("run-publish"));
+    await userEvent.click(await screen.findByTestId("publish-confirm"));
+    view.rerender(wrap(run({ horizon: "TERM", horizon_params: { weeks: [] }, status: "FEASIBLE", is_active: true, stats: { placed: 683, events_total: 683 } })));
+    expect((await screen.findByTestId("run-published-check")).getAttribute("data-state")).toBe("in");
+  }, 20000);
 });

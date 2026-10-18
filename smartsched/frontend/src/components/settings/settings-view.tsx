@@ -33,6 +33,7 @@ import { SsoSettings } from "@/components/identity/sso-settings";
 import { ChannelsAdmin } from "@/components/channels/channels-admin";
 import { SlotDisplaySettings } from "./slot-display";
 import { SecurityContactCard } from "./security-contact";
+import { MailNoticesCard } from "./mail-notices";
 import { useSettings, useUpdateSettings } from "@/lib/api/hooks";
 import type { Settings } from "@/lib/api/schemas";
 import { useI18n } from "@/lib/i18n/provider";
@@ -427,6 +428,8 @@ export function SettingsView() {
             <GeneralCard />
             {/* security follow-up wave3-sec2: the institution's security.txt contact (administrators only) */}
             <SecurityContactCard />
+            {/* RF-11: booking reminder lead time and the new-device sign-in mail (PUT /org/settings, setup.settings) */}
+            {can("setup.settings") ? <MailNoticesCard /> : null}
           </div>
         </TabsContent>
         <TabsContent value="appearance"><AppearanceCard /></TabsContent>

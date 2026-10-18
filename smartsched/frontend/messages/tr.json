@@ -258,6 +258,7 @@
     "you": "Siz", "assistant": "Planlayıcı", "streaming": "Yazıyor…", "noKey": "Sohbet için Ayarlar'dan bir Anthropic API anahtarı ekleyin."
   },
   "settings": {
+    "mailNotices": {"title": "E-posta bildirimleri", "lead": "Rezervasyon hatırlatmaları ve yeni cihazdan giriş uyarısı tüm kurum için.", "hours": "Hatırlatma: başlangıçtan kaç saat önce", "hoursUnit": "saat önce", "hoursHint": "Varsayılan 24 saat (bir gün önce). Herkes kendi hatırlatmalarını Profil › Bildirimler'den kapatabilir.", "hoursOff": "0: hatırlatma gönderilmez.", "hoursInvalid": "0 ile 336 arasında bir saat girin (0: hatırlatma yok).", "newDevice": "Yeni cihazdan giriş e-postası", "newDeviceHint": "Hesaba daha önce görülmemiş bir cihazdan girilince sahibine güvenlik e-postası gider. Kişiler bunu kapatamaz.", "save": "Kaydet", "saved": "E-posta bildirimleri kaydedildi.", "failed": "Kaydedilemedi. Yeniden deneyin."},
     "securityContact": {
       "title": "Güvenlik iletişimi",
       "lead": "Güvenlik açığı bildirecek kişiler bu adresleri /.well-known/security.txt dosyasında görür (RFC 9116). Dosyanın geçerlilik tarihi her istekte bir yıl ileri alınır.",
@@ -6965,6 +6966,7 @@
     }
   },
   "charts": {
+    "unit": {"tokens": "token"},
     "kb": {"label": "Grafik, ok tuşlarıyla gezinin", "total": "toplam {value}"},
     "patterns": {"label": "Grafiklerde desen", "hint": "Grafik renklerine çizgili desen ekler. Renkleri ayırt etmekte zorlanıyorsanız açın."},
     "menu": "Grafik seçenekleri",

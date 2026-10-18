@@ -6,7 +6,7 @@ import type { TableModel } from "./chart-csv";
 
 export function ChartTable({ id, caption, model, visible }: { id: string; caption: string; model: TableModel; visible: boolean }) {
   return (
-    <div data-chart-table={id} className={cn(visible ? "max-h-80 overflow-auto" : "sr-only")}>
+    <div data-chart-table={id} data-testid={`chart-table-${id}`} className={cn(visible ? "max-h-80 overflow-auto" : "sr-only")}>
       <table className="w-full border-collapse type-footnote tabular-nums">
         <caption className={cn("text-left type-footnote text-label-2", visible ? "pb-2" : undefined)}>{caption}</caption>
         <thead>

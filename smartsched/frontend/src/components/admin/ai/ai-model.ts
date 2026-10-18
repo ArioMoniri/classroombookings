@@ -287,3 +287,37 @@ export function audioDays(rows: readonly UsageRow[], locale: string): { day: str
       return { day, label: day ? fmt.format(new Date(`${day}T00:00:00Z`)) : "", minutes: Math.round((r.audio_minutes ?? 0) * 10) / 10 };
     });
 }
+
+// ── CH-05 (docs/design/v3/charts.md §4 row 1): helpers for "Günlük token kullanımı" on the shared ChartCard ──────
+
+/** Legend entries for the active series, in the fixed order; the colour follows the feature, not the position. */
+export function dailyLegend(series: readonly ChartSeries[], label: (s: ChartSeries) => string): { key: ChartSeries; label: string; color: string }[] {
+  return CHART_SERIES.filter((s) => series.includes(s)).map((s) => ({ key: s, label: label(s), color: SERIES_COLOR[s] }));
+}
+
+/**
+ * Phones (charts.md §7): days → weekly sums, 7-day blocks counted back from the latest day (so the current, unfinished
+ * week is the last column). `day` is the block's first ISO day; `label(from, to)` names the block.
+ */
+export function foldWeeks(points: readonly DayPoint[], label: (from: string, to: string) => string): DayPoint[] {
+  const out: DayPoint[] = [];
+  for (let end = points.length; end > 0; end -= 7) {
+    const block = points.slice(Math.max(0, end - 7), end);
+    const p = { day: block[0]!.day, label: label(block[0]!.day, block.at(-1)!.day), total: 0 } as DayPoint;
+    for (const s of CHART_SERIES) p[s] = 0;
+    for (const d of block) {
+      p.total += d.total;
+      for (const s of CHART_SERIES) p[s] += d[s];
+    }
+    out.unshift(p);
+  }
+  return out;
+}
+
+/** The last point is today in Europe/Istanbul (the day is not over: hatched, and said in the summary). */
+export function lastIsToday(points: readonly DayPoint[], now: Date = new Date()): boolean {
+  const last = points.at(-1);
+  if (!last) return false;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return last.day === today;
+}
