@@ -103,7 +103,7 @@ export function WhatIfForm({ termId }: { termId: number }) {
         </Button>
       </Card>
       {out ? (
-        <div ref={resultRef} tabIndex={-1} className="flex flex-col gap-2 rounded-xl bg-card p-4 outline-hidden edge-hairline focus-visible:outline-2 focus-visible:outline-(--focus)" role="status" data-testid="wi-result">
+        <div ref={resultRef} tabIndex={-1} className="flex flex-col gap-2 rounded-xl bg-card p-4 outline-hidden edge-hairline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" role="status" data-testid="wi-result">
           <p className="type-headline text-label-1">{out.scenario?.label?.[lang] || t("adaptive.whatIf.result")}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 type-callout">
             <dt className="text-label-2">{t("adaptive.whatIf.today")}</dt>

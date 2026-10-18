@@ -178,4 +178,4 @@ Scaling notes: smartsched/deploy/README.md "Scaling" and docs/deploy/AWS.md sect
 - The pod path: SSM `bootstrap/*` reaches the first deploy and every pod CI deploy, and an SSM outage does not
   block a deploy (`test_pod_bootstrap_settings.py`).
 - `up` stores the values before the launch, as SecureString for secrets, with the values absent from the result
-  (`infra/aws/tests/test_bootstrap_settings.py`).
+  (`infra/aws/tests/test_aws_bootstrap_settings.py`).
