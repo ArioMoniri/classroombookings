@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Grid } from "@/lib/api/crbs";
 import { DEFAULT_SLOT_DISPLAY } from "@/components/bookings/slot-display";
-import { altWhyQuery, asRequestable, buildingLabel, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, periodOptions, reserveSpan, slotsFor, whyQuery, wholeSpan } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildingLabel, buildQuery, compactWeeks, emptyForm, formFromRecent, isFeatureMiss, isoDate, normaliseClock, ownRequestFor, parseWeeks, periodOptions, reserveSpan, slotsFor, spanRefusal, whyQuery, wholeSpan } from "./find-room-model";
 
 describe("T-R1-14 find-room results", () => {
   it("folds the near misses that lack the asked feature (find_room.py's 'free; missing:' reason)", () => {
@@ -72,6 +72,19 @@ describe("reserve target", () => {
     // period 1 is not reservable any more (taken meanwhile): no partial P2-only sheet
     expect(wholeSpan(slotsFor(grid, 5, "2026-02-18", 1, 2))).toBeNull();
     expect(wholeSpan([])).toBeNull();
+  });
+  it("BUG-01: a closed day (no period in the day grid, a holiday) is refused as closed, not as 'just taken'", () => {
+    // Sunday on a Monday-Friday schedule: the day grid has no period, so the span is empty
+    const sunday = { ...grid, periods: [], slots: [] } as unknown as Grid;
+    expect(wholeSpan(slotsFor(sunday, 5, "2026-02-22", 1, 2))).toBeNull();
+    expect(spanRefusal(slotsFor(sunday, 5, "2026-02-22", 1, 2))).toBe("closed");
+    const holiday = { ...grid, slots: grid.slots.map((x) => ({ ...x, status: "unavailable", reason: "holiday", label: "Bayram" })) } as unknown as Grid;
+    expect(spanRefusal(slotsFor(holiday, 5, "2026-02-18", 1, 2))).toBe("closed");
+    const offDay = { ...grid, slots: grid.slots.map((x) => ({ ...x, status: "unavailable", reason: "period" })) } as unknown as Grid;
+    expect(spanRefusal(slotsFor(offDay, 5, "2026-02-18", 1, 2))).toBe("closed");
+    // a period booked meanwhile is still "taken"
+    const taken = { ...grid, slots: [grid.slots[1], { ...grid.slots[0], status: "booked", reason: "single" }] } as unknown as Grid;
+    expect(spanRefusal(slotsFor(taken, 5, "2026-02-18", 1, 2))).toBe("taken");
   });
   it("opens request-only periods for the sheet", () => {
     const g = asRequestable(grid, 5, "2026-02-18", 1, 2);

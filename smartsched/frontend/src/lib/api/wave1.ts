@@ -145,7 +145,8 @@ export const FindResponse = z.object({
   slots: z.array(z.object({ date: z.string(), start_period: z.number(), end_period: z.number() })).default([]),
   duration_periods: z.number().nullish(),
   time: z.object({ start: z.string(), end: z.string() }).nullish(),
-  closed_dates: z.array(z.object({ date: z.string(), reason: z.string().nullish(), holiday: z.string().nullish() })).default([]),
+  /** BUG-01: `reason` holiday | date_range | no_week | closed_day (a weekday the schedule does not offer); `label` says why */
+  closed_dates: z.array(z.object({ date: z.string(), reason: z.string().nullish(), holiday: z.string().nullish(), label: Bilingual.nullish() })).default([]),
   preferred_building: z.string().nullish(),
   summary: z.object({ rooms: z.number(), free: z.number(), dates: z.number(), open_dates: z.number(), text_tr: z.string(), text_en: z.string() }).nullish(),
   results: z.array(FindRow).default([]),

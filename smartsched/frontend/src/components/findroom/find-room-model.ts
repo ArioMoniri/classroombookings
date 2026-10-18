@@ -306,6 +306,19 @@ export function wholeSpan(slots: GridSlot[]): GridSlot[] | null {
   return slots.length && slots.every(isSelectable) ? slots : null;
 }
 
+/** grid `unavailable` reasons that mean the day itself is closed (bookings.py grid: holiday, a weekday the period is not offered on, …) */
+const CLOSED_REASONS = new Set(["holiday", "period", "schedule", "date_range", "no_week", "closed_day"]);
+
+/**
+ * BUG-01: why `wholeSpan` refused a result card's window. `closed`: the day grid has no period for it (Sunday on a
+ * Monday-Friday schedule) or the day is closed (holiday, not offered that weekday): "Bu gün rezervasyona kapalı".
+ * `taken`: a period was booked meanwhile: "Bu derslik az önce doldu".
+ */
+export function spanRefusal(slots: GridSlot[]): "closed" | "taken" {
+  if (!slots.length) return "closed";
+  return slots.some((s) => s.status === "unavailable" && CLOSED_REASONS.has(s.reason ?? "")) ? "closed" : "taken";
+}
+
 /**
  * The building chip: a bare "A" and the setup's own "A Blok" both read "A Blok" in Turkish and "Block A" in English
  * (T-R2-16, R2-A-08: the chips kept the Turkish word in the English UI; persona U-10: never "A Blok Blok"). A longer

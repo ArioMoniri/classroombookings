@@ -37,7 +37,7 @@ import { errorText, pickLang, useFacets, useMyRequests, useRecentSearches, w1Key
 import { intlLocale, type MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { altWhyQuery, asRequestable, buildQuery, clockDefaults, emptyForm, regridForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, periodOptions, recentParts, SHOWN, slotsFor, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
+import { altWhyQuery, asRequestable, buildQuery, clockDefaults, emptyForm, regridForm, firstFreeDate, formFromRecent, isFeatureMiss, ownRequestFor, buildingLabel, periodOptions, recentParts, SHOWN, slotsFor, spanRefusal, whyQuery, wholeSpan, type FindForm, type FormError, type TimeMode, type WhenMode } from "./find-room-model";
 import { BareButton } from "@/components/shell/bare-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -176,7 +176,8 @@ export function FindRoomView() {
       // T-R2-14: the whole promised window or nothing (a stale card never opens a trimmed sheet)
       const span = wholeSpan(slotsFor(grid, roomId, date, start, end));
       if (!span) {
-        toast.error(t("wave1.find.notFree"));
+        // BUG-01: a closed day (Sunday, a holiday) says so; only a period booked meanwhile is "az önce doldu"
+        toast.error(t(spanRefusal(slotsFor(grid, roomId, date, start, end)) === "closed" ? "wave1.find.dayClosed" : "wave1.find.notFree"));
         // R3-S-02: the pressed card leaves with the refreshed list, so the refreshed summary takes the focus (not <body>)
         void run(f, false, true);
         return;
@@ -448,7 +449,7 @@ export function FindRoomView() {
                 <Alert tone="warning" title={t("wave1.find.closedTitle", { n: result.closed_dates.length })}>
                   {result.closed_dates
                     .slice(0, 6)
-                    .map((c) => `${fmt.short(c.date)}${c.holiday ? ` (${c.holiday})` : ""}`)
+                    .map((c) => `${fmt.short(c.date)}${c.label ? ` (${pickLang(c.label, locale)})` : c.holiday ? ` (${c.holiday})` : ""}`)
                     .join(", ")}
                 </Alert>
               ) : null}

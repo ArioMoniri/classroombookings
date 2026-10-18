@@ -34,7 +34,6 @@ from app.models import (
     Instructor,
     InvigilationDuty,
     Room,
-    ScheduleRun,
     User,
 )
 from app.services import bookings as booking_service
@@ -228,7 +227,6 @@ async def test_cal_13_duties_appear_on_activation_and_only_the_persons_own(denv:
     await _activate(e, e.plan_id)
     status, text = await _feed(e, sub["token"])
     assert status == 200
-    print("FEEDTEXT\n" + text)
     cal = lint_ics(text, forbidden=[e.mehmet.name, e.ayse.name, "Ayşe Yılmaz", "Mehmet Öz"])
     assert str(cal["X-WR-CALNAME"]) == "SmartSched – Sınav görevlerim"
     mine = _keyed(_duty_events(text))
@@ -306,7 +304,9 @@ async def test_cal_13_link_serves_only_its_path_file_and_revocation(denv: DutyEn
         assert (await e.client.get(f"/api/v1/calendar/feeds/{token}/{other}")).status_code == 404
     # conditional GET: the same version answers 304
     r = await e.client.get(f"/api/v1/calendar/feeds/{token}/duties.ics")
-    r304 = await e.client.get(f"/api/v1/calendar/feeds/{token}/duties.ics", headers={"If-None-Match": r.headers["etag"]})
+    r304 = await e.client.get(
+        f"/api/v1/calendar/feeds/{token}/duties.ics", headers={"If-None-Match": r.headers["etag"]}
+    )
     assert r304.status_code == 304
     # the one-off file: same engine and UIDs, attachment, no SOURCE
     f = await e.client.get("/api/v1/calendar/export/duties.ics", headers=e.ayse.headers)
@@ -364,7 +364,11 @@ async def test_cal_13_options_and_push_scope(denv: DutyEnv) -> None:
     _, other = await make_user(e.client, e.admin, "idari@uni.edu.tr", full_name="İdari Personel")
     r = await e.client.get("/api/v1/calendar/export/options", headers=other)
     nl = next(x for x in r.json()["scopes"] if x["kind"] == "my_duties")
-    assert nl["available"] is False and nl["reason"]["code"] == "not_linked" and "öğretim elemanı" in nl["reason"]["message_tr"]
+    assert (
+        nl["available"] is False
+        and nl["reason"]["code"] == "not_linked"
+        and "öğretim elemanı" in nl["reason"]["message_tr"]
+    )
 
     # push: "my_duties" is a push scope; publishing the plan queues the person's class reconcile, and the desired
     # events are the feed's UIDs
@@ -380,7 +384,9 @@ async def test_cal_13_options_and_push_scope(denv: DutyEnv) -> None:
         conn_id = conn.id
     await _activate(e, e.plan_id)
     async with dbmod.get_session_factory()() as s:
-        jobs = list((await s.execute(select(CalendarSyncJob).where(CalendarSyncJob.connection_id == conn_id))).scalars())
+        jobs = list(
+            (await s.execute(select(CalendarSyncJob).where(CalendarSyncJob.connection_id == conn_id))).scalars()
+        )
         assert any(j.kind == "classes" for j in jobs), [(j.kind, j.status) for j in jobs]
         conn_row = await s.get(CalendarConnection, conn_id)
         assert conn_row is not None
@@ -390,4 +396,3 @@ async def test_cal_13_options_and_push_scope(denv: DutyEnv) -> None:
     live = {str(x["UID"]) for x in events(text) if str(x["STATUS"]) == "CONFIRMED"}
     assert set(want) == live and all(u.startswith("exam-") for u in want)
     assert any(item.summary.startswith("Gözetmenlik") for item in want.values())
-

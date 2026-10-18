@@ -113,7 +113,9 @@ async def published(session: AsyncSession) -> list[tuple[int, ScheduleRun | None
         for t in (
             await session.execute(
                 select(CalendarClassRevision.term_id)
-                .where(CalendarClassRevision.uid.like(cc.EXAM_UID_PREFIX + "%"), CalendarClassRevision.ended_at.is_(None))
+                .where(
+                    CalendarClassRevision.uid.like(cc.EXAM_UID_PREFIX + "%"), CalendarClassRevision.ended_at.is_(None)
+                )
                 .distinct()
             )
         ).scalars()
@@ -162,7 +164,9 @@ async def term_occurrences(
 
     if run is None and plan is None:
         return []
-    exams = {er.id: er for er in (await session.execute(select(ExamRequest).where(ExamRequest.term_id == term_id))).scalars()}
+    exams = {
+        er.id: er for er in (await session.execute(select(ExamRequest).where(ExamRequest.term_id == term_id))).scalars()
+    }
     display: dict[str, str] = {}
     names: dict[str, str] = {}
     for code, disp, cname in (await session.execute(select(Course.code, Course.display_code, Course.name))).all():
@@ -178,7 +182,8 @@ async def term_occurrences(
         ers = [exams[e] for e in eids if e in exams]
         keys = sorted({n.course_key(er.course_code) for er in ers if er.course_code})
         codes = tuple(display.get(k, n.clean_text(k) or k) for k in keys)
-        titles = {n.clean_text(er.course_name) or names.get(n.course_key(er.course_code), "") for er in ers} - {""}
+        # the catalogue name first (the exam list often writes it in capitals), else the exam list's cell
+        titles = {names.get(n.course_key(er.course_code)) or n.clean_text(er.course_name) or "" for er in ers} - {""}
         pids = tuple(sorted({int(er.program_id) for er in ers if er.program_id}))
         return {
             "codes": codes,
@@ -197,7 +202,14 @@ async def term_occurrences(
         ).scalars():
             g = posts.setdefault(
                 d.post_key,
-                {"date": d.date, "sp": d.start_period, "ep": d.end_period, "room": d.room_id, "eids": set(), "ins": set()},
+                {
+                    "date": d.date,
+                    "sp": d.start_period,
+                    "ep": d.end_period,
+                    "room": d.room_id,
+                    "eids": set(),
+                    "ins": set(),
+                },
             )
             g["eids"] |= set(ints(d.exam_request_ids))
             if d.instructor_id is not None:
@@ -226,7 +238,9 @@ async def term_occurrences(
         for a in (
             await session.execute(
                 select(Assignment)
-                .where(Assignment.run_id == run.id, Assignment.archived.is_(False), Assignment.exam_request_id.is_not(None))
+                .where(
+                    Assignment.run_id == run.id, Assignment.archived.is_(False), Assignment.exam_request_id.is_not(None)
+                )
                 .order_by(Assignment.id)
             )
         ).scalars():
@@ -240,7 +254,12 @@ async def term_occurrences(
             g["eids"].add(er.id)
             g["rooms"] += [int(r) for r in ints(a.room_ids) if int(r) not in g["rooms"]]
         for (day, sp, ep, _ck), g in groups.items():
-            ins = {owner_of[k] for e in g["eids"] for k, _ in inv_svc.person_keys(exams[e].instructor_text) if k in owner_of}
+            ins = {
+                owner_of[k]
+                for e in g["eids"]
+                for k, _ in inv_svc.person_keys(exams[e].instructor_text)
+                if k in owner_of
+            }
             if not ins:
                 continue
             t0, t1 = _clock(sp, ep)

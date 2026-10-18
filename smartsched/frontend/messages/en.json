@@ -2848,6 +2848,7 @@
       "reserveRoom": "Reserve {room}",
       "requestRoom": "Request {room}",
       "notFree": "This room was just taken. The list is refreshed.",
+      "dayClosed": "This day is closed for bookings. The list is refreshed.",
       "rateLimited": "Too many searches in a minute. Wait a moment and try again.",
       "recent": "Recent searches",
       "people": "{n} people",

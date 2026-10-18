@@ -2847,6 +2847,7 @@
       "reserveRoom": "{room} rezerve et",
       "requestRoom": "{room} için talep et",
       "notFree": "Bu derslik az önce doldu. Liste yenilendi.",
+      "dayClosed": "Bu gün rezervasyona kapalı. Liste yenilendi.",
       "rateLimited": "Bir dakikada çok fazla arama yapıldı. Biraz bekleyip yeniden deneyin.",
       "recent": "Son aramalar",
       "people": "{n} kişi",
