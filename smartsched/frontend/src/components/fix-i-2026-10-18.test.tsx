@@ -18,7 +18,7 @@ describe("E2EB-F02 /runs/compare at 200 % text: the unbreakable verdict word wra
 });
 
 describe("e2e fixtures on a recording stack (FIX-J KVKK upload guard)", async () => {
-  const { resolveFixturesDir } = await import("../../e2e/fixtures-dir");
+  const { resolveFixturesDir } = await import("../test/fixtures-dir");
   const raw = "/repo/smartsched/backend/tests/fixtures";
   const none = () => false;
   it("pod CI / a plain local run: the raw fixtures (the guard is off there)", () => {

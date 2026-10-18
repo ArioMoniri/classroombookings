@@ -5,7 +5,7 @@
  */
 import path from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
-import { resolveFixturesDir } from "./fixtures-dir";
+import { resolveFixturesDir } from "../src/test/fixtures-dir";
 
 export const REAL = process.env.E2E_REAL === "1";
 export const SKIP_REASON = "runs against the real backend: start it and set E2E_REAL=1 (see playwright.config.ts)";
@@ -17,7 +17,7 @@ export const boardRun = () => Number(process.env.E2E_BOARD_RUN ?? 1);
 export const solverRun = () => Number(process.env.E2E_SOLVER_RUN ?? process.env.E2E_BOARD_RUN ?? 1);
 /** the Bahar 2026 workbooks the e2e backend imported: the raw smartsched/backend/tests/fixtures on pod CI and a plain
  * local backend; on a recording stack the masked copies (E2E_FIXTURES_DIR / $REC_WORKDIR/fixtures), else a clear
- * KVKK error (e2e/fixtures-dir.ts) */
+ * KVKK error (src/test/fixtures-dir.ts) */
 export const FIXTURES = resolveFixturesDir(process.env, path.resolve(process.cwd(), "../backend/tests/fixtures"));
 export const PLANNING_LIST = path.join(FIXTURES, "bahar_derslik_planlama_listesi_v5.xlsx");
 

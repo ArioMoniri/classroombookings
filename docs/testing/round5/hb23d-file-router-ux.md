@@ -290,3 +290,59 @@ Time = seconds from the task start (file drop, or the first tap for phone tasks)
 - The planner's first-visit welcome modal ("Planlama ofisine hoş geldiniz") was dismissed with "Sonra" before each task.
 - Scripts are in the scratchpad `tester/` folder (not committed). No source file was edited.
 - Previews created import-job rows named `Bahar_son.xlsx` and `karisik.xlsx` in "Son içe aktarmalar". Nothing was applied, and no users were imported.
+
+## Re-check (round 2)
+
+- Date: 2026-10-18, about 19:55–20:15 UTC. The stack was rebuilt with the fixes; the accounts and files were the same as round 1.
+- Scope: only the blocker and the majors, at the sizes where they were found, plus any new blocker or major hit on the way.
+- Screenshots: `hb23d-ux/*-r2*.png`.
+
+| id | was | sizes re-tested | status | evidence |
+|---|---|---|---|---|
+| UX-01 | blocker | 1440 | **Fixed** | `final_planlama_listesi_2026_v2.xlsx` now gives "Bu bir sınav listesi · Eminim", "Dönem: Final 2026 (dosya adından)" and the primary "Final 2026 dönemine sınav listesi olarak aktar". It opens `/import?kind=exam-list&term=3&from=helper` with focus on "Önizle". The preview took 4 s (864 new, 58 unchanged, 863 to archive) and "Uygula" is visible. The full U3 flow takes about 15 s with 0 wrong clicks. Screenshots: `U3-planner-1440-r2-b-card.png`, `U3-planner-1440-r2-d-preview.png` |
+| UX-02 | major | 1440 | **Fixed** | After the card's primary the sheet closes on every route tested: `/import` weekly grid and exam list, `/onboarding`, `/my-classes`, `/find-room` and room master. "Önizle", "Uygula", "Başlat · 1 dosya" and "Derslik ana listesini uygula" are all uncovered. Screenshots: `U3-planner-1440-r2-d-preview.png`, `U4-planner-1440-r2-c-target.png` |
+| UX-03 | major | 1440 | **Fixed for admin, still open for the rooms-only admin** | Admin: the file row "room_master.csv · CSV · 4.4 KB · İçe aktarmaya hazır" is on the page, the diff reads "0 derslik değişiyor · 87 değişmiyor · 0 eşleşmedi · 0 satırda hata", and focus is on "Derslik ana listesini uygula" (`X5-roommaster-admin-1440-r2-c-target.png`). Rooms-only `derslik@`: no "no access", the file row is present, and apply works by token (`POST /imports/room-master` → 202, `"source":"helper"`, "Derslik ana listesi uygulandı · 87 satır okundu", `X5-roommaster-rooms-1440-r2-d-applied.png`). **But the diff is empty: "0 derslik değişiyor · 0 değişmiyor · 0 eşleşmedi · 0 satırda hata", with an empty table** (`X4-roomsonly-1440-r2-c-target.png`). This role gets 403 on `GET /api/v1/rooms`, `/terms` and `/imports`, so the page cannot compare and says nothing changes. The person applies blind, which breaks "Kaydetmeden önce her derslikte neyin değiştiğini görürsünüz". Also, the room-master row has no "Yardımcıdan geldi" chip (minor) |
+| UX-04 | major | 1440 + 390 | **Fixed** (focus is no longer on `<body>`) | 1440: focus goes to `main#main` on `/onboarding` (one and two files), `/my-classes` and `/find-room`, and to "Derslik ana listesini uygula" on room master. 390: `/onboarding` focuses "Başlat · 1 dosya". Residual (minor): at 1440, `/onboarding` focuses `main` rather than its primary "Başlat · 1 dosya" as §10 asks, unlike the phone |
+| UX-05 | major | 1440 | **Fixed** | The users CSV dialog opens with focus on "İçe aktar" (`import-run`), not the ✕ (`X1-users-admin-1440-r2-c-target.png`) |
+| UX-06 | major | 390 | **Fixed** | The `seminar.ics` card reads "Bu bir takvim dosyası · Takvim dosyası: 3 etkinlik, 02.03.2026 – 16.03.2026 · Takvim aktarımı kurumunuzda kapalı; dosyayı Outlook ya da Google Takvim'e kendiniz ekleyebilirsiniz." It has no dead-end button, the unrelated "Hızlı rezervasyonu aç" is gone, and the privacy line is "Dosya yalnızca türünü anlamak için okundu; tutulmadı." (`U6-acad-390-r2-b-card.png`) |
+| UX-07 | major | 1440 | **Fixed** | `belge.pdf` shows "Bu PDF dosyasını okuyamadım. Dosya bozuk ya da korumalı olabilir; başka bir kopyasını deneyin." The live region reads the same Turkish text, with no exception text (`X2-pdf-admin-1440-r2-b-card.png`) |
+| UX-08 | major | 1440 | **Fixed** | The row is renamed "Nerede? › Dosya türünü öğren · Yardımcı › Dosya ekle". With Enter or a mouse click, the helper opens and focus is on `helper-attach` ("Dosya ekle") (`UX08-palette-goster-keyboard-1440-r2.png`, `UX08-palette-goster-mouse-1440-r2.png`). Minor: no visible focus ring or "ring" highlight on 📎 in the screenshot, and the page still scrolls to 732 behind the sheet (UX-10 open) |
+| UX-09 | major | 1440 | **Still open (partly re-verifiable)** | None of the allowed files triggers a classify refusal on an `.xlsx` any more (UX-01 is fixed), so the original KVKK path cannot be replayed. The nearest case: on `/import?kind=exam-list` step 1, dropping or picking `belge.pdf` is **ignored silently**. There is no file row, no reason ("Yalnızca .xlsx" / "Bu PDF dosyasını okuyamadım…"), no classify and no sheet. "Önizle" is disabled, which is correct. The person drops a file and nothing happens (`UX09-drop-pdf-exam-list-1440-r2.png`). Source: `smartsched/frontend/src/components/import/magnetic-drop.tsx:135-136` (the vendored file input filters by `accept=".xlsx,.xlsm"` with no rejection message) |
+
+### New findings in round 2
+
+#### UX-27 · major · any persona · 1440 (and any second device) · a classify in another session of the same person deletes the staged file; the card then claims "10 dakika" expiry
+
+- **Repro** (deterministic, `two.mjs`):
+  1. Sign in as the planner at 1440 and drop `bahar_week1_transposed.xlsx`; the card appears.
+  2. Sign in as the same planner on a 390 phone and 📎 `notlar.xlsx`.
+  3. Back on the desktop, press "Kurulum sihirbazında aç".
+- **Expected:** the hand-over works; a second device or tab doesn't destroy the first file. If a stage really is gone, the copy must not say it expired after 10 minutes.
+- **Actual:** `POST /helper/files/handoff` → **410 `stage_expired`** about 2 s after the classify, whose `expires_at` was 10 minutes ahead. The card says "Dosyanın süresi doldu (10 dakika). Yeniden okuyun. · Dosyayı yeniden oku".
+  - The same 410 appeared intermittently in single-session runs: 4 out of about 25 hand-overs (`users_initials.csv` twice, `room_master.csv` twice), each 1.3–1.5 s after the classify.
+  - The likely cause is other agents using the same shared test accounts at the same time. No client `DELETE` was seen in the instrumented runs.
+- **Screenshots:** `NEW-stage-expired-two-sessions-1440-r2.png`, `NEW-stage-expired-admin-1440-r2.png`
+- **Source:** `smartsched/backend/app/api/v1/helper_files.py:76` (`hf.clear(access.user_id)`: "one live file per person" clears every session's stage on each new classify) → `smartsched/backend/app/ai/helper/files.py:1720-1727` (`clear`, per user, not per session) and `:1795-1798` (`_gone` answers `stage_expired` for a cleared stage).
+- **Proposal:** scope the clear to the session (`session_tag`), or answer a distinct code ("Bu dosya başka bir oturumda yeni bir dosyayla değiştirildi. Yeniden okuyun.").
+
+#### UX-03b · major · rooms-only admin · 1440 · empty diff before apply
+
+This is the open part of UX-03 above. It is counted under UX-03.
+
+### Observed in passing (minors, not re-tested systematically)
+
+- Fixed:
+  - UX-13: privacy copy now differs per route ("…Uygula ile kayıtlara işlenir." / "…okundu; tutulmadı.").
+  - UX-14: "İçe aktar düğmesi dosyayı Final 2026 dönemine aktarır.".
+  - UX-20: room-master evidence is now Turkish: "derslik kodu, kapasite, sınav kapasitesi, etiketler, bina, kat".
+- Still open: UX-10 (the page scrolls to 732 when the sheet opens).
+- New minors:
+  - the room-master row has no "Yardımcıdan geldi" chip;
+  - `/onboarding` at 1440 focuses `main` instead of "Başlat";
+  - no visible focus indicator on 📎 after "Nerede? › Göster".
+
+### Counts still open after round 2
+
+- **blocker 0**
+- **major 3**: UX-03 (rooms-only empty diff), UX-09 (refused or wrong-type file on step 1 has no reason), UX-27 (new: cross-session stage clear with false "10 dakika" copy)
+- **minor 17**: the 17 round-1 minors minus 3 seen fixed (UX-13, UX-14, UX-20), plus 3 new minors above

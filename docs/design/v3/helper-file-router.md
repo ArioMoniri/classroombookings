@@ -186,7 +186,7 @@ Budget: p95 ≤ 1.5 s for a 15 MB workbook on the 4-core host (header area only,
 
 | `kind` | Label TR / EN | Primary route (`feature_id` + params) | Permission (any of) | Academician / no-permission alternative |
 |---|---|---|---|---|
-| `planning_list` | Planlama listesi / Planning list | `import` `{kind: planning-list, term_id}`. **CSV / ODS / XLS:** `onboarding` (the wizard reads only Excel; the council's fast path reads the same importer through `workbook_for`) | `planning.edit` | `my_classes` "Derslerinizi SmartSched zaten biliyor: Derslerim" |
+| `planning_list` | Planlama listesi / Planning list | `import` `{kind: planning-list, term_id}`. **CSV / ODS / XLS:** `onboarding` (the wizard reads only Excel; the council's fast path reads the same importer through `workbook_for`) | `planning.edit` | `my_classes` "Derslerinizi Derslerim sayfasında görebilirsiniz" (HB-23d UX-26) |
 | `exam_list` | Sınav listesi / Exam list | `import` `{kind: exam-list, term_id}` (non-Excel → `onboarding`) | `planning.edit` | `my_classes` (exams tab when present), else guidance |
 | `weekly_grid` | Haftalık derslik takvimi / Weekly room timetable | `import` `{kind: weekly-grid, term_id, year}` | `planning.edit` | `find_room` "Boş derslik bulmak için: Derslik bul" |
 | `room_master` | Derslik ana listesi / Room master | `import` `{kind: room-master}` | `planning.edit`, `setup.rooms` | `find_room` |
@@ -244,7 +244,7 @@ Permissions are checked on the server with the person's `Access` (`access.perms`
 
 | `code` | When | Status | TR | EN |
 |---|---|---|---|---|
-| `term_mismatch` | the file's term differs from the active term | warn | Dosya {dosya_dönemi} diyor; şu an {etkin_dönem} seçili. Düğme dosyanın dönemine aktarır. | The file says {file_term}; {active_term} is selected now. The button imports into the file's term. |
+| `term_mismatch` | the file's term differs from the active term | warn | Dosya {dosya_dönemi} diyor; şu an {etkin_dönem} seçili. İçe aktar düğmesi dosyayı {dosya_dönemi} dönemine aktarır. | The file says {file_term}; {active_term} is selected now. The import button imports the file into {file_term}. |
 | `term_unknown` | no season found | info | Dosya hangi döneme ait olduğunu söylemiyor. İçe aktarırken dönemi siz seçeceksiniz. | The file doesn't say which term it is for. You'll choose the term when importing. |
 | `term_locked` | `term_lock` held for the target term | warn | {dönem} dönemine şu anda başka bir içe aktarma yazıyor. Önizleme açılır; uygulama işlem bitince yapılır. | Another import is writing {term} right now. The preview opens; applying waits until it finishes. |
 | `needs_excel` | importer shape in CSV / ODS / XLS | info | İçe aktarma ekranı yalnızca Excel (.xlsx) okur. Bu dosya Kurulum sihirbazında aynı kurallarla okunur. | The import screen reads Excel (.xlsx) only. The setup wizard reads this file with the same rules. |
@@ -331,13 +331,13 @@ marks, no emoji.
 | `helper.file.chooser.hint.grid` | Haftalık derslik doluluğu (pano) yüklenir | Loads the weekly room occupancy board |
 | `helper.file.chooser.hint.roomMaster` | Derslik kapasiteleri ve özellikleri güncellenir | Updates room capacities and features |
 | `helper.file.chooser.hint.onboarding` | Sihirbaz dosyayı okur ve ne bulduğunu size sorar | The wizard reads the file and asks you about what it found |
-| `helper.file.unknown` | Bu dosyayı tanıyamadım. {biçim} biçiminde, ama tanıdığım sütunlar yok. | I couldn't recognise this file. It is {format}, but I found no columns I know. |
+| `helper.file.unknown` | (evidence; the title already says "Bu dosyayı tanıyamadım.") Dosya {biçim} biçiminde, ama tanıdığım sütunlar yok. | The file is {format}, but I found no columns I know. |
 | `helper.file.unknown.list` | Tanıdığım dosyalar: planlama listesi, sınav listesi, haftalık derslik takvimi, derslik ana listesi, kullanıcı listesi, classroombookings yedeği, takvim (.ics). | Files I recognise: planning list, exam list, weekly room timetable, room master, user list, classroombookings backup, calendar (.ics). |
 | `helper.file.examples` | Örnek dosyaları gör | See example files |
-| `helper.file.needsPlanner` | Bu dosya bir {tür}. Bunu planlama ekibi içe aktarır. Sizin için: | This file is a {kind}. The planning team imports it. For you: |
+| `helper.file.needsPlanner` | Bu dosya bir {tür}. Bunu planlama ekibi içe aktarır. | This file is a {kind}. The planning team imports it. |
 | `helper.file.needsPlanner.none` | Bu dosya bir {tür}. Bunu planlama ekibi içe aktarır; dosyayı bölüm planlamacınıza gönderebilirsiniz. | This file is a {kind}. The planning team imports it; you can send it to your department's planner. |
 | `helper.file.icsAcademic` | SmartSched dışarıdan takvim okumaz. Derslerinizi ve rezervasyonlarınızı takviminize buradan eklersiniz. | SmartSched doesn't read outside calendars. You add your classes and bookings to your calendar from here. |
-| `helper.file.myClasses` | Derslerinizi SmartSched zaten biliyor; dosyayı yüklemenize gerek yok. | SmartSched already knows your classes; you don't need to upload the file. |
+| `helper.file.myClasses` | Derslerinizi Derslerim sayfasında görebilirsiniz; dosyayı yüklemenize gerek yok. | You can see your classes on the My classes page; you don't need to upload the file. |
 | `helper.file.refused.empty` | Dosya boş. | The file is empty. |
 | `helper.file.refused.type` | Bu tür dosyayı okuyamıyorum ({uzantı}). | I can't read this type of file ({ext}). |
 | `helper.file.refused.size` | Dosya {boyut}; en çok {mb} MB okuyabilirim. | The file is {size}; I can read up to {mb} MB. |
@@ -427,10 +427,12 @@ of §4.2 (copy review in the design checklist, §11.3).
   - **owner-bound:** the token's `uid` and `sess` must equal the caller's, else 403;
   - **once:** the first consume atomically renames the stage file to `.claimed`, so a second consume gets 410
     `stage_used`;
-  - **expiry:** after 10 minutes, consume returns 410 `stage_expired`; a sweeper (every minute, and at start-up)
-    deletes any stage older than 10 minutes;
+  - **expiry:** after 10 minutes, consume returns 410 `stage_expired` and deletes the stage then; a sweeper (every
+    15 s, and at start-up) deletes any stage older than 10 minutes − 15 s, so no stage file outlives 10 minutes
+    (HB-23d N1);
   - **cancel:** `DELETE /helper/files/{sid}` (the card's ✕, "Vazgeç", sheet close) deletes the stage at once;
-  - **one stage per person:** a new classify deletes the person's previous stage.
+  - **one stage per person:** every classify request deletes the person's previous stage first, whatever it answers
+    (refusal, rate limit, 413, 422, resend, unknown; HB-23d N9).
 - **Where the token lives on the client:**
   - the `helper-store` `fileHandoff` slot, mirrored to `sessionStorage` so a reload keeps it;
   - **never** in the URL, the history, logs or `localStorage`;
@@ -453,8 +455,8 @@ Backend (one optional form field each, exactly one of `file` / `upload_token`):
 | Endpoint | New field | Behaviour |
 |---|---|---|
 | `POST /imports/planning-list`, `/exam-list`, `/weekly-grid`, `/room-master` | `upload_token: str \| None = Form(None)` | `helper_files.consume(token, access)` → `(ext, bytes)` → written to `import_jobs.file_target` → the **same** `safe_files.precheck_upload` + `kvkk_guard.check` → job `summary.source = "helper"`. The file name stored is `helper-<sha12>.<ext>` unless the client sends `filename` (the browser's name, which the page already shows today) |
-| `POST /imports/crbs` | `upload_tokens: list[str]` | same, per dump |
-| `POST /council/jobs` | `upload_tokens: list[str]` | each token becomes one admitted file (`admit()` runs unchanged) |
+| `POST /imports/crbs` | `upload_token: str \| None` (HB-23d: one token) | same, for the one dump; refused with a DSN |
+| `POST /council/jobs` | `upload_token: str \| None` (HB-23d: one token) | the token becomes one admitted file (`admit()` runs unchanged) |
 | `POST /users/import` | `upload_token` | same 5 MB cap, then `import_users_csv` |
 
 Frontend (`fileHandoffHref` in `handover-links.ts`):
@@ -483,7 +485,8 @@ Everything above holds unless listed here. All additions are optional and backwa
 - **Several files** (owner decision 4, then the KVKK review item 16): one `file` card, title `helper.file.many`,
   `format: "mixed"`, evidence "1. dosya: Planlama listesi" per file (≤ 4), primary `onboarding` with
   `carries_file: true`, **no stage** and `resend: true`: the wizard uploads the File objects itself. People without
-  `planning.edit` get the first file's card. An unreadable file adds the warning `file_skipped` (bad).
+  `planning.edit` get 422 `one_file_only` ("Yardımcıya bir seferde bir dosya bırakın. …" / "Drop one file at a time
+  on the helper. …"; HB-23d N8). An unreadable file adds the warning `file_skipped` (bad).
 - **Extra warning codes:** `ics_academic` (info, the `icsAcademic` text, academician + `.ics`), `my_classes_known`
   (info, the `myClasses` text, academician + planning / exam list), `file_skipped` (several files). The term warnings
   (`term_mismatch`, `term_unknown`, `term_locked`) only appear when the primary imports into a term.
@@ -495,7 +498,7 @@ Everything above holds unless listed here. All additions are optional and backwa
   planners; the unknown card's wizard route uses `kind` absent (= `onboarding`) on `/handoff`.
 - **Unknown state** keeps "Kurulum sihirbazında aç" for planners as a secondary that **carries** the file, so a stage
   exists for planners there.
-- **`/handoff`** body: `upload_token`, optional `kind` (absent = `onboarding`), `feature_id`, `params` (`kind`,
+- **`/handoff`** body: `upload_token` (required, exactly one; HB-23d N5 dropped `upload_tokens`), optional `kind` (absent = `onboarding`), `feature_id`, `params` (`kind`,
   `term_id`, `year`). It answers `{ok: true, href_params: {kind?, term_id?, year?, import?}}`. 403
   `route_not_allowed` (a page this kind is not routed to for this person), 403 `kind_not_allowed`, 422 `bad_term` /
   `bad_year`. The audit row is `helper.file.handoff` on entity `helper_file` / sha12 with
@@ -506,8 +509,27 @@ Everything above holds unless listed here. All additions are optional and backwa
   role, a locked term or a bad form leaves the file usable).
 - **Target endpoints:** `/imports/planning-list`, `/exam-list`, `/weekly-grid`, `/room-master` take `upload_token` +
   optional `filename`; exactly one of `file` / `upload_token`, else 422 `file_or_token`. `/imports/crbs` takes
-  `upload_tokens`. `/council/jobs` takes `upload_tokens` + optional parallel `upload_names`. `/users/import` takes
-  `upload_token`. The stored name is the browser's `filename` when its extension matches, else `helper-<sha12>.<ext>`.
+  `upload_token`; with a `dsn` it answers 422 `dsn_or_token`, and the token is checked (owner, session, expiry)
+  before the DSN rules and consumed only after them. `/council/jobs` takes `upload_token` + optional `upload_name`.
+  `/users/import` takes `upload_token`. The stored name is the browser's `filename` when its extension matches, else
+  `helper-<sha12>.<ext>`.
+- **One token per request (HB-23d N5):** a new stage clears the person's previous one, so at most one token is ever
+  live. `/imports/crbs` and `/council/jobs` still read the old list fields (`upload_tokens`, `upload_names`) as
+  deprecated aliases holding at most one token; two or more answer 422 `one_upload_token` ("Yardımcıdan bir seferde
+  yalnızca bir dosya gelebilir. …" / "Only one file can come from the helper at a time. …") and nothing is consumed.
+  `/handoff` forbids `upload_tokens` (extra field → 422).
+- **Round-5 copy fixes (HB-23d, UX / design review):** an academician's `.ics` gets "Takvimime ekle" only while
+  the institution's calendar sync is on (`calendar_feeds.sync_enabled`); off, no primary and the info warning
+  `calendar_sync_off` ("Takvim aktarımı kurumunuzda kapalı; dosyayı Outlook ya da Google Takvim'e kendiniz
+  ekleyebilirsiniz."). A file the readers cannot open answers `file_unreadable` (refusal) / `file_read_failed`
+  (error) with "Bu {biçim} dosyasını okuyamadım. …", never the reader's exception text. `timetable_other` reads
+  "Bu bir derslik çizelgesi (haftalık takvim düzeninde değil)" and adds the info warning `layout_wizard`. A chooser
+  pick (`/route`, or classify with `kind`) titles "Seçiminiz: {tür}" with `certainty: "sure"`. Room-master evidence
+  uses words (derslik kodu, kapasite, sınav kapasitesi, …). Button labels fit 48 characters (`LABEL_MAX`; a long
+  "{dönem} dönemine {tür} olarak aktar" falls back to "{dönem} dönemine aktar", then "Dosyanın dönemine aktar").
+- **CRBS upgrade (HB-23d N6):** `POST /crbs-upgrade` runs one at a time per process (its dump copies and temporary
+  SQLite file sit on the `/tmp` tmpfs, `BACKEND_TMPFS`); a second request meanwhile answers 409
+  `crbs_upgrade_busy` before it writes anything.
 - **Stage crypto:** the AES-256-GCM key is HKDF(token key, salt = stage id, info = HMAC(APP_SECRET,
   "helper-file-kek")); the claim is an exclusive `.used` tombstone written before the rename. Sign-out and KVKK
   erasure delete the person's stages. Classify telemetry is a log line (`helper.files.classified`), not a row.

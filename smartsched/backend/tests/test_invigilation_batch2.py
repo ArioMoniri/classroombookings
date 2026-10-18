@@ -157,11 +157,15 @@ async def test_candidates_does_not_block_the_event_loop(real):
         assert r.status_code == 200
         return time.perf_counter()
 
+    t0 = time.perf_counter()
     tick = asyncio.create_task(ticker())
     t_heavy, t_cheap = await asyncio.gather(heavy(), cheap())
     await tick
     assert t_cheap < t_heavy, "the cheap request waited for candidates"
-    assert gaps and max(gaps) < 0.5, f"the event loop stalled for {max(gaps):.2f} s"
+    # A blocked loop shows one gap as long as the whole candidates call; on a CPU-shared CI host (parallel pod-CI
+    # gates, run #97) single GIL hand-offs can take longer than 0.5 s, so the bound scales with that call's length.
+    bound = max(0.5, 0.5 * (t_heavy - t0))
+    assert gaps and max(gaps) < bound, f"the event loop stalled for {max(gaps):.2f} s (bound {bound:.2f} s)"
 
 
 # ------------------------------------------------------------------------------------------- 2. fill a post by hand

@@ -247,7 +247,7 @@ export function uploadImportWithProgress(
 ): Promise<ImportJob> {
   const fd = new FormData();
   if (opts.uploadToken) {
-    fd.append(kind === "crbs" ? "upload_tokens" : "upload_token", opts.uploadToken);
+    fd.append("upload_token", opts.uploadToken);
     if (opts.filename) fd.append("filename", opts.filename);
   } else if (file) fd.append(kind === "crbs" ? "files" : "file", file);
   if (kind !== "crbs") fd.append("term_code", term.code);

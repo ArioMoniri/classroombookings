@@ -54,7 +54,7 @@ if [[ $dry -eq 1 ]]; then
   exit 0
 fi
 for f in ${old[@]+"${old[@]}"}; do rm -f -- "$f"; done
-# the helper's encrypted file stages (HB-23b) live at most 10 minutes; the backend sweeps them every minute too
+# the helper's encrypted file stages (HB-23b) live at most 10 minutes; the backend sweeps them every 15 s too
 if [[ -d "$dir/helper-stage" ]]; then find "$dir/helper-stage" -type f -mmin +10 -delete; fi
 # job directories emptied by the purge (top-level directories such as imports/ stay)
 find "$dir" -mindepth 2 -type d -empty "${excl[@]}" -delete
