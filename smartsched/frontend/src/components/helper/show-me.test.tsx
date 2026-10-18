@@ -34,7 +34,7 @@ describe("Göster", () => {
     act(() => useHelperStore.getState().startShowMe("admin.holidays", false));
     expect(push).toHaveBeenCalledWith("/admin/holidays");
     expect(await screen.findByTestId("helper-step")).toHaveTextContent("Tatiller");
-    expect(screen.getByTestId("tour-ring")).toBeInTheDocument();
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
     const target = screen.getByText("Tatil ekle");
     expect(target.getAttribute("aria-describedby")).toBeTruthy();
     expect(target).toBeEnabled();
@@ -68,7 +68,7 @@ describe("Göster", () => {
       vi.advanceTimersByTime(3200);
     });
     expect(await screen.findByTestId("helper-step-missing")).toHaveTextContent("Bu düğme şu an bu sayfada görünmüyor.");
-    expect(screen.getByTestId("helper-step")).toHaveTextContent("Yönetim › Kullanıcılar › Davet et");
+    expect(screen.getByTestId("helper-step")).toHaveTextContent("Kurulum › Kullanıcılar › Davet et");
     expect(screen.queryByTestId("tour-ring")).toBeNull();
     vi.useRealTimers();
   });

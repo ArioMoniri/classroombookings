@@ -4,7 +4,7 @@
 import { z } from "zod";
 
 export const HELPER_CARD_SCHEMA_ID = "helper.card.v1";
-export const HELPER_CARD_SCHEMA_SHA256 = "7a274616047794eaa667cbf3c04ed6be4a6ef20157ca3282c3c8bc237778255f";
+export const HELPER_CARD_SCHEMA_SHA256 = "6c6a981c5e8675dcd991e5bfb21d3d5b583c04a602e217771243c5361b59b914";
 
 /** One person-facing text in both languages (Turkish first). */
 export const Txt = z.strictObject({
@@ -18,6 +18,7 @@ export const AnswerCard = z.strictObject({
   action: z.string().max(64).regex(new RegExp("^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$")).nullish(),
   id: z.string().regex(new RegExp("^[a-f0-9]{8,32}$")),
   lang: z.enum(["tr", "en"]),
+  notes_used: z.array(z.string().max(400).regex(new RegExp("^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$"))).max(2).nullish(),
   source: z.enum(["ai", "index"]),
   text: z.string().max(1200).regex(new RegExp("^(?![\\s\\S]*(?:://|[wW][wW][wW]\\.|[jJ]avascript:|[dD]ata:))[^<>]*$")),
   title: Txt.nullish(),

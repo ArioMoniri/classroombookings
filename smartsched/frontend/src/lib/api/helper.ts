@@ -192,7 +192,7 @@ function useMemoryInvalidate() {
 
 export function useSetHelperMemory() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: helperApi.setMemory, onSuccess: (data) => qc.setQueryData(helperKeys.memory, data) });
+  return useMutation({ mutationFn: (enabled: boolean) => helperApi.setMemory(enabled), onSuccess: (data) => qc.setQueryData(helperKeys.memory, data) });
 }
 export function useAddHelperNote() {
   const done = useMemoryInvalidate();
@@ -200,7 +200,7 @@ export function useAddHelperNote() {
 }
 export function useDeleteHelperNote() {
   const done = useMemoryInvalidate();
-  return useMutation({ mutationFn: helperApi.deleteNote, onSuccess: done });
+  return useMutation({ mutationFn: (id: number) => helperApi.deleteNote(id), onSuccess: done });
 }
 export function useDeleteAllHelperNotes() {
   const done = useMemoryInvalidate();
@@ -311,7 +311,7 @@ export const useFacultyUsage = (facultyId: number | null, enabled = true) =>
 export function useSaveHelperAdmin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: helperAdminApi.put,
+    mutationFn: (patch: HelperAdminPatch) => helperAdminApi.put(patch),
     onSuccess: (data) => {
       qc.setQueryData(helperAdminKeys.settings, data);
       void qc.invalidateQueries({ queryKey: helperKeys.status });

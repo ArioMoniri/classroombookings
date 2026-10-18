@@ -3580,7 +3580,8 @@
       "goal": "Ledger name `hb-c-2026-10-18`. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss, backend at smartsched/backend. Read docs/agents/briefs/COMMON.md first and follow it strictly: no commits; tests first; resource rule (no stack, no next build, no Playwright; `nice`, pytest only on…",
       "ledger": "HB-C: helper telemetry, admin, local",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-18 10:26"
     },
     {
       "id": "a99c8a2929bf5b2b2",
