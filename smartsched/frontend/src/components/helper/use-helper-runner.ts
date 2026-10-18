@@ -272,6 +272,10 @@ export function useHelperRunner(): Runner {
           s.updateCard(entry.key, { phase: "cancelled", notice: r.tr || r.en ? { tr: r.tr ?? "", en: r.en ?? "" } : both("helper.card.gone") });
         } else if (r.status === 0) {
           s.updateCard(entry.key, { phase: "pending", notice: both("helper.card.network") });
+        } else if (r.status === 409 && r.code === "conflict") {
+          // HB18-F03: the slot was taken in between: the server's words, no "Rezerve et", "Başka saat öner" and the
+          // free rooms of the same slot
+          s.updateCard(entry.key, { phase: "pending", taken: { alternatives: r.alternatives }, notice: r.tr || r.en ? { tr: r.tr ?? r.en ?? "", en: r.en ?? r.tr ?? "" } : both("helper.card.taken") });
         } else {
           // a conflict ("Bu saat az önce doldu.") or another refusal: the message stays on the card, which keeps its inputs
           s.updateCard(entry.key, { phase: "pending", notice: r.tr || r.en ? { tr: r.tr ?? r.en ?? "", en: r.en ?? r.tr ?? "" } : both("helper.error.provider") });

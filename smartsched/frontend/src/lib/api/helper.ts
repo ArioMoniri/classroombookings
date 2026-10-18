@@ -141,12 +141,37 @@ export interface HelperRefusal {
   en: string | null;
   /** the card the helper shows for it (`limit` / `refusal` / `error`, or a fresh `confirm` / `form` on 409 changed) */
   card: HelperCard | null;
+  /** 409 `conflict`: free rooms for the same slot (`find_room.alternatives_for`, ≤ 3) */
+  alternatives: HelperAlternative[];
 }
 
-/** Read an API error of the helper routes (`detail = {code, message_tr, message_en, card}`). */
+export interface HelperAlternative {
+  room_id: number;
+  name: string;
+  capacity: number | null;
+  status: string;
+}
+
+const Alternative = z.object({ room_id: z.number().int().positive(), name: z.string().optional(), code: z.string().optional(), capacity: z.number().nullish(), status: z.string().optional() });
+
+function alternativesOf(raw: unknown): HelperAlternative[] {
+  if (!Array.isArray(raw)) return [];
+  const out: HelperAlternative[] = [];
+  for (const x of raw.slice(0, 3)) {
+    const a = Alternative.safeParse(x);
+    if (a.success) out.push({ room_id: a.data.room_id, name: a.data.name || a.data.code || String(a.data.room_id), capacity: a.data.capacity ?? null, status: a.data.status ?? "free" });
+  }
+  return out;
+}
+
+/**
+ * Read an API error of the helper routes (`detail = {code, message_tr, message_en, card, alternatives}`). The API
+ * client keeps an object `detail` as the whole body (`{detail: {...}}`, HB18-F03), so that wrapper is unwrapped.
+ */
 export function helperRefusal(err: unknown): HelperRefusal {
   const status = err instanceof HttpError ? err.status : 0;
-  const d = err instanceof HttpError && err.detail && typeof err.detail === "object" ? (err.detail as Record<string, unknown>) : {};
+  let d = err instanceof HttpError && err.detail && typeof err.detail === "object" ? (err.detail as Record<string, unknown>) : {};
+  if (typeof d.code !== "string" && d.detail && typeof d.detail === "object" && !Array.isArray(d.detail)) d = d.detail as Record<string, unknown>;
   const parsed = HelperCard.safeParse(d.card);
   return {
     status,
@@ -154,6 +179,7 @@ export function helperRefusal(err: unknown): HelperRefusal {
     tr: typeof d.message_tr === "string" ? d.message_tr : null,
     en: typeof d.message_en === "string" ? d.message_en : null,
     card: parsed.success ? parsed.data : null,
+    alternatives: alternativesOf(d.alternatives),
   };
 }
 

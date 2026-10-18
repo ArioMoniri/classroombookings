@@ -22,3 +22,27 @@ describe("HX12B-F01 / PER-F11: a day without periods is never a blank grid", () 
     expect(isClosedDay({ display: "day", periods: [{ id: 1 }] } as unknown as Grid)).toBe(false);
   });
 });
+
+describe("HX12B-F06: a planner's run page never reads the admin-only settings", () => {
+  it("useSettings({peek, enabled:false}) sends nothing; peek is silent", async () => {
+    const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
+    const { renderHook, waitFor } = await import("@testing-library/react");
+    const client = await import("@/lib/api/client");
+    const spy = vi.spyOn(client, "request").mockResolvedValue({} as never);
+    const { useSettings } = await import("@/lib/api/hooks");
+    const wrap = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
+    renderHook(() => useSettings({ peek: true, enabled: false }), { wrapper: wrap });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(spy).not.toHaveBeenCalled();
+    renderHook(() => useSettings({ peek: true, enabled: true }), { wrapper: wrap });
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(spy.mock.calls[0]![1]).toMatchObject({ silent: true });
+    spy.mockRestore();
+  });
+  it("the chat panel asks only with planning.admin", async () => {
+    const { readFileSync } = await import("node:fs");
+    const path = await import("node:path");
+    const src = readFileSync(path.resolve(import.meta.dirname, "chat/chat-panel.tsx"), "utf8");
+    expect(src).toMatch(/useSettings\(\{ peek: true, enabled: can\("planning\.admin"\) \}\)/);
+  });
+});

@@ -186,6 +186,9 @@ export function QuickReserveView() {
       setReceipt(r);
       setNote("");
       setNoteOpen(false);
+      // HX12B-F04: the pressed "Rezerve et" unmounts; the receipt title takes focus at once and keeps it while the
+      // booking lists refetch (focus fell to <body> at 1440 while the refresh re-rendered the columns)
+      focusAfter(["[data-testid=qr-receipt-title]"], 0, 4000);
       setLive(t(pending ? "quickReserve.receipt.liveRequested" : "quickReserve.receipt.live", { room: room.name }));
       toast.success(t(pending ? "quickReserve.toast.requested" : "quickReserve.toast.booked", { room: room.name }), {
         id: TOAST_ID,
@@ -196,7 +199,6 @@ export function QuickReserveView() {
       });
       await Promise.all(BOOKING_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
       void qc.invalidateQueries({ queryKey: ["quick-reserve"] });
-      window.requestAnimationFrame(() => receiptRef.current?.focus());
     } catch (e) {
       const err = crbsError(e);
       const conflict = err.status === 409 && ["conflict", "slots_unavailable", "slot_taken", "booked"].includes(err.code ?? "");
@@ -234,10 +236,11 @@ export function QuickReserveView() {
       }
       setReceipt(null);
       setRoomId(r.room.room_id);
+      // R6 / HX12B-F04: the user sees what came back: the same room selected, focus on its row. Watched through the
+      // list refetch (the row is replaced while it loads), with the list's tab stop as the fallback, never <body>
+      focusAfter([`[data-room-row="${r.room.room_id}"]`, "[data-testid=qr-rooms] [role=radio][tabindex='0']"], 50, 5000);
       await Promise.all(BOOKING_KEYS.map((k) => qc.invalidateQueries({ queryKey: k })));
       await qc.invalidateQueries({ queryKey: ["quick-reserve"] });
-      // R6: the user sees what came back: the same room selected, focus on its row
-      focusAfter([`[data-room-row="${r.room.room_id}"]`], 50);
     } catch (e) {
       toast.error(bookingErrorMessage(crbsError(e), t, { formatDate: fmt.short, locale }));
     } finally {

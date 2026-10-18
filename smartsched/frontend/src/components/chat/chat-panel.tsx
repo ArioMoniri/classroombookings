@@ -228,8 +228,9 @@ export function ChatPanel({ runId, className, prefill = null }: { runId: number;
   const { t, locale } = useI18n();
   const chat = useChat(runId);
   const send = useSendChat(runId, locale === "en" ? "en" : "tr");
-  const settings = useSettings();
   const { can } = usePermissions();
+  // HX12B-F06: only an admin may read the settings; a planner's run page asked anyway and toasted "yetkiniz yok"
+  const settings = useSettings({ peek: true, enabled: can("planning.admin") });
   const listRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const messages = chat.data?.messages ?? [];

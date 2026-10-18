@@ -176,8 +176,10 @@ export function useApplyFix(runId: number) {
     },
   });
 }
-export function useSettings() {
-  return useQuery({ queryKey: qk.settings, queryFn: api.settings.get });
+/** `GET /settings` is ADMIN-only. `peek`: a caller that only glances (is an AI key set?) asks silently, without retry,
+ * and only when `enabled` (HX12B-F06: a background read must never toast "yetkiniz yok" to a planner). */
+export function useSettings(opts: { peek?: boolean; enabled?: boolean } = {}) {
+  return useQuery({ queryKey: qk.settings, queryFn: opts.peek ? api.settings.peek : api.settings.get, enabled: opts.enabled ?? true, ...(opts.peek ? { retry: false } : {}) });
 }
 export function useUpdateSettings() {
   const qc = useQueryClient();

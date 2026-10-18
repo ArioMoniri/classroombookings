@@ -37,6 +37,9 @@ export function ConfirmView({ card, entry }: { card: ConfirmCard; entry: CardEnt
   const timedOut = useExpired(card.expires_at);
   // HX-18 M6: a parked card that timed out stays one line; only the card in focus offers "Yenile"
   const expired = entry.phase === "expired" || (timedOut && entry.phase === "pending");
+  // HB18-F03: the slot was taken before the click: no "Rezerve et"; another time or a free room of the same slot
+  const taken = entry.phase === "pending" && entry.taken ? entry.taken : null;
+  const date = typeof card.args?.date === "string" ? card.args.date : "";
   const title = card.title ? pickText(card.title, host.locale) : host.actionVerb(card.action) ?? t("helper.card.proposal");
   const testId = `helper-card-confirm-${card.action}`;
 
@@ -62,6 +65,15 @@ export function ConfirmView({ card, entry }: { card: ConfirmCard; entry: CardEnt
           <Button size="md" onClick={() => void host.runner.refresh(entry)} data-testid="helper-card-refresh">
             {t("helper.card.refresh")}
           </Button>
+        ) : taken ? (
+          <>
+            <Button size="md" className="max-sm:h-12" onClick={() => void host.runner.runAction("find_free_rooms", date ? { date } : {})} data-testid="helper-card-other-time">
+              {t("helper.card.otherTime")}
+            </Button>
+            <Button size="md" variant="ghost" onClick={() => host.runner.cancel(entry)} data-testid="helper-card-cancel">
+              {t("helper.card.cancel")}
+            </Button>
+          </>
         ) : open || busy ? (
           <>
             <Button
@@ -120,6 +132,26 @@ export function ConfirmView({ card, entry }: { card: ConfirmCard; entry: CardEnt
         <Alert tone="warning" data-testid="helper-card-error">
           {pickText(entry.notice, host.locale)}
         </Alert>
+      ) : null}
+      {taken && taken.alternatives.length ? (
+        <div className="flex flex-col gap-1.5" data-testid="helper-card-alternatives">
+          <p className="type-footnote text-label-2">{t("helper.card.sameTimeFree")}</p>
+          <ul className="flex flex-col gap-1.5">
+            {taken.alternatives.map((a) => (
+              <li key={a.room_id}>
+                <Button
+                  size="md"
+                  variant="secondary"
+                  className="w-full justify-start max-sm:h-12"
+                  onClick={() => void host.runner.runAction(card.action, { ...card.args, room: String(a.room_id) }, { replaces: entry.key })}
+                  data-testid="helper-card-alt-room"
+                >
+                  {a.capacity ? t("helper.card.altRoom", { room: a.name, n: a.capacity }) : a.name}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </HelperCardFrame>
   );

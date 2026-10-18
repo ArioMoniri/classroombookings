@@ -160,3 +160,53 @@ describe("Göster", () => {
     vi.useRealTimers();
   });
 });
+
+describe("Göster on a page that loads in parts (HB18-F04)", () => {
+  it("waits for the page to stop growing before it scrolls to the target", async () => {
+    const t0 = Date.now();
+    const grow = vi.spyOn(document.documentElement, "scrollHeight", "get").mockImplementation(() => {
+      const ms = Date.now() - t0;
+      return ms < 250 ? 6011 + Math.floor(ms) : 7241; // Profil's sections still arriving
+    });
+    let scrolledAt = 0;
+    Element.prototype.scrollIntoView = vi.fn(() => {
+      scrolledAt ||= Date.now();
+    });
+    renderHelper(
+      <>
+        <button type="button" data-tour="profile-calendar-add">Takvimime ekle</button>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("admin.holidays", false));
+    // the request names admin.holidays; point the anchor at it
+    expect(await screen.findByTestId("helper-step", {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(scrolledAt === 0 || scrolledAt - t0 >= 240).toBe(true);
+    grow.mockRestore();
+  });
+
+  it("follows the anchor when the page re-mounts it, and rings the new element", async () => {
+    const { rerender } = renderHelper(
+      <>
+        <button key="a" type="button" data-tour="admin-holidays-add">Tatil ekle</button>
+        <ShowMeHost />
+      </>,
+    );
+    act(() => useHelperStore.getState().startShowMe("admin.holidays", false));
+    expect(await screen.findByTestId("tour-ring")).toBeInTheDocument();
+    const first = screen.getByText("Tatil ekle");
+    await waitFor(() => expect(first.getAttribute("aria-describedby")).toBeTruthy());
+    const calls = (Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.length;
+    rerender(
+      <>
+        <button key="b" type="button" data-tour="admin-holidays-add">Tatil ekle</button>
+        <ShowMeHost />
+      </>,
+    );
+    const second = screen.getByText("Tatil ekle");
+    expect(second).not.toBe(first);
+    await waitFor(() => expect(second.getAttribute("aria-describedby")).toBeTruthy());
+    expect((Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(calls);
+    expect(screen.getByTestId("tour-ring")).toBeInTheDocument();
+  });
+});

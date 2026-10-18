@@ -33,6 +33,8 @@ export interface CardEntry {
   fieldError?: { name: string; text: { tr: string; en: string } } | null;
   /** "1 / 2": the place of a choice in a run of choices (the server sends one at a time) */
   step?: number;
+  /** confirm cards: the slot was taken before the click (409 `conflict`, HB18-F03); the free rooms of that slot */
+  taken?: { alternatives: { room_id: number; name: string; capacity: number | null }[] } | null;
   /** result cards: undone already */
   undone?: boolean;
   /** the turn that sent it (`run_started.turn_id`): feedback and telemetry */
