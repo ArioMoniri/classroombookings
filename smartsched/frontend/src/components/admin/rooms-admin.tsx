@@ -7,6 +7,7 @@
  * audit #4; `POST/DELETE /rooms` accept setup.rooms); later capacity changes stay on /rooms (the room master).
  * `?tab=rooms&new=1` (⌘K "New room") opens the create form.
  */
+import { HelperFileLink } from "@/components/helper/file-link";
 import { Building2, ImageUp, Maximize2, Pencil, Plus, ShieldQuestion, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -345,6 +346,8 @@ function RoomsTab() {
           </ul>
         )}
       </Card>
+      {/* HB-23c (helper-file-router.md §8.4): no rooms yet: the helper reads a room list */}
+      {rooms.data && rooms.data.length === 0 ? <HelperFileLink /> : null}
       {sortable ? <p className="type-footnote text-label-3">{t("crbs.sort.hint")}</p> : <p className="type-footnote text-label-3">{t("crbs.rooms.orderHint")}</p>}
       <RoomSheet room={editing} onClose={() => setEditing(null)} />
       <Dialog open={creating} onOpenChange={(o) => !o && closeCreate()}>

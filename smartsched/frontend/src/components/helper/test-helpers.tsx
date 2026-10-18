@@ -39,5 +39,5 @@ export function renderHelper(ui: ReactNode, opts: { locale?: "tr" | "en"; host?:
 }
 
 export function resetHelperStore() {
-  useHelperStore.setState({ open: false, opener: null, entries: [], turn: IDLE_TURN, textOnly: false, pendingAsk: null, pendingAction: null, showMe: null, guideSeed: null, guideText: "" });
+  useHelperStore.setState({ open: false, opener: null, entries: [], turn: IDLE_TURN, textOnly: false, pendingAsk: null, pendingAction: null, pendingPick: false, showMe: null, guideSeed: null, guideText: "" });
 }

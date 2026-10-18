@@ -535,16 +535,15 @@ pages). Only transform and opacity animate; one focal motion at a time; no blur 
 | Reading > 400 ms | "still working" | shimmer on "Dosya okunuyor…" only (`helper-shimmer`), stops with the result; before 400 ms a static label | 1.6 s loop (ongoing work) | static label | `CanvasText` |
 | Card appears (detected / unknown / needs_planner / chooser / refused) | "here is what it is and what you can do" | the card's opacity + y 6 → 0; rows do not stagger; focus moves to the card title | `springs.smooth` (settles ≈ 284 ms) | 100 ms opacity (`tween.reduced`) | opaque `--fill-3` |
 | "Bu dosya nedir?" opens | "more detail, same place" | the text fades in after 60 ms in place; the chevron turns | `tween.fadeIn` + 60 ms delay; chevron `--dur-fast` | instant | — |
-| Chooser pick → new card | "this is your choice now" | the new card replays the card enter (keyed by its sequence); the old card is replaced in place | `springs.smooth` | 100 ms opacity | — |
+| Chooser pick → new card | "this is your choice now" | the picked row gets a `--tint-soft` fill that moves (shared `layoutId`, `file-tint-<entry>`) into the new card's header as the card replaces the chooser in place | `springs.glassMorph` (settles ≈ 279 ms) | instant swap (`duration: 0`) | — |
 | Primary press → hand-over | "going to the right page" | button press scale .97 (Button's own); phone: the sheet exits down (§3.21 exit) as the route changes | button `--dur-fast`; sheet `dur.base` + `ease.in` | no scale; instant exit | opaque |
 | Handed-over file row on the target page | "your file is already here" | one `--tint-soft` highlight that fades to `--fill-3` after 2 s | `--dur-base` colour transition | highlight static 2 s, then removed | outline |
 | Refused / error | "it didn't work, here is why" | the card enter; **no shake** | `springs.smooth` | 100 ms opacity | — |
 | Expired | — | no motion (text swap) | — | — | — |
 
 No motion: the certainty word, the warnings list, the edge target (on/off only), the chooser rows (no stagger), typing.
-Blur budget: shell bar + helper sheet = 2 surfaces; nothing new blurs. Known gap: the spec's `layoutId` move of the
-picked row's tint into the new card header is not built (the new card replays the plain enter); the e2e motion audit
-can confirm that is enough. Audit (queued for the e2e lane): add "drop → card", "chooser pick" and "hand-over" to
+Blur budget: shell bar + helper sheet = 2 surfaces; nothing new blurs. The /import step-0 zone ("Türünü bilmiyor
+musunuz?") uses the same instant OS-drag tint. Audit (queued for the e2e lane): add "drop → card", "chooser pick" and "hand-over" to
 `e2e/motion-audit.spec.ts`: ≤ 3 dropped frames, nothing over 300 ms except the reading shimmer, reduced motion = end
 state, reduced transparency opaque.
 

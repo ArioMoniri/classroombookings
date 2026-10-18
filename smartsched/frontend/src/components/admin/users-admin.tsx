@@ -58,6 +58,7 @@ import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField } from "./
 import { useErrorToast } from "./admin-gate";
 import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
 import { HandedFileRow } from "@/components/helper/handed-file-row";
+import { HelperFileLink } from "@/components/helper/file-link";
 import { normaliseScopes } from "@/components/approvals/approvals-model";
 import { ScopePicker, scopeLabel, useScopeLookups } from "@/components/approvals/scope-picker";
 import type { Scope } from "@/lib/api/wave1";
@@ -510,6 +511,8 @@ export function UsersAdmin() {
           </Table>
         )}
       </Card>
+      {/* HB-23c (helper-file-router.md §8.4): only the admin so far, no filter: the helper reads a user list */}
+      {users.data && total === 1 && !q && !role && !dept && !enabled ? <HelperFileLink /> : null}
       {total > PAGE ? (
         <div className="flex items-center justify-between type-callout text-label-2">
           <span>{t("crbs.users.page", { from: page * PAGE + 1, to: Math.min(total, (page + 1) * PAGE), total })}</span>

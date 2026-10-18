@@ -15,8 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { HttpError } from "@/lib/api/client";
 import { uploadImportWithProgress } from "@/lib/api/shell-extra";
-import { isStageGone } from "@/lib/api/helper-files";
-import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { dropStage, helperFilesApi, isStageGone, sidOf, type FileCard, type Stage } from "@/lib/api/helper-files";
+import { fileHandoffHref, handedFile, useFileHandoffStore, useHelperFileHandoff } from "@/components/helper/file-handoff";
+import { KIND_KEYS } from "@/components/helper/kind-labels";
+import { KindDrop } from "./kind-drop";
 import { HandedFileExpired, HandedFileRow } from "@/components/helper/handed-file-row";
 import { MagneticDrop, type UploadState } from "./magnetic-drop";
 import { useImports } from "@/lib/api/hooks";
@@ -61,8 +63,17 @@ function Stepper({ step }: { step: number }) {
   );
 }
 
+/** step 0: the file and the server's params go into the hand-over slot (the same path as the helper's card) */
+function handOverDetected(f: File, c: FileCard, params: Record<string, string | number | boolean>, st: Stage | null) {
+  const exp = st ? Date.parse(st.expires_at) : NaN;
+  useFileHandoffStore.getState().set(
+    { featureId: "import", kind: c.kind ?? null, params, items: [{ token: st?.upload_token ?? null, sid: st ? sidOf(st) : null, name: f.name, size: f.size, format: st?.format ?? null, expiresAt: Number.isFinite(exp) ? exp : null }], at: Date.now() },
+    [f],
+  );
+}
+
 export function ImportWizard() {
-  const { t, n } = useI18n();
+  const { t, n, locale } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const kindParam = params.get("kind");
@@ -81,6 +92,12 @@ export function ImportWizard() {
   const handedLost = !!handedRaw && !handedRaw.token && !handedBytes;
   const handedItem = handedRaw && !handed.expired && !handedLost ? handedRaw : null;
   const handedExpired = !!handedRaw && (handed.expired || handedLost);
+  /** HB-23c step 0: what the helper read ("Dosyanız bir planlama listesi (sütunlar: …)"), shown above the file row */
+  const [detected, setDetected] = useState<{ label: string; likely: boolean; evidence: string | null; warning: string | null } | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  /** HB-23c step 1 (M-20): the classify of the person's own file; its stage spares the second upload */
+  const [probe, setProbe] = useState<{ file: File; stage: Stage | null; kind: string | null } | null>(null);
+  const fileRef = useRef<File | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [upload, setUpload] = useState<UploadState>({ phase: "idle" });
   const [flow, setFlow] = useState<FlowStep>("upload");
@@ -108,6 +125,7 @@ export function ImportWizard() {
     if (handedExpired) focusZone();
   }, [handedExpired]);
   const removeHanded = () => {
+    setDetected(null);
     handed.remove();
     focusZone();
   };
@@ -118,6 +136,7 @@ export function ImportWizard() {
   };
 
   const chooseKind = (k: ImportKind) => {
+    setDetected(null);
     setJob(null);
     setPreview(null);
     setFile(null);
@@ -152,6 +171,11 @@ export function ImportWizard() {
 
   const onFile = (f: File | null) => {
     if (handed.handoff) handed.consumed();
+    if (probe && probe.file !== f) {
+      dropStage(probe.stage);
+      setProbe(null);
+    }
+    fileRef.current = f;
     setUpload({ phase: "idle" });
     setSuggested(null);
     if (f && !/\.(xlsx|xlsm)$/i.test(f.name)) {
@@ -159,6 +183,61 @@ export function ImportWizard() {
       return;
     }
     setFile(f);
+    if (f) void probeFile(f);
+  };
+
+  /** classify the picked file before the upload: a different importer kind offers "… olarak içe aktar" at once */
+  const probeFile = async (f: File) => {
+    let out: Awaited<ReturnType<typeof helperFilesApi.classify>> | null = null;
+    try {
+      out = await helperFilesApi.classify(f, { lang: locale, termId: effectiveTerm, context: "import" });
+    } catch {
+      return; // no answer: the page uploads as before and the server's own check stays
+    }
+    if (fileRef.current !== f) {
+      dropStage(out.stage);
+      return;
+    }
+    const c = out.card;
+    const importer = c.type === "file" && c.state === "detected" && c.primary?.feature_id === "import" ? String(c.primary.params.kind ?? "") : null;
+    const known = KINDS.find((k) => k.kind === importer)?.kind ?? null;
+    setProbe({ file: f, stage: out.stage ?? null, kind: known });
+    if (known && known !== kind) {
+      setSuggested(known);
+      setUpload({ phase: "error", message: t("importFlows.wrongFile", { kind: t(KINDS.find((k) => k.kind === known)!.label) }) });
+    }
+  };
+
+  /** step 0: "Türünü bilmiyor musunuz?" — a clear importer answer selects the kind and keeps the file (no sheet) */
+  const detectKind = async (f: File) => {
+    setDetecting(true);
+    let out: Awaited<ReturnType<typeof helperFilesApi.classify>> | null = null;
+    try {
+      out = await helperFilesApi.classify(f, { lang: locale, termId: term?.id ?? null, context: "import" });
+    } catch {
+      out = null;
+    } finally {
+      setDetecting(false);
+    }
+    const c = out?.card;
+    const params = c?.type === "file" && c.state === "detected" && c.primary?.feature_id === "import" ? c.primary.params : null;
+    const target = params ? KINDS.find((k) => k.kind === params.kind && !REVIEWED.includes(k.kind)) : undefined;
+    if (out && c?.type === "file" && params && target && (out.stage || out.resend)) {
+      handOverDetected(f, c, params, out.stage ?? null);
+      setDetected(detectionOf(c));
+      router.replace(fileHandoffHref("import", params) ?? `/import?kind=${target.kind}`);
+      return;
+    }
+    // ambiguous, unknown, another page, a refusal: the helper shows its card
+    const { adoptClassified } = await import("@/components/helper/file-router");
+    adoptClassified(f, out);
+  };
+
+  const detectionOf = (c: FileCard) => {
+    const label = c.kind && KIND_KEYS[c.kind] ? t(KIND_KEYS[c.kind]!) : "";
+    const lines = c.evidence[locale] ?? c.evidence.tr ?? [];
+    const mismatch = c.warnings.find((w) => w.code === "term_mismatch");
+    return { label: label.toLocaleLowerCase(locale === "tr" ? "tr-TR" : "en-GB"), likely: c.certainty !== "sure", evidence: lines[0] ?? null, warning: mismatch ? (locale === "tr" ? mismatch.message.tr : mismatch.message.en) : null };
   };
 
   /** Real progress: bytes from XMLHttpRequest, then the server's parse (no fake percentages). */
@@ -166,12 +245,15 @@ export function ImportWizard() {
     if (!kind) return;
     const t0 = terms.find((x) => x.id === effectiveTerm) ?? term;
     if (!t0) return;
+    // the step-1 probe staged this very file for this kind: send its token, not the bytes again
+    const probeToken = !handedItem && probe && probe.file === file && probe.kind === kind && probe.stage && Date.parse(probe.stage.expires_at) > Date.now() ? probe.stage.upload_token : null;
+    const token = handedItem?.token ?? probeToken;
     // a staged file has no bytes to send: straight to "the server reads it"
-    setUpload(handedItem?.token ? { phase: "processing" } : { phase: "uploading", pct: 0 });
+    setUpload(token ? { phase: "processing" } : { phase: "uploading", pct: 0 });
     try {
-      const j = await uploadImportWithProgress(kind, handedItem?.token ? null : (handedBytes ?? file), t0, {
+      const j = await uploadImportWithProgress(kind, token ? null : (handedBytes ?? file), t0, {
         dryRun: true,
-        ...(handedItem?.token ? { uploadToken: handedItem.token, filename: handedItem.name } : {}),
+        ...(token ? { uploadToken: token, filename: handedItem?.name ?? file?.name } : {}),
         year: yearParam,
         onProgress: ({ loaded, total }) => {
           const pct = total ? Math.round((loaded / total) * 100) : 0;
@@ -180,12 +262,19 @@ export function ImportWizard() {
       });
       setUpload({ phase: "done" });
       if (handedItem) handed.consumed();
+      if (probeToken) setProbe(null);
       setPreview(j);
       void imports.refetch();
     } catch (e) {
       if (handedItem?.token && isStageGone(e)) {
         setUpload({ phase: "idle" });
         handed.markExpired();
+        return;
+      }
+      if (probeToken && isStageGone(e)) {
+        // the probe's stage ran out: the bytes go after all
+        setProbe(null);
+        setUpload({ phase: "idle" });
         return;
       }
       const status = e instanceof HttpError ? e.status : 0;
@@ -218,6 +307,7 @@ export function ImportWizard() {
       <PageHeader title={t("import.title")} subtitle={t("import.subtitle")} />
       <Stepper step={step} />
 
+      {step === 0 ? <KindDrop onFile={(f) => void detectKind(f)} busy={detecting} /> : null}
       {step === 0 ? (
         <Card className="max-w-3xl">
           <CardContent>
@@ -257,6 +347,16 @@ export function ImportWizard() {
                 {terms.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
               </NativeSelect>
             </div>
+            {handedItem && detected ? (
+              <div className="flex flex-col gap-1 rounded-xl bg-fill-3 px-3 py-2" data-testid="import-detected" role="status">
+                <p className="flex items-center gap-1.5 type-callout font-medium text-label-1">
+                  <Check aria-hidden className="size-4 text-status-feasible-fg" />
+                  {t(detected.likely ? "helper.file.yourFileLikely" : "helper.file.yourFile", { kind: detected.label })}
+                </p>
+                {detected.evidence ? <p className="type-footnote text-label-2">{detected.evidence}</p> : null}
+                {detected.warning ? <p className="type-footnote text-status-warning-fg">{detected.warning}</p> : null}
+              </div>
+            ) : null}
             {handedItem ? (
               <HandedFileRow item={handedItem} onRemove={removeHanded} />
             ) : (

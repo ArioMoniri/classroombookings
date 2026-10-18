@@ -30,8 +30,11 @@ beforeAll(() => {
 const TOKEN = "eyJzaWQiOiJzdGFnZXVzZXJzIn0.c2lnbmF0dXJlLXNpZ25hdHVyZQ";
 const res = (status: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 let calls: { key: string; form: FormData | null }[];
+const onlyAdmin = { value: false };
+const ADMIN = { id: 1, email: "yonetici@ornek.edu.tr", username: "yonetici", displayname: "Yönetici", role: "ADMIN", role_id: 1, role_name: "Yönetici", is_active: true, has_password: true, auth_source: "local", last_login_at: null, force_password_reset: false };
 beforeEach(() => {
   calls = [];
+  onlyAdmin.value = false;
   nav.search = "import=1&from=helper";
   nav.replace.mockReset();
   useFileHandoffStore.getState().set({
@@ -46,7 +49,7 @@ beforeEach(() => {
     vi.fn(async (url: string, init?: RequestInit) => {
       const path = String(url).split("?")[0]!;
       calls.push({ key: `${init?.method ?? "GET"} ${path}`, form: init?.body instanceof FormData ? init.body : null });
-      if (path === "/api/v1/users/search") return res(200, { items: [], total: 0, limit: 25, offset: 0 });
+      if (path === "/api/v1/users/search") return res(200, onlyAdmin.value ? { items: [ADMIN], total: 1, limit: 25, offset: 0 } : { items: [], total: 0, limit: 25, offset: 0 });
       if (path === "/api/v1/auth/sso/providers") return res(200, { auth: { microsoft: { enabled: false }, local_enabled: true } });
       if (path === "/api/v1/users/import") return res(200, { created: 2, results: [{ line: 2, username: "a.b", status: "created" }, { line: 3, username: "c.d", status: "created" }] });
       if (init?.method === "DELETE") return res(204);
@@ -108,5 +111,24 @@ describe("users import from the helper", () => {
     const dialog = await screen.findByTestId("import-dialog");
     expect(dialog.querySelector("#imp-file")).not.toBeNull();
     expect(within(dialog).queryByTestId("users-handed-file")).toBeNull();
+  });
+});
+
+describe("empty state: only the admin (helper-file-router.md §8.4)", () => {
+  it("shows the one-line 'Elinizde bir dosya mı var?' link", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "";
+    onlyAdmin.value = true;
+    wrap();
+    expect(await screen.findByTestId("helper-file-link")).toHaveTextContent("Elinizde bir dosya mı var? Bırakın, ne olduğunu söyleyelim");
+  });
+
+  it("is not shown while a search filters the list", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "q=yon";
+    onlyAdmin.value = true;
+    wrap();
+    expect((await screen.findAllByText("Yönetici")).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("helper-file-link")).toBeNull();
   });
 });

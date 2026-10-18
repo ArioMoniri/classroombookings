@@ -22,6 +22,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { handedFile, useHelperFileHandoff } from "@/components/helper/file-handoff";
 import { HandedFileExpired } from "@/components/helper/handed-file-row";
+import { IMPORT_SCREEN_KINDS, KIND_KEYS } from "@/components/helper/kind-labels";
 import { useAiPolicy } from "@/lib/api/ai-policy";
 import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,10 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
   };
   const anyAi = useAi && [...files, ...staged].some((f) => predictedRoute(f.name) === "ai");
   const count = files.length + staged.length;
+  // §8.4: the router's kind next to the extension (the helper already read it); an importer shape in Excel also goes
+  // through İçe aktar (a quiet line, no button: the council's fast path reads it the same way)
+  const handedKind = handed.handoff?.kind && KIND_KEYS[handed.handoff.kind] ? handed.handoff.kind : null;
+  const importable = handedKind && IMPORT_SCREEN_KINDS.has(handedKind) ? staged.filter((f) => /\.(xlsx|xlsm)$/i.test(f.name)).length : 0;
   const chip = <span className="ml-2 inline-flex h-6 items-center rounded-full bg-fill-2 px-2 align-middle type-caption text-label-1">{t("helper.file.handed")}</span>;
 
   return (
@@ -134,7 +139,7 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
                       {f.name}
                       {chip}
                     </td>
-                    <td className="px-2 py-1.5 text-label-2">{ext(f.name)}</td>
+                    <td className="px-2 py-1.5 text-label-2">{handedKind ? `${t(KIND_KEYS[handedKind]!)} · ${ext(f.name)}` : ext(f.name)}</td>
                     <td className="px-2 py-1.5 text-right text-label-2">{n(Math.max(1, Math.ceil(f.size / 1024)))} KB</td>
                     <td className="px-2 py-1.5"><MethodBadge method={predictedRoute(f.name) === "ai" ? (useAi ? "ai" : "off") : "direct"} /></td>
                     <td className="px-2 py-1">
@@ -163,6 +168,11 @@ export function FileDrop({ busy, onStart }: { busy: boolean; onStart: (files: Fi
               </tbody>
             </table>
           </div>
+          {importable ? (
+            <p className="px-4 pt-3 type-footnote text-label-2" data-testid="onboarding-import-hint">
+              {t("helper.file.alsoImport", { n: importable })}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
             <div className="flex flex-col gap-2">
               <label className={cn("flex items-center gap-2 type-callout", aiOff ? "text-label-2" : "text-label-1")}>

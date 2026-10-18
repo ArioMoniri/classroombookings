@@ -92,6 +92,8 @@ export interface FileEntry {
   notice?: { tr: string; en: string } | null;
   /** bumps when a new card arrives, so the view moves the focus to its title once */
   seq: number;
+  /** the chooser row the person picked: its tint moves into the next card's header (§9 "Chooser pick") */
+  picked?: string | null;
 }
 
 export type LogEntry = CardEntry | UserEntry | FallbackEntry | NoteEntry | FileEntry;
@@ -120,6 +122,9 @@ interface HelperState {
   pendingAsk: string | null;
   /** a shortcut the sheet should run as soon as it is open (palette → Kısayollar) */
   pendingAction: { action: string; args: Record<string, string | number>; hints?: IntentHints } | null;
+  /** HB-23c: open the file picker as soon as the sheet is open (palette "Dosya ekle…", empty-state links) */
+  pendingPick: boolean;
+  takePick: () => boolean;
   /** Rehber modu: the text the palette handed over, put into the guide's search field */
   guideSeed: string | null;
   /** Rehber modu: what the person typed in the guide field; kept while "Göster" closes the sheet (HB18-F09) */
@@ -127,7 +132,7 @@ interface HelperState {
   setGuideText: (q: string) => void;
   /** "Göster": a 1-step spotlight on this feature's anchor (show-me.tsx) */
   showMe: { featureId: string; reopen: boolean; n: number } | null;
-  openSheet: (opts?: { opener?: HTMLElement | null; ask?: string; action?: HelperState["pendingAction"] }) => void;
+  openSheet: (opts?: { opener?: HTMLElement | null; ask?: string; action?: HelperState["pendingAction"]; pickFile?: boolean }) => void;
   closeSheet: () => void;
   setGuideSeed: (q: string | null) => void;
   takePending: () => { ask: string | null; action: HelperState["pendingAction"] };
@@ -161,6 +166,12 @@ export const useHelperStore = create<HelperState>()(
       textOnly: false,
       pendingAsk: null,
       pendingAction: null,
+      pendingPick: false,
+      takePick: () => {
+        const v = get().pendingPick;
+        if (v) set({ pendingPick: false });
+        return v;
+      },
       showMe: null,
       guideSeed: null,
       setGuideSeed: (q) => set({ guideSeed: q }),
@@ -172,10 +183,11 @@ export const useHelperStore = create<HelperState>()(
           opener: opts?.opener ?? (s.open ? s.opener : typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null),
           pendingAsk: opts?.ask ?? null,
           pendingAction: opts?.action ?? null,
+          pendingPick: !!opts?.pickFile,
           // HB18-F14: a step card left open would cover the sheet and take its focus
           showMe: null,
         })),
-      closeSheet: () => set({ open: false, pendingAsk: null, pendingAction: null, guideSeed: null }),
+      closeSheet: () => set({ open: false, pendingAsk: null, pendingAction: null, pendingPick: false, guideSeed: null }),
       takePending: () => {
         const { pendingAsk, pendingAction } = get();
         set({ pendingAsk: null, pendingAction: null });

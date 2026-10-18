@@ -30,30 +30,13 @@ import { PICKABLE_KINDS, useFileRouter } from "../file-router";
 import { useHelperStore, type FileEntry } from "../helper-store";
 import type { ChoiceCard, ErrorCard, LimitCard, RefusalCard } from "../schema.gen";
 import { activation } from "../use-helper-runner";
+import { KIND_KEYS } from "../kind-labels";
 import { pickText, useCardHost } from "./context";
 import { formatSize } from "./file-size";
 
 export { formatSize };
 
 /* ------------------------------------------------------------------------------------------------ helpers */
-
-const KIND_KEYS: Readonly<Record<string, MessageKey>> = {
-  planning_list: "helper.file.kinds.planning_list",
-  exam_list: "helper.file.kinds.exam_list",
-  weekly_grid: "helper.file.kinds.weekly_grid",
-  room_master: "helper.file.kinds.room_master",
-  users_csv: "helper.file.kinds.users_csv",
-  crbs_dump: "helper.file.kinds.crbs_dump",
-  intake_json: "helper.file.kinds.intake_json",
-  calendar_ics: "helper.file.kinds.calendar_ics",
-  request_list: "helper.file.kinds.request_list",
-  timetable_other: "helper.file.kinds.timetable_other",
-  room_list: "helper.file.kinds.room_list",
-  holidays: "helper.file.kinds.holidays",
-  staff_list: "helper.file.kinds.staff_list",
-  rules_doc: "helper.file.kinds.rules_doc",
-  scan: "helper.file.kinds.scan",
-};
 
 const HINT_KEYS: Readonly<Record<string, MessageKey>> = {
   planning_list: "helper.file.chooser.hint.planning_list",
@@ -114,6 +97,44 @@ function WarningRow({ w }: { w: FileWarning }) {
   );
 }
 
+/**
+ * §8.2: on phones a column line shows ≤ 3 labels, then "+n" ("Sütunlar: Ders Kodu, Şube, Dersin Günü +3 → Planlama
+ * listesi"); a server "+n" is added in. Null when the line is not a label list or is short already.
+ */
+export function splitEvidence(line: string): string | null {
+  const m = /^([^:→]+:\s)(.+?)(\s→\s.+)$/.exec(line);
+  if (!m) return null;
+  const labels = m[2]!.split(", ").map((x) => x.trim()).filter(Boolean);
+  let extra = 0;
+  const last = labels[labels.length - 1];
+  if (last && /^\+\d+$/.test(last)) {
+    extra = Number(last.slice(1));
+    labels.pop();
+  }
+  if (labels.length <= 3) return null;
+  return `${m[1]}${labels.slice(0, 3).join(", ")} +${labels.length - 3 + extra}${m[3]}`;
+}
+
+function EvidenceLine({ line }: { line: string }) {
+  const short = splitEvidence(line);
+  if (!short) {
+    return (
+      <p className="type-callout text-label-2" data-testid="helper-file-evidence">
+        {line}
+      </p>
+    );
+  }
+  // the full line stays for wider screens and for screen readers; the short one is visual, phones only
+  return (
+    <p className="type-callout text-label-2" data-testid="helper-file-evidence">
+      <span aria-hidden="true" className="sm:hidden">
+        {short}
+      </span>
+      <span className="max-sm:sr-only">{line}</span>
+    </p>
+  );
+}
+
 /** The card's enter (§9): opacity + y 6 → 0 once, `springs.smooth`; reduced motion 100 ms opacity. */
 function Enter({ children, k }: { children: ReactNode; k: string | number }) {
   const reduce = useReduce();
@@ -125,12 +146,15 @@ function Enter({ children, k }: { children: ReactNode; k: string | number }) {
 }
 
 /** the card well (helper.md §12: `--fill-3`, hairline, radius-md, 16 px pad, 12 px gap), title focusable */
-function Frame({ testId, titleId, title, icon: Icon, badge, children }: { testId: string; titleId: string; title: ReactNode; icon?: LucideIcon; badge?: ReactNode; children: ReactNode }) {
+function Frame({ testId, titleId, title, icon: Icon, badge, children, tintId }: { testId: string; titleId: string; title: ReactNode; icon?: LucideIcon; badge?: ReactNode; children: ReactNode; tintId?: string | null }) {
+  const reduce = useReduce();
   return (
     <div role="group" aria-labelledby={titleId} data-testid={testId} className="helper-card flex min-w-0 flex-col gap-3 rounded-(--radius-md) bg-fill-3 p-4 edge-hairline forced-colors:border forced-colors:border-[CanvasText]">
-      <div className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1">
-        {Icon ? <Icon aria-hidden className="mt-0.5 size-5 shrink-0 stroke-[1.75] text-label-2" /> : null}
-        <p id={titleId} tabIndex={-1} data-focus-target="" className="min-w-0 flex-1 rounded-sm type-headline text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
+      <div className="relative flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1">
+        {/* §9 "Chooser pick → new card": the picked row's tint lands here (shared layoutId; instant when reduced) */}
+        {tintId ? <motion.span layoutId={tintId} data-pick-tint="" aria-hidden className="pointer-events-none absolute -inset-1.5 rounded-lg bg-tint-soft" transition={reduce ? { duration: 0 } : springs.glassMorph} /> : null}
+        {Icon ? <Icon aria-hidden className="relative mt-0.5 size-5 shrink-0 stroke-[1.75] text-label-2" /> : null}
+        <p id={titleId} tabIndex={-1} data-focus-target="" className="relative min-w-0 flex-1 rounded-sm type-headline text-label-1 outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)">
           {title}
         </p>
         {badge}
@@ -215,7 +239,8 @@ function Examples({ kinds }: { kinds: string[] }) {
 }
 
 /** A radiogroup of rows (the chooser and "Başka bir tür seç"): ↑ ↓ move, Enter / Space / click pick. */
-function KindRadios({ label, options, onPick, testPrefix = "helper-file-choice-" }: { label: string; options: { value: string; label: string; hint?: string | null }[]; onPick: (v: string) => void; testPrefix?: string }) {
+function KindRadios({ label, options, onPick, testPrefix = "helper-file-choice-", picked, tintId }: { label: string; options: { value: string; label: string; hint?: string | null }[]; onPick: (v: string) => void; testPrefix?: string; picked?: string | null; tintId?: string }) {
+  const reduce = useReduce();
   const [active, setActive] = useState(0);
   const refs = useRef<(HTMLElement | null)[]>([]);
   const move = (i: number) => {
@@ -244,7 +269,7 @@ function KindRadios({ label, options, onPick, testPrefix = "helper-file-choice-"
             refs.current[i] = el;
           }}
           role="radio"
-          aria-checked={false}
+          aria-checked={picked === o.value}
           tabIndex={i === active ? 0 : -1}
           variant="secondary"
           shape="rect"
@@ -254,7 +279,8 @@ function KindRadios({ label, options, onPick, testPrefix = "helper-file-choice-"
           className="h-auto min-h-11 w-full justify-start px-3 py-2 text-left whitespace-normal"
           data-testid={`${testPrefix}${o.value}`}
         >
-          <span className="flex min-w-0 flex-col">
+          {picked === o.value && tintId ? <motion.span layoutId={tintId} data-pick-tint="" aria-hidden className="pointer-events-none absolute inset-0 rounded-lg bg-tint-soft" transition={reduce ? { duration: 0 } : springs.glassMorph} /> : null}
+          <span className="relative flex min-w-0 flex-col">
             <span className="font-medium text-label-1">{o.label}</span>
             {o.hint ? <span className="type-footnote text-label-2">{o.hint}</span> : null}
           </span>
@@ -310,13 +336,11 @@ function FileCardView({ entry, card, titleId, reread }: StateProps & { card: Fil
   const Icon = card.state === "unknown" ? FileQuestion : card.format === "mixed" ? Paperclip : (card.kind && KIND_ICON[card.kind]) || FileSpreadsheet;
 
   return (
-    <Frame testId={`helper-card-file-${card.state}`} titleId={titleId} title={title} icon={Icon} badge={card.state === "detected" && card.certainty ? <CertaintyBadge certainty={card.certainty} /> : null}>
+    <Frame testId={`helper-card-file-${card.state}`} titleId={titleId} title={title} icon={Icon} tintId={entry.picked ? `file-tint-${entry.key}` : null} badge={card.state === "detected" && card.certainty ? <CertaintyBadge certainty={card.certainty} /> : null}>
       {evidence.length ? (
         <div className="flex flex-col gap-1">
           {evidence.slice(0, 4).map((l, i) => (
-            <p key={i} className="type-callout text-label-2" data-testid="helper-file-evidence">
-              {l}
-            </p>
+            <EvidenceLine key={i} line={l} />
           ))}
           {card.term ? (
             <p className="type-footnote text-label-2" data-testid="helper-file-term">
@@ -390,7 +414,7 @@ function ChooserView({ entry, card, titleId, reread }: StateProps & { card: Choi
         <ExpiredLine reread={reread} />
       ) : (
         <>
-          <KindRadios label={pickText(card.question, locale)} options={rows} onPick={(v) => void router.pick(entry.key, v)} />
+          <KindRadios label={pickText(card.question, locale)} options={rows} onPick={(v) => void router.pick(entry.key, v)} picked={entry.picked} tintId={`file-tint-${entry.key}`} />
           {wizard ? (
             <TextButton onClick={() => void router.pick(entry.key, "onboarding")} testId="helper-file-onboarding">
               {t("helper.file.openWizard")}
@@ -412,7 +436,7 @@ function OtherKindView({ entry, card, titleId }: StateProps & { card: FileCard |
   const rows = PICKABLE_KINDS.filter((k) => k.kind !== current && host.can(k.perms)).map((k) => ({ value: k.kind, label: label(k.kind) ?? "", hint: HINT_KEYS[k.kind] ? t(HINT_KEYS[k.kind]) : null }));
   return (
     <Frame testId="helper-card-file-pick" titleId={titleId} title={t("helper.file.chooser.otherQ")} icon={FileQuestion}>
-      <KindRadios label={t("helper.file.chooser.otherQ")} options={rows} onPick={(v) => void router.pick(entry.key, v)} />
+      <KindRadios label={t("helper.file.chooser.otherQ")} options={rows} onPick={(v) => void router.pick(entry.key, v)} picked={entry.picked} tintId={`file-tint-${entry.key}`} />
       <TextButton onClick={() => router.hideKinds(entry.key)} testId="helper-file-other-back">
         {t("helper.file.otherBack")}
       </TextButton>

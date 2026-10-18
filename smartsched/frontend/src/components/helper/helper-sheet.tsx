@@ -201,6 +201,13 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
   const attach = (list: File[]) => void fileRouter.attach(list);
   const starterPicker = useFilePicker(attach, { testId: "helper-starter-file-input" });
   const fileStarter = role === "admin" || role === "planner";
+  // the palette's "Dosya ekle…" row and the empty-state links open the picker once the sheet is here (the person's
+  // activation is still fresh: one frame after their Enter / click)
+  const pendingPick = useHelperStore((s) => s.pendingPick);
+  const openPicker = starterPicker.open;
+  useEffect(() => {
+    if (pendingPick && useHelperStore.getState().takePick()) openPicker();
+  }, [pendingPick, openPicker]);
   const notes = memory.data?.enabled ? memory.data.notes : 0;
   const guide = !mode.ai || mode.blocked;
 
@@ -246,7 +253,6 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
           ) : fileStarter ? (
             <Starters role={role} onPick={() => undefined} only={{ label: t("helper.file.starter"), onPick: starterPicker.open }} />
           ) : null}
-          {starterPicker.input}
           <RecentActions />
           {notes > 0 ? (
             <p className="type-footnote text-label-2" data-testid="helper-memory-used">
@@ -258,6 +264,7 @@ function SheetBody({ titleId, desktop, onClose }: { titleId: string; desktop: bo
           ) : null}
         </div>
       ) : null}
+      {starterPicker.input}
       <SheetDropZone onFiles={attach}>
         <Log busy={turn.busy} desktop={desktop} />
       </SheetDropZone>

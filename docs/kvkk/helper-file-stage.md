@@ -37,3 +37,34 @@ short or encrypted storage. Inventory entry: `kvkk.DATA_CLASSES["helper_file_sta
   word is a week / term / day / month / sheet word (`files.safe_sheet_title`).
 - Starlette spools uploads larger than 1 MiB to `/tmp`; the backend container mounts `/tmp` as tmpfs
   (`deploy/docker-compose.yml`), so no plain bytes reach persistent disk.
+
+## Proposed privacy notice paragraph (aydınlatma metni, for the next published version; HB-23c, 2026-10-18)
+
+Privacy notices are versioned rows an administrator publishes (`POST /kvkk/notices`); none is in the repository. After
+the deploy, publish version n+1 with this paragraph (Turkish and English notices), so every user acknowledges it again.
+The wording matches the helper's own lines (`helper.file.privacy`, `helper.file.privacyMany`).
+
+**TR**
+
+> **Yardımcıya bıraktığınız dosyalar.** Yardımcıya bir dosya bıraktığınızda, eklediğinizde ya da yapıştırdığınızda dosya
+> yalnızca türünü anlamak (planlama listesi, sınav listesi, haftalık derslik takvimi vb.) ve sizi doğru sayfaya
+> yönlendirmek için okunur. Okuma kurumun kendi sunucusunda yapılır; yapay zekâ modeline ya da yurt dışına
+> gönderilmez. Dosya, açılan sayfada Önizle'ye basabilmeniz için en çok 10 dakika şifreli olarak tutulur; şifre
+> anahtarı yalnızca sizin tarayıcınızdadır. Dosya kullanıldığında, vazgeçtiğinizde, oturumu kapattığınızda ya da 10
+> dakika dolduğunda silinir. Siz Önizle'ye ve ardından Uygula'ya basana kadar hiçbir veri kaydedilmez. Düğmeye
+> bastığınızda yalnızca dosyanın türü, uzantısı, boyutu ve açılan sayfa kayıt altına alınır; dosyanın adı ve içeriği
+> kaydedilmez. Birden çok dosya bıraktığınızda dosyalar cihazınızda kalır ve Kurulum sihirbazında Başlat'a basana
+> kadar hiçbir yere gönderilmez. Hukuki sebep: KVKK m.5/2(f) (yalnızca sizin başlattığınız içe aktarmayı
+> kolaylaştırmak).
+
+**EN**
+
+> **Files you give the helper.** When you drop, attach or paste a file into the helper, it is only read to find out
+> what it is (planning list, exam list, weekly room timetable and so on) and to take you to the right page. It is
+> read on the institution's own server; it is not sent to an AI model or abroad. The file is kept encrypted for at
+> most 10 minutes so that you can press Preview on the page that opens; the key is held only by your browser. It is
+> deleted when it is used, when you cancel, when you sign out, or after 10 minutes. Nothing is saved until you press
+> Preview and then Apply. When you press the button, only the file's type, extension and size and the page it opens
+> are recorded; the file's name and contents are not. When you drop several files, they stay on your device and
+> nothing is sent until you press Start in the setup wizard. Legal basis: KVKK Art. 5(2)(f) (making the import you
+> started easier).

@@ -8,6 +8,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useFileHandoffStore, type FileHandoff } from "@/components/helper/file-handoff";
+import { useHelperStore } from "@/components/helper/helper-store";
 import { importJob } from "@/lib/api/adapters";
 import { HttpError } from "@/lib/api/client";
 import { ImportJob } from "@/lib/api/schemas";
@@ -38,6 +39,30 @@ const PREVIEW = { id: 41, kind: "planning-list", filename: "Bahar_son.xlsx", sta
 
 const res = (status: number, body?: unknown) => new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 let calls: string[];
+let classifyOut: unknown = null;
+const forms: FormData[] = [];
+const tr = (t: string) => ({ tr: t, en: t });
+const planningCard = (over: Record<string, unknown> = {}) => ({
+  v: 1,
+  id: "a1b2c3d4e5f6",
+  type: "file",
+  action: "classify_file",
+  title: tr("Bu bir planlama listesi"),
+  state: "detected",
+  kind: "planning_list",
+  kind_label: tr("Planlama listesi"),
+  certainty: "sure",
+  format: "xlsx",
+  evidence: { tr: ["Sütunlar: Ders Kodu, Şube, Dersin Günü → Planlama listesi"], en: ["Columns: Ders Kodu, Şube, Dersin Günü → Planning list"] },
+  term: { term_id: 12, name: tr("Bahar 2026"), source: "file_name", matches_active: false },
+  warnings: [{ code: "term_mismatch", status: "warn", message: tr("Dosya Bahar 2026 diyor; şu an Güz 2026-2027 seçili. Düğme dosyanın dönemine aktarır.") }],
+  primary: { feature_id: "import", params: { kind: "planning-list", term_id: 12 }, label: tr("Bahar 2026 dönemine planlama listesi olarak aktar"), carries_file: true },
+  secondary: [],
+  explain: {},
+  examples: [],
+  ai_sorted: false,
+  ...over,
+});
 
 function handoff(over: Partial<FileHandoff> = {}): FileHandoff {
   return {
@@ -53,12 +78,19 @@ function handoff(over: Partial<FileHandoff> = {}): FileHandoff {
 beforeEach(() => {
   nav.search = "kind=planning-list&term=12&from=helper";
   calls = [];
+  classifyOut = null;
+  forms.length = 0;
+  nav.replace.mockReset();
   window.sessionStorage.clear();
   up.fn.mockReset().mockResolvedValue(ImportJob.parse(importJob(PREVIEW)));
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push(`${init?.method ?? "GET"} ${String(url).split("?")[0]}`);
+      if (String(url).includes("/helper/files/classify")) {
+        if (init?.body instanceof FormData) forms.push(init.body);
+        return classifyOut ? res(200, classifyOut) : res(500, { detail: "x" });
+      }
       return res(init?.method === "DELETE" ? 204 : 200, init?.method === "DELETE" ? undefined : []);
     }),
   );
@@ -184,5 +216,105 @@ describe("setup wizard file list with a file from the helper", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Dosyayı kaldır: Bahar_son.xlsx" })));
     await waitFor(() => expect(calls).toContain("DELETE /api/v1/helper/files/stage123"));
     expect(screen.queryByTestId("onboarding-handed-file")).toBeNull();
+  });
+});
+
+describe("/import step 0: 'Türünü bilmiyor musunuz?' (helper-file-router.md §8.4)", () => {
+  const STAGE = { upload_token: TOKEN, expires_at: new Date(Date.now() + 600_000).toISOString(), size: 10, format: "xlsx" };
+
+  it("is one button with a visible label; a detected planning list selects the kind, keeps the file and presets the term", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "";
+    classifyOut = { card: planningCard(), stage: STAGE };
+    wrap(<ImportWizard />);
+    const zone = screen.getByTestId("import-kind-drop");
+    expect(zone).toHaveTextContent("Türünü bilmiyor musunuz? Dosyayı bırakın, biz söyleyelim.");
+    expect(zone.tagName).toBe("BUTTON");
+    fireEvent.change(screen.getByTestId("import-kind-drop-input"), { target: { files: [new File(["x"], "Bahar_son.xlsx")] } });
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/import?kind=planning-list&term=12&from=helper"));
+    expect(forms[0]!.get("context")).toBe("import");
+    expect(useFileHandoffStore.getState().handoff?.items[0]).toMatchObject({ token: TOKEN, name: "Bahar_son.xlsx" });
+    // the page re-reads its address: step 1 with the file row, the detection line and the mismatch line
+    expect(await screen.findByTestId("import-handed-file")).toBeInTheDocument();
+    expect(screen.getByTestId("import-detected")).toHaveTextContent("Dosyanız bir planlama listesi");
+    expect(screen.getByTestId("import-detected")).toHaveTextContent("Ders Kodu, Şube, Dersin Günü");
+    expect(screen.getByTestId("import-detected")).toHaveTextContent("Düğme dosyanın dönemine aktarır.");
+    expect((screen.getByLabelText("Hedef dönem") as HTMLSelectElement).value).toBe("12");
+    // no second drop zone on the page's empty state, and no helper sheet for a clear answer
+    expect(useHelperStore.getState().open).toBe(false);
+  });
+
+  it("an answer this screen can't take (ambiguous, unknown, another page) opens the helper with its card", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "";
+    classifyOut = { card: planningCard({ state: "unknown", kind: null, kind_label: null, certainty: null, title: null, term: null, warnings: [], primary: null, evidence: {} }) };
+    wrap(<ImportWizard />);
+    fireEvent.change(screen.getByTestId("import-kind-drop-input"), { target: { files: [new File(["x"], "notlar.xlsx")] } });
+    await waitFor(() => expect(useHelperStore.getState().open).toBe(true));
+    expect(useHelperStore.getState().entries.some((e) => e.kind === "file" && e.phase === "shown")).toBe(true);
+    expect(nav.replace).not.toHaveBeenCalled();
+  });
+});
+
+describe("/import step 1: the wrong-kind check before the upload (M-20)", () => {
+  const STAGE = { upload_token: TOKEN, expires_at: new Date(Date.now() + 600_000).toISOString(), size: 1, format: "xlsx" };
+
+  it("a planning list on the exam-list step offers 'Ders planlama listesi olarak aktar' before any upload", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=exam-list";
+    classifyOut = { card: planningCard(), stage: STAGE };
+    wrap(<ImportWizard />);
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "final.xlsx")] } });
+    expect(await screen.findByTestId("import-switch-kind")).toHaveTextContent("Ders planlama listesi olarak aktar");
+    expect(up.fn).not.toHaveBeenCalled();
+  });
+
+  it("a matching kind uploads with the probe's token (the bytes are not sent twice)", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=planning-list";
+    classifyOut = { card: planningCard(), stage: STAGE };
+    wrap(<ImportWizard />);
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "bahar.xlsx")] } });
+    await waitFor(() => expect(forms).toHaveLength(1));
+    await act(async () => undefined);
+    fireEvent.click(screen.getByTestId("import-start"));
+    await screen.findByTestId("import-preview");
+    const [, file, , opts] = up.fn.mock.calls[0]!;
+    expect(file).toBeNull();
+    expect(opts).toMatchObject({ uploadToken: TOKEN, filename: "bahar.xlsx" });
+    expect(screen.queryByTestId("import-switch-kind")).toBeNull();
+  });
+
+  it("when the check cannot answer, the page uploads the file as before", async () => {
+    useFileHandoffStore.getState().clear();
+    nav.search = "kind=planning-list";
+    wrap(<ImportWizard />);
+    const f = new File(["x"], "bahar.xlsx");
+    const input = screen.getByTestId("import-dropzone").parentElement!.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [f] } });
+    fireEvent.click(screen.getByTestId("import-start"));
+    await screen.findByTestId("import-preview");
+    expect(up.fn.mock.calls[0]![1]).toBe(f);
+  });
+});
+
+describe("setup wizard: the router's kind label and the import hint (§8.4)", () => {
+  it("names the handed file's kind next to its extension, and says an Excel importer file also goes through İçe aktar", () => {
+    useFileHandoffStore.getState().set(handoff({ featureId: "onboarding", kind: "planning_list", params: {} }));
+    wrap(<FileDrop busy={false} onStart={vi.fn()} />);
+    const row = screen.getByTestId("onboarding-handed-file");
+    expect(row).toHaveTextContent("Planlama listesi");
+    expect(row).toHaveTextContent("XLSX");
+    expect(screen.getByTestId("onboarding-import-hint")).toHaveTextContent("1 dosya İçe aktar ekranından da aktarılabilir.");
+    expect(screen.getByTestId("onboarding-import-hint").querySelector("a,button")).toBeNull();
+  });
+
+  it("no hint for a kind the import screen can't read", () => {
+    useFileHandoffStore.getState().set(handoff({ featureId: "onboarding", kind: "timetable_other", params: {} }));
+    wrap(<FileDrop busy={false} onStart={vi.fn()} />);
+    expect(screen.getByTestId("onboarding-handed-file")).toHaveTextContent("Çizelge (farklı düzen)");
+    expect(screen.queryByTestId("onboarding-import-hint")).toBeNull();
   });
 });

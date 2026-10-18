@@ -104,6 +104,21 @@ export function forgetEntryFiles() {
   files.clear();
 }
 
+/**
+ * /import step 0 (§8.4): a classify answer the page itself cannot take (ambiguous, unknown, another page, a refusal)
+ * goes into the helper's thread with its card, and the sheet opens. `out: null` = the request failed ("Tekrar dene").
+ */
+export function adoptClassified(file: File, out: { card: FileAnswerCard; stage?: FileEntry["stage"] | null; resend?: boolean | null } | null): string {
+  const st = useHelperStore.getState();
+  for (const e of st.entries) if (e.kind === "file" && (e.phase === "shown" || e.phase === "reading")) dropAll(e);
+  const key = st.pushFile([{ name: file.name, size: file.size }]);
+  files.set(key, [file]);
+  if (out) shown(key, out.card, out.stage ?? null, { resend: !!out.resend });
+  else update(key, (e) => ({ phase: "shown", view: { kind: "local", code: "file_read_failed" }, seq: e.seq + 1 }));
+  if (!useHelperStore.getState().open) useHelperStore.getState().openSheet();
+  return key;
+}
+
 /** tests: give an entry its browser File objects without a classify */
 export function attachFilesForTest(key: string, list: File[]) {
   files.set(key, list);
@@ -165,7 +180,7 @@ export function useFileRouter() {
       const e = entryOf(key);
       const token = e?.stage?.upload_token;
       if (!e || !token) return;
-      update(key, { notice: null });
+      update(key, { notice: null, picked: kind });
       try {
         const out = await helperFilesApi.route(token, kind, activeTermId());
         shown(key, out.card, e.stage);

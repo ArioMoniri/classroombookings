@@ -1,5 +1,6 @@
 "use client";
 
+import { HelperFileLink } from "@/components/helper/file-link";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileUp, PlayCircle, XOctagon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -151,7 +152,14 @@ export function DashboardView() {
     return (
       <div data-testid="dashboard">
         <PageHeader title={t("dashboard.title")} />
-        <EmptyState title={t("glass.dashboard.emptyTitle")} description={t("glass.dashboard.emptyBody")} animation="file-to-rules" animationLabel={t("glass.dashboard.emptyTitle")} actions={<Button nativeButton={false} render={<Link href="/import" />}>{t("dashboard.import")}</Button>} />
+        <EmptyState title={t("glass.dashboard.emptyTitle")} description={t("glass.dashboard.emptyBody")} animation="file-to-rules" animationLabel={t("glass.dashboard.emptyTitle")} actions={
+            <>
+              <Button nativeButton={false} render={<Link href="/import" />}>{t("dashboard.import")}</Button>
+              {/* HB-23c (helper-file-router.md §8.4): a fresh install; the helper says what a file is */}
+              <HelperFileLink />
+            </>
+          }
+        />
       </div>
     );
   }
