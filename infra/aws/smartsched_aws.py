@@ -1088,7 +1088,8 @@ db_path = os.path.join(state, "ci.sqlite3")
 if not os.path.exists(db_path):
     sys.exit(print("pod-ci: no state database"))
 db = sqlite3.connect("file:" + db_path + "?mode=ro", uri=True)
-run = db.execute("SELECT id, branch, sha, state FROM runs WHERE finished_at IS NOT NULL"
+# the newest run that really ran (a superseded run has no gates to show)
+run = db.execute("SELECT id, branch, sha, state FROM runs WHERE finished_at IS NOT NULL AND state != 'superseded'"
                  " ORDER BY finished_at DESC, id DESC LIMIT 1").fetchone()
 if run is None:
     sys.exit(print("pod-ci: no finished run"))
