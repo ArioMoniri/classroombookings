@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import io
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -21,6 +23,53 @@ pytest_plugins = ["tests.api_fixtures"]
 from app.models import Base  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+_STUCK_TASKS: list[str] = []
+
+
+def _bounded_cancel_all_tasks(
+    loop: asyncio.AbstractEventLoop, grace: float = float(os.environ.get("TEST_TASK_CANCEL_GRACE_S", "30"))
+) -> None:
+    """``asyncio.runners._cancel_all_tasks`` with a time limit. pytest-asyncio closes each test's loop through it,
+    and the stdlib waits forever for every leftover task to finish cancelling: one task that swallows its
+    ``CancelledError`` hung a whole pytest shard until the pod CI killed it after 3600 s (pod runs #100, #103,
+    #105; never seen locally). After ``grace`` seconds the stuck tasks are left behind with their stacks and the
+    test's name in the terminal summary, so the shard keeps going and the log names the culprit."""
+    to_cancel = asyncio.all_tasks(loop)
+    if not to_cancel:
+        return
+    for task in to_cancel:
+        task.cancel()
+    _done, pending = loop.run_until_complete(asyncio.wait(to_cancel, timeout=grace))
+    for task in pending:
+        buf = io.StringIO()
+        task.print_stack(file=buf)
+        _STUCK_TASKS.append(
+            f"task ignored cancel for {grace:.0f} s after {os.environ.get('PYTEST_CURRENT_TEST', '?')}: {task!r}\n"
+            + buf.getvalue()
+        )
+        asyncio.tasks._unregister_task(task)  # type: ignore[attr-defined]
+    for task in to_cancel - pending:
+        if not task.cancelled() and task.exception() is not None:
+            loop.call_exception_handler(
+                {
+                    "message": "unhandled exception during asyncio.run() shutdown",
+                    "exception": task.exception(),
+                    "task": task,
+                }
+            )
+
+
+asyncio.runners._cancel_all_tasks = _bounded_cancel_all_tasks  # type: ignore[attr-defined]
+
+
+def pytest_terminal_summary(terminalreporter):  # type: ignore[no-untyped-def]
+    for text in _STUCK_TASKS:
+        terminalreporter.write_sep("-", "stuck asyncio task (left behind at loop close)")
+        terminalreporter.write_line(text)
+
+
 BAHAR_LIST = FIXTURES / "bahar_derslik_planlama_listesi_v5.xlsx"
 GUZ_LIST = FIXTURES / "guz_derslik_planlama_2026_2027_v2.xlsx"
 EXAM_LIST = FIXTURES / "final_planlama_listesi_2026_v2.xlsx"
