@@ -100,8 +100,9 @@ function PromptComposer({
               send()
             }
           }}
+          // 16 px text on phones and touch (MOBILE M-03: iOS zooms into a smaller field on focus)
           style={{ maxHeight: `${maxRows * 20 + 8}px` }}
-          className="field-sizing-content min-h-5 w-full resize-none bg-transparent px-1 type-body leading-5 text-label-1 outline-hidden placeholder:text-label-3 disabled:opacity-50"
+          className="field-sizing-content min-h-5 w-full resize-none bg-transparent px-1 type-body leading-5 max-sm:text-base pointer-coarse:text-base text-label-1 outline-hidden placeholder:text-label-3 disabled:opacity-50"
         />
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">{leading}</div>

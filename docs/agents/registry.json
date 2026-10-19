@@ -4535,7 +4535,8 @@
       "goal": "make the pod CI browser gate fast. Today gate `e2e-real` (podci/gates.py; gates/e2e-real.sh) runs all ~436 Playwright specs with --workers=1 against ONE seeded backend (gates/e2e-backend-entry.sh: real Bahar/Güz/Final fixture imports + full-term solve + analytics seed, booking clock pinned 2026-02-16T08:00), plus an smtp sink, an empty backend (installer specs) and a mock OIDC issuer sidecar (cont…",
       "ledger": "Shard pod e2e-real gate",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-19 11:03"
     }
   ]
 }

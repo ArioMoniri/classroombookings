@@ -77,6 +77,7 @@ describe("CH12-F04 · plain line per error class", () => {
   it("maps the database and network classes, and leaves the rest alone", () => {
     expect(plainErrorKey("OperationalError", "(sqlite3.OperationalError) database is locked [SQL: UPDATE …]")).toBe("dbLocked");
     expect(plainErrorKey("sqlalchemy.exc.OperationalError", "connection refused")).toBe("db");
+    expect(plainErrorKey("http_503", "GET /api/v1/bookings/dates → 503")).toBe("server");
     expect(plainErrorKey("PendingRollbackError", "This Session's transaction has been rolled back")).toBe("rollback");
     expect(plainErrorKey("IntegrityError", "UNIQUE constraint failed")).toBe("integrity");
     expect(plainErrorKey("TypeError", "Cannot read properties of undefined")).toBeNull();
