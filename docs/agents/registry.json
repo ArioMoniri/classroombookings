@@ -4523,7 +4523,8 @@
       "goal": "reproduce these locally as close to the gate as you can (read e2e-real.sh, e2e-backend-entry.sh, e2e-backend-serve.py, e2e-seed-analytics.py and stack-up.sh to replicate: real backend with the seeded fixtures, Next production build or dev server, Playwright with Chromium at /opt/pw-browsers — do NOT run `playwright install`). A local PostgreSQL may run at 127.0.0.1:55432 but the e2e backend uses S…",
       "ledger": "Fix failing pod e2e specs",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-19 13:09"
     },
     {
       "id": "a07de39eaaebcdd29",

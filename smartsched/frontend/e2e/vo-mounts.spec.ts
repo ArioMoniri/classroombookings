@@ -236,8 +236,11 @@ test("5. phone 390 × 844: press and hold in the chat tab, release → transcrip
   expect(fs, "the chat box is 16 px on the phone (no zoom on focus)").toBeGreaterThanOrEqual(16);
   // press and hold with a touch pointer (CDP touch events drive pointerdown / pointerup with pointerType touch)
   const cdp = await ctx.newCDPSession(page);
-  const x = box!.x + box!.width / 2;
-  const y = box!.y + box!.height / 2;
+  // the M-02/M-03 checks above may scroll: measure the button where it is now, not where it was
+  await mic.scrollIntoViewIfNeeded();
+  const at = (await mic.boundingBox())!;
+  const x = at.x + at.width / 2;
+  const y = at.y + at.height / 2;
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
   await expect(chatSlot(page)).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
   await expect(page.getByTestId("voice-hold-hint")).toBeVisible();
@@ -324,7 +327,8 @@ test("6. the site policy blocks the microphone; a browser without the grant says
     await ctx.close();
   }
   // no grant: a browser without the fake-UI flag answers the prompt with "Block"
-  const plain = await chromium.launch({ args: ["--use-fake-device-for-media-stream"] });
+  // (the full build leaves a prompt open in headless mode; --deny-permission-prompts answers it with "Block")
+  const plain = await chromium.launch({ args: ["--use-fake-device-for-media-stream", "--deny-permission-prompts"], channel: process.env.E2E_CHROMIUM_CHANNEL || "chromium" });
   const ctx = await plain.newContext({ ...DESKTOP, baseURL: BASE });
   const page = await ctx.newPage();
   await login(page);
