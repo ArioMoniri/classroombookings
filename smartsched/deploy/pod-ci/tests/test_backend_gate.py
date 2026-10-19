@@ -86,7 +86,7 @@ def test_backend_gate_runs_the_static_checks_and_leaves_pytest_to_the_shards(tmp
     shards = [g for g in GATES if g.script == "backend-unit.sh"]
     assert [g.args for g in shards] == [("1/3",), ("2/3",), ("3/3",)]
     assert all(g.timeout == 3600 for g in shards) and gates["backend"].timeout == 1800
-    for name in ("e2e-real", "parity", "planner"):
+    for name in ("e2e-real-1", "e2e-real-2", "e2e-real-3", "parity", "planner"):
         assert {"backend", *(g.name for g in shards)} <= set(gates[name].needs), name
 
 

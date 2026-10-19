@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `b2766f2` (committed 2026-10-19 05:05 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `a51ee71` (committed 2026-10-19 10:58 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -154,7 +154,7 @@ The validate gate also runs `sync_docs.py --check` and the generator's own tests
 
 <!-- AUTO:gates -->
 
-16 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
+19 gates in [`podci/gates.py`](../smartsched/deploy/pod-ci/podci/gates.py), run in this order for every new commit; `deploy` runs only on the deploy branch after every blocking gate is green.
 Results with their commit and date from [`gate-results.json`](testing/gate-results.json) (local: the devops agent's run of every pod gate (docs/ROADMAP.md, 'Devops agent finished')).
 
 | Gate | Runs | Blocking | Needs | Local `5d0e6c2` (2026-10-15) |
@@ -170,7 +170,10 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `frontend` | npm ci + tsc + eslint + check-design | yes | prepare | success (378 tests) |
 | `frontend-unit-1` | vitest shard 1/2 | yes | frontend | not recorded |
 | `frontend-unit-2` | vitest shard 2/2 | yes | frontend | not recorded |
-| `e2e-real` | Playwright (all specs) vs real backend + Bahar fixtures | yes | frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | failure (forced; 72 passed, 1 failed (studio mapping-step)) |
+| `e2e-build` | next build for the e2e shards + no-mock-build check | yes | frontend, frontend-unit-1, frontend-unit-2 | not recorded |
+| `e2e-real-1` | Playwright shard 1/3 vs real backend + Bahar fixtures | yes | e2e-build, frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | not recorded |
+| `e2e-real-2` | Playwright shard 2/3 vs real backend + Bahar fixtures | yes | e2e-build, frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | not recorded |
+| `e2e-real-3` | Playwright shard 3/3 vs real backend + Bahar fixtures | yes | e2e-build, frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | not recorded |
 | `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; PASS 179 / GAP 13 / FAIL 0) |
 | `planner` | planner-level validation (tools/validate_planner.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; 0 violations on all 4) |
 | `images` | docker build backend/frontend/crbs | yes | prepare | error (did not finish: disk, needs 8 GB free) |
@@ -183,7 +186,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-414 agents in [`docs/agents/registry.json`](agents/registry.json): running 8 · finished 388 · stopped 11 · superseded 7.
+415 agents in [`docs/agents/registry.json`](agents/registry.json): running 9 · finished 388 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
@@ -195,6 +198,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `AS-S` | solver-engineer | 2026-10-18 07:56 |
 | `HB-B` | ai-engineer | 2026-10-18 07:56 |
 | `Fix failing pod e2e specs` | general-purpose | 2026-10-19 02:53 |
+| `Shard pod e2e-real gate` | devops-engineer | 2026-10-19 10:51 |
 
 <!-- /AUTO:agents -->
 

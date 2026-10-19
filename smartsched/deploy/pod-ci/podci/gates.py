@@ -25,7 +25,8 @@ class Gate:
     args: tuple[str, ...] = ()
     # gates that must have finished (any result) before this one starts: ordering without a success dependency
     after: tuple[str, ...] = ()
-    # concurrency slots (runner.py): a gate running two big containers at once (an e2e-real shard) or `next build` takes 2
+    # concurrency slots (runner.py): a gate running two big containers at once (an e2e-real shard) or `next build`
+    # takes 2
     weight: int = 1
 
 
