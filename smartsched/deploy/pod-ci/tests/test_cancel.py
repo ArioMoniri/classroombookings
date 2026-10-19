@@ -135,16 +135,30 @@ def test_fail_fast_starts_no_new_gate_after_a_blocking_failure(cfg: Config, stor
 def test_fail_fast_lets_running_gates_finish(cfg: Config, store: Store) -> None:
     ex = ConcurrentExecute(fail={"backend-unit-2"})
     rid = queue(store)
-    w = CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, check_interval=0.01), store, FakeReporter(),
-                           NoCloud(), lambda: "tok", execute=ex, run_cmd=FakeRun(), log=lambda _: None,
-                           disk_usage=lambda: 10.0, cpu_count=8, memory_mb=15_800)
+
+    class Observing(CheckoutStubWorker):
+        """Records when the worker itself sees the failure: the executor's "end" comes a moment earlier (the future
+        is not done yet), and gates the worker starts in that window are legitimate."""
+
+        def _finish_gate(self, run: Any, g: Any, code: int, started: float) -> str:
+            state = super()._finish_gate(run, g, code, started)
+            if g.blocking and state != SUCCESS:
+                with ex.lock:
+                    ex.events.append(("observed", g.name))
+            return state
+
+    w = Observing(dataclasses.replace(cfg, parallel=0, check_interval=0.01), store, FakeReporter(),
+                  NoCloud(), lambda: "tok", execute=ex, run_cmd=FakeRun(), log=lambda _: None,
+                  disk_usage=lambda: 10.0, cpu_count=8, memory_mb=15_800)
     w.work()
-    fail_end = ex.events.index(("end", "backend-unit-2"))
-    started_before = {g for k, g in ex.events[:fail_end] if k == "start"}
-    assert not any(k == "start" for k, _ in ex.events[fail_end + 1:])  # nothing new after the failure
+    seen = ex.events.index(("observed", "backend-unit-2"))
+    assert ex.events.index(("end", "backend-unit-2")) < seen
+    started_before = {g for k, g in ex.events[:seen] if k == "start"}
+    assert not any(k == "start" for k, _ in ex.events[seen + 1:])  # nothing new once the worker saw the failure
     states = {s.name: s.state for s in store.steps(rid)}
     for g in started_before - {"backend-unit-2"}:
         assert states[g] == SUCCESS, g  # gates already running finished normally
+    assert all(states[g] == "skipped" for g in states if g not in started_before)
     assert store.get(rid).state == FAILURE  # type: ignore[union-attr]
 
 
