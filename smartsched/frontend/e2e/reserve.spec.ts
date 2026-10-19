@@ -368,7 +368,7 @@ test("10. administrators bulk-cancel other people's bookings from the grid (CRBS
   await cell(page, slot!).click();
   await expect(cell(page, slot!)).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("multi-cancel").click();
-  await page.getByRole("dialog", { name: /iptal edilsin mi|Cancel \d+ bookings/ }).getByRole("button", { name: /^(İptal et|Cancel booking)$/ }).click();
+  await page.getByRole("alertdialog", { name: /iptal edilsin mi|Cancel \d+ bookings/ }).getByRole("button", { name: /^(İptal et|Cancel booking)$/ }).click();
   await expect(cell(page, slot!)).toHaveAttribute("data-tone", "available");
   const mine = await api<{ id: number }[]>("GET", "/bookings/mine?status=CANCELLED", undefined, ctx.teacherToken);
   expect(mine.some((x) => x.id === b.id)).toBe(true);

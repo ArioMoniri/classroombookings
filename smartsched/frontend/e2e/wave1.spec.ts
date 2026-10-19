@@ -282,8 +282,8 @@ test("wave1 3. audit log: filter a booking, the before/after diff, Undo, a refus
   await expect(event.locator('[data-testid^="audit-action-"]')).toHaveText("booking.create");
   await expect(event.getByTestId("audit-diff")).toContainText("Denetim e2e");
   await event.getByRole("button", { name: /Geri al|Undo/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: /Geri al|Undo/ }).click();
-  await expect(page.getByRole("dialog")).toBeHidden();
+  await page.getByRole("alertdialog").getByRole("button", { name: /Geri al|Undo/ }).click();
+  await expect(page.getByRole("alertdialog")).toBeHidden();
   await expect.poll(async () => (await api<{ status: string }>("GET", `/bookings/${first.id}`)).status).toBe("CANCELLED");
 
   // refused: a later event touched the booking (409 changed_since, the backend's Turkish sentence)
@@ -291,7 +291,7 @@ test("wave1 3. audit log: filter a booking, the before/after diff, Undo, a refus
   await view.getByTestId("audit-apply").click();
   const created = view.locator('[data-action="booking.create"]').first();
   await created.getByRole("button", { name: /Geri al|Undo/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: /Geri al|Undo/ }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: /Geri al|Undo/ }).click();
   await expect(page.getByTestId("audit-undo-error")).toContainText(/değişiklik yapıldı|change/);
   await page.keyboard.press("Escape");
 

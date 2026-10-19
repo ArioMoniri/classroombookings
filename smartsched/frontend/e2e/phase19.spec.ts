@@ -147,7 +147,8 @@ test("a teacher without a linked instructor sees the 'not linked' empty state on
   await login(page, email, "Teacher-2026!");
   await page.goto("/moderation");
   await expect(page.getByTestId("my-requests")).toBeVisible();
-  await expect(page.getByTestId("mine-unlinked")).toContainText("Hesabınız bir öğretim elemanına bağlı değil");
+  // PER-F02: no dead end for an unlinked account; Taleplerim says where its planning requests will appear
+  await expect(page.getByTestId(/^mine-unlinked/).first()).toContainText("Ders planlama talepleriniz, hesabınız bir öğretim elemanı kaydına bağlanınca burada görünür.");
   await expect(page.getByText("Yüklenemedi")).toHaveCount(0);
 });
 
