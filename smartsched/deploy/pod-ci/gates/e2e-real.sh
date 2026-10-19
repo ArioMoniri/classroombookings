@@ -23,14 +23,15 @@ net="podci-${RUN_TAG}"
 backend="podci-${RUN_TAG}-backend"
 smtp="podci-${RUN_TAG}-smtp"
 empty="podci-${RUN_TAG}-backend-empty"
+idp="podci-${RUN_TAG}-idp"
 tries="${E2E_HEALTH_TRIES:-450}"
 pause="${E2E_HEALTH_SLEEP:-2}"
 clock="2026-02-16T08:00"
 cleanup() {
-  for c in "$backend" "$empty" "$smtp"; do
+  for c in "$backend" "$empty" "$smtp" "$idp"; do
     echo "==== ${c##*-${RUN_TAG}-} log (tail)"; docker logs --tail 200 "$c" 2>&1 || true
   done
-  docker rm -f "$backend" "$empty" "$smtp" >/dev/null 2>&1 || true
+  docker rm -f "$idp" "$backend" "$empty" "$smtp" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -66,9 +67,16 @@ docker run -d "${docker_common[@]}" --memory 1g --memory-swap 1g --name "$empty"
   --network-alias backend-empty \
   -e E2E_EMPTY=1 -e E2E_VENV=/w/venv -e E2E_WORKDIR=/w/e2e-empty -e E2E_BOOKING_CLOCK="$clock" \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
+section "mock OpenID Connect issuer (w3-idp.spec.ts) inside the backend's network namespace"
+# The issuer URL is http://localhost:19712: the backend (discovery, JWKS, token) and the browser (authorize) must both
+# reach it, and the panel's public URL (127.0.0.1:3100) must be the browser's too. So the issuer runs next to the
+# backend and Playwright joins the backend's namespace: localhost is the same for all three. It needs the backend venv
+# (joserfc), which the Playwright image does not have.
+docker run -d "${docker_common[@]}" --memory 256m --memory-swap 256m --name "$idp" --network "container:$backend" \
+  "$PY_IMAGE" /w/venv/bin/python -I /w/src/smartsched/frontend/e2e/w3-idp-mock-issuer.py 19712 >/dev/null
 section "playwright (E2E_REAL=1, all specs)"
 # list for the log; json for the parity gate (gates/parity.sh maps UI rows to these test results)
-in_playwright --network "$net" -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 \
+in_playwright --network "container:$backend" -e W3_IDP_EXTERNAL=1 -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 \
   -e E2E_SMTP_HOST=smtp -e E2E_SMTP_PORT=1025 -e E2E_SMTP_API=http://smtp:8025 \
   -e E2E_EMPTY_API_URL=http://backend-empty:8000 \
   -e E2E_DB=/w/e2e.db \

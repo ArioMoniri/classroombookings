@@ -33,9 +33,12 @@ let issuer: ChildProcess | null = null;
 let inviteLink = "";
 
 test.beforeAll(async () => {
-  const py = process.env.W3_IDP_PYTHON ?? path.resolve(process.cwd(), "../backend/.venv/bin/python");
-  issuer = spawn(py, ["-I", path.resolve(process.cwd(), "e2e/w3-idp-mock-issuer.py"), String(ISSUER_PORT)], { stdio: "ignore" });
-  await new Promise((r) => setTimeout(r, 1500));
+  // W3_IDP_EXTERNAL=1: the caller already runs the issuer (pod CI e2e-real.sh: a sidecar in the backend's network)
+  if (!process.env.W3_IDP_EXTERNAL) {
+    const py = process.env.W3_IDP_PYTHON ?? path.resolve(process.cwd(), "../backend/.venv/bin/python");
+    issuer = spawn(py, ["-I", path.resolve(process.cwd(), "e2e/w3-idp-mock-issuer.py"), String(ISSUER_PORT)], { stdio: "ignore" });
+    await new Promise((r) => setTimeout(r, 1500));
+  }
   // the panel's public URL (the redirect URI is built from it)
   const ctx = await pwRequest.newContext();
   const tok = (await (await ctx.post(`${API}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })).json()) as { access_token: string };
