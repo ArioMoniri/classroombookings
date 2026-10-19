@@ -696,3 +696,34 @@ def test_pod_diag_prints_failed_gate_tails(tmp_path: Any) -> None:
     assert "prepare ok" not in out and "old run" not in out and not any("e2e-real" in line for line in out)
     assert f"python3 - /var/lib/smartsched-ci {sa.FAILED_GATE_TAIL} <<" in sa.POD_DIAG
     assert sa.POD_DIAG.endswith("PODCI_PY\n") and sa.POD_FAILED_GATES_PY.strip() in sa.POD_DIAG
+
+
+def test_resize_stops_changes_the_type_and_starts_without_touching_the_budget(aws: StubAws) -> None:
+    ec2 = aws.stub("ec2")
+    iid = "i-0123456789abcdef0"
+    ec2.add_response("describe_instances", {"Reservations": [{"Instances": [instance("running")]}]})
+    ec2.add_response("stop_instances", {"StoppingInstances": []}, {"InstanceIds": [iid]})
+    ec2.add_response("describe_instances", {"Reservations": [{"Instances": [instance("stopped")]}]})
+    ec2.add_response("modify_instance_attribute", {},
+                     {"InstanceId": iid, "InstanceType": {"Value": "c7g.4xlarge"}})
+    ec2.add_response("describe_instances", {"Reservations": [{"Instances": [instance("stopped")]}]})
+    ec2.add_response("describe_instances", {"Reservations": [{"Instances": [instance("stopped")]}]})
+    ec2.add_response("start_instances", {"StartingInstances": []}, {"InstanceIds": [iid]})
+    ec2.add_response("describe_instances", {"Reservations": [{"Instances": [instance("running")]}]})
+    ec2.add_response("describe_addresses", {"Addresses": [{"AllocationId": "e", "PublicIp": "203.0.113.10",
+                                                           "InstanceId": iid}]})
+    s = sa.Settings(instance_type="c7g.4xlarge", budget_usd=450.0)
+    out = sa.cmd_resize(aws, s, "123456789012", sleep=lambda _: None)
+    assert out["from"] == "t4g.large" and out["to"] == "c7g.4xlarge" and out["budget_usd"] is None
+    ec2.assert_no_pending_responses()
+
+
+def test_ci_upgrade_script_reinstalls_from_the_deploy_branch_and_restarts_the_worker() -> None:
+    script = sa.pod_ci_upgrade_script(sa.Settings(deploy_branch="claude/gracious-cerf-w1598m"))
+    lines = script.splitlines()
+    assert lines[0] == "set -euo pipefail"
+    assert lines.index("systemctl stop smartsched-ci-update.path smartsched-ci-update.service || true") < \
+        next(i for i, x in enumerate(lines) if "install.sh --upgrade" in x)
+    assert "--branch claude/gracious-cerf-w1598m https://github.com/ArioMoniri/classroombookings.git" in script
+    restart = "systemctl start --no-block smartsched-ci-worker.service"
+    assert script.index("install.sh --upgrade") < script.index(restart)

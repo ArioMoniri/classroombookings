@@ -5,7 +5,9 @@
 # (smartsched/deploy/pod-ci); this job only calls AWS APIs: no builds, no tests, <= 10 minutes.
 #
 # Trigger: commit + push a change to infra/aws/POD_ACTION whose first line is
-#     up | status | logs | stop | start | cost | down destroy
+#     up | status | logs | stop | start | cost | resize | ci-upgrade | down destroy
+#     (`resize type=<instance type> budget=<usd>` stops the pod, changes its type, starts it and sets the budget;
+#      `ci-upgrade` reinstalls pod CI on the pod from its deploy branch through SSM and restarts the worker)
 #     (optional: region=<aws-region>, pod=gracious|universal or branch=<deploy branch>; default pod gracious)
 #     `up` also takes deploy-time settings as key=value (quote values with spaces), mapped to the
 #     `smartsched_aws.py up` flags of docs/deploy/ONE-CLICK.md: org= admin= acme= ai= ai-base-url= smtp-host=
@@ -121,19 +123,19 @@ jobs:
             *) echo "::error::unknown pod '$pod' (gracious | universal, or their branches)"; exit 1 ;;
           esac
           case "$cmd" in
-            up|status|logs|stop|start|cost) ;;
+            up|status|logs|stop|start|cost|resize|ci-upgrade) ;;
             down)
               if [ "$confirm" != "destroy" ]; then
                 echo "::error::'down' deletes the pod and its data; write 'down destroy' into infra/aws/POD_ACTION"
                 exit 1
               fi ;;
-            *) echo "::error::unknown command '$cmd' (up|status|logs|stop|start|cost|down destroy)"; exit 1 ;;
+            *) echo "::error::unknown command '$cmd' (up|status|logs|stop|start|cost|resize|ci-upgrade|down destroy)"; exit 1 ;;
           esac
           region="${region:-${REGION_SECRET:-us-east-1}}"
           if ! [[ "$region" =~ ^[a-z0-9-]+$ ]]; then echo "::error::invalid region '$region'"; exit 1; fi
           # deploy-time settings -> `up` flags, NUL-separated (argv, never eval); only the flag names are logged
           python3 - "$cmd" "$settings" "${RUNNER_TEMP:-$PWD}/pod-flags" <<'PY'
-          import shlex, sys
+          import re, shlex, sys
           cmd, line, out = sys.argv[1], sys.argv[2], sys.argv[3]
           FLAGS = {"org": "--org-name", "admin": "--admin-email", "acme": "--acme-email", "ai": "--ai-provider",
                    "ai-provider": "--ai-provider", "ai-base-url": "--ai-base-url", "smtp-host": "--smtp-host",
@@ -148,8 +150,20 @@ jobs:
               words = shlex.split(line)
           except ValueError as exc:
               fail(f"cannot parse the settings ({exc}); quote values with spaces in double quotes")
-          args = []
-          for w in words[1:]:
+          resize = cmd == "resize"
+          if resize:
+              # only the instance type and the budget; everything else on the line is ignored
+              args = []
+              for w in words[1:]:
+                  key, _, value = w.partition("=")
+                  if key.lower() == "type" and re.fullmatch(r"[a-z0-9]+\.[a-z0-9]+", value):
+                      args += ["--instance-type", value]
+                  elif key.lower() == "budget" and re.fullmatch(r"[0-9]+(\.[0-9]+)?", value):
+                      args += ["--budget-usd", value]
+              if "--instance-type" not in args:
+                  fail("resize needs type=<instance type>, e.g. resize type=c7g.4xlarge budget=450")
+          args = [] if not resize else args
+          for w in ([] if resize else words[1:]):
               if "=" not in w:
                   continue  # the confirm word, the timestamp
               key, value = w.split("=", 1)
@@ -172,7 +186,7 @@ jobs:
               else:
                   fail(f"unknown setting '{key}' (org admin acme ai ai-base-url smtp-host smtp-port smtp-security "
                        "smtp-user smtp-from smtp-from-name security observability)")
-          if cmd != "up":
+          if cmd not in ("up", "resize"):
               if args:
                   print(f"::notice::deploy-time settings apply to 'up' only; ignored for '{cmd}'")
               args = []
@@ -247,7 +261,7 @@ jobs:
           extra=()
           if [ "$POD_COMMAND" = "down" ]; then extra+=(--yes); fi
           # the deploy-time flags the Resolve step parsed from POD_ACTION (empty unless `up`)
-          if [ "$POD_COMMAND" = "up" ] && [ -s "$RUNNER_TEMP/pod-flags" ]; then
+          if { [ "$POD_COMMAND" = "up" ] || [ "$POD_COMMAND" = "resize" ]; } && [ -s "$RUNNER_TEMP/pod-flags" ]; then
             mapfile -d '' -t settings < "$RUNNER_TEMP/pod-flags"; extra+=("${settings[@]}")
           fi
           /tmp/venv/bin/python infra/aws/smartsched_aws.py "$POD_COMMAND" --pod "$POD_NAME" \

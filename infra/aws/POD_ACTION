@@ -1,1 +1,1 @@
-logs pod=gracious 2026-10-19T04:29Z
+resize pod=gracious type=c7g.4xlarge budget=450 2026-10-19T10:54Z
