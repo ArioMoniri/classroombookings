@@ -3,13 +3,16 @@
 # parity inventory (smartsched/backend/tests/parity/inventory.py) on the real Bahar 2026 fixtures, maps the UI
 # rows to the Playwright titles of e2e/bookings.spec.ts + calendar.spec.ts, prints one line per row and fails
 # on any failing or uncovered row. The report goes to the run workspace ($WS/crbs-parity-report.md, /w inside
-# the container), not into the source tree. The UI column ALWAYS comes from the Playwright JSON report the
-# e2e-real gate leaves at $WS/playwright-report.json: a mapped spec that was skipped, failed or not run fails
-# its row, and no report (e2e-real skipped) fails the gate. API rows still run and are reported either way.
+# the container), not into the source tree. The UI column ALWAYS comes from the Playwright JSON reports the
+# e2e-real-<i> shard gates leave at $WS/playwright-report-<i>.json, merged (`parity.sh <shard count>`, gates.py): a
+# mapped spec that was skipped, failed or not run fails its row, and a missing shard report (that shard skipped or
+# killed) fails the gate. API rows still run and are reported either way.
 #   PARITY_STRICT=1   declared gaps fail the gate too
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+SHARDS="${1:-3}"
+[[ "$SHARDS" =~ ^[1-9][0-9]*$ ]] || { echo "bad shard count $SHARDS"; exit 2; }
 # RUN_TAG is <run id>-<short sha>: the report names the tested commit (the workspace has no .git)
-in_python -e "PARITY_STRICT=${PARITY_STRICT:-0}" -e PARITY_COMMIT="${RUN_TAG#*-}" -- '
+in_python -e "PARITY_STRICT=${PARITY_STRICT:-0}" -e PARITY_COMMIT="${RUN_TAG#*-}" -e E2E_SHARDS="$SHARDS" -- '
 if [ -x /w/venv/bin/python ]; then
   . /w/venv/bin/activate              # the backend gate already installed the backend here
 else
@@ -17,7 +20,8 @@ else
   pip install -q --upgrade pip
   pip install -q -e "./smartsched/backend[dev]"
 fi
-args=(--report /w/crbs-parity-report.md --json /w/crbs-parity.json --playwright-json /w/playwright-report.json)
+args=(--report /w/crbs-parity-report.md --json /w/crbs-parity.json)
+for i in $(seq 1 "${E2E_SHARDS}"); do args+=(--playwright-json "/w/playwright-report-${i}.json"); done
 [ "${PARITY_STRICT}" = "1" ] && args+=(--strict)
 echo "==== parity_check.py ${args[*]}"
 status=0

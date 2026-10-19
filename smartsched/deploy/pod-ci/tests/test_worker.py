@@ -82,9 +82,9 @@ def test_green_run_on_deploy_branch_deploys(cfg: Config, store: Store) -> None:
     conf = (cfg.deploy_dir / "smartsched/deploy/nginx/default.conf").read_text()
     assert "location /ci/" in conf
     assert (cfg.state_dir / "update-request").read_text().strip() == SHA_A
-    # idle alarm paused during the job and re-enabled afterwards
+    # idle alarm paused during the job; after a good deploy the pod serves the site, so it stays disarmed
     toggles = [e[1] for e in cloud.events if e[0] == "alarm_actions"]
-    assert toggles[0] is True and False in toggles and toggles[-1] is True
+    assert toggles[0] is True and False in toggles and toggles[-1] is False
     # workspace removed, logs kept
     assert not (cfg.work_dir / str(rid)).exists() and (cfg.logs_dir / str(rid) / "backend.log").exists()
 

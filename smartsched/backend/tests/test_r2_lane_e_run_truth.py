@@ -80,7 +80,8 @@ def test_unplaced_list_names_every_unplaced_class_once() -> None:
     res = check(data)
     run = _Run({"placed": 2, "events_total": 4, "event_members": {"2": [2, 3]}})
     truth = run_truth.build(run, res)  # type: ignore[arg-type]
-    assert truth["unplaced"] == 2
+    # Yerleşmeyen = the classes not fully placed (decision 2026-10-19): the two never placed and the partial one
+    assert truth["unplaced"] == 3
     lst = truth["unplaced_list"]
     labels = [x["label"] for x in lst]
     assert labels == ["EHM 212 §B1 A + EHM 212 §B1 B", "ING 101", "MAT 112 §1"]

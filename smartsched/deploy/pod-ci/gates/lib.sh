@@ -12,7 +12,7 @@ set -euo pipefail
 : "${WS:?}" "${CACHE_DIR:?}" "${RUN_TAG:?}" "${CI_UID:?}" "${CI_GID:?}" "${GATES_DIR:?}"
 GATE_CPUS="${GATE_CPUS:-2}"
 GATE_MEMORY="${GATE_MEMORY:-3g}"
-# Node gates (frontend, e2e-real's Playwright container): the pod is a 2 vCPU / 8 GB arm64 t4g.large that also
+# Node gates (frontend, e2e-build, the e2e-real shards' Playwright container): the pod is a 2 vCPU / 8 GB arm64 t4g.large that also
 # runs the app stack (~2 GB). V8 sizes its default heap from the cgroup limit, which ran out in tsc/next build
 # ("Ineffective mark-compacts near heap limit", run #51), so node containers get NODE_MEMORY and an explicit heap
 # of NODE_HEAP_MB below it. vitest.config.mts caps its own forks (2 workers, 1536 MB each) under CI=1.

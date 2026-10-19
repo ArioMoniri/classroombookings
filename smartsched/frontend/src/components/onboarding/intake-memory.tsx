@@ -127,16 +127,19 @@ export function IntakeMemoryPanel({ compact = false }: { compact?: boolean }) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-auto min-h-11 w-full min-w-0 justify-start gap-2 py-1.5 text-left whitespace-normal sm:w-auto sm:flex-1"
+                              // on the control height scale (design tokens: 40 px fine pointer, 48 px touch), two lines
+                              // that truncate; the full label is the title (decision 2026-10-19: rows grew to 44/60 px)
+                              className="h-10 w-full min-w-0 justify-start gap-2 py-0 text-left pointer-coarse:h-12 sm:w-auto sm:flex-1"
+                              title={group.label[lang]}
                               aria-expanded={isOpen}
                               aria-controls={`mem-rows-${group.signature}`}
                               onClick={() => toggle(group.signature)}
                               data-testid="intake-memory-group-toggle"
                             >
                               <ChevronRight className={cn("size-4 shrink-0 transition-transform duration-(--dur-fast)", isOpen && "rotate-90")} aria-hidden />
-                              <span className="grid min-w-0">
-                                <span className="font-medium [overflow-wrap:anywhere] text-label-1">{group.label[lang]}</span>
-                                <span className="type-footnote text-label-2">
+                              <span className="grid min-w-0 leading-tight">
+                                <span className="truncate font-medium text-label-1">{group.label[lang]}</span>
+                                <span className="truncate type-footnote text-label-2">
                                   {t("intakeMemory.groupMeta", { n: n(group.count), date: date(group.last_at), jobs: group.jobs.map((j) => `#${j}`).join(", ") })}
                                 </span>
                               </span>

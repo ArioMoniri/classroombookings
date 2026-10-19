@@ -95,6 +95,9 @@ test("moderation: people → profile → raise a priority → re-solve preview d
   await page.getByTestId("recreate-open").click();
   const sheet = page.getByTestId("recreate-sheet");
   await expect(sheet.getByRole("radio", { name: /En az değişiklik/ })).toBeChecked();
+  // the shortest time budget (as loop-r2-laneD): the flow under test is the preview diff and the publish guard, and the
+  // default budget's full-term re-solve took 3-10 min per run on one CPU-shared host (pod CI)
+  await sheet.getByRole("radio", { name: /60 sn/ }).or(sheet.getByText("60 sn")).first().click();
   await sheet.getByTestId("recreate-start").click();
   await expect(page).toHaveURL(/\/moderation\/recreate\/\d+/);
 

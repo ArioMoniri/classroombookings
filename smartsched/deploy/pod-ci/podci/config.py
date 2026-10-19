@@ -42,7 +42,8 @@ class Config:
     gate_memory: str = "3g"
     # Gates run concurrently along their `needs` DAG, at most `parallel` slots at once (0 = auto: half the CPUs).
     # Slots are also capped by memory: (MemTotal - memory_reserve_mb) / slot_min_mb, so an 8 GB pod stays at one
-    # gate at a time (today's behaviour, gate_cpus / gate_memory as set) and a 16 GB c7g.2xlarge runs three.
+    # gate at a time (today's behaviour, gate_cpus / gate_memory as set), a 16 GB c7g.2xlarge runs three and a 32 GiB
+    # c7g.4xlarge six (2 vCPU / ~4.6 GiB each: the three two-slot e2e-real shards at once).
     parallel: int = 0
     memory_reserve_mb: int = 3072
     slot_min_mb: int = 4096
