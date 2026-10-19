@@ -4,7 +4,7 @@
  * name "Show password", so label regexes match two elements).
  */
 import path from "node:path";
-import { expect, request as pwRequest, type Locator, type Page } from "@playwright/test";
+import { expect, request as pwRequest, test, type Locator, type Page } from "@playwright/test";
 import { resolveFixturesDir } from "../src/test/fixtures-dir";
 
 export const REAL = process.env.E2E_REAL === "1";
@@ -91,6 +91,29 @@ export async function dismissWelcomeSheet(page: Page): Promise<boolean> {
   return due;
 }
 
+/**
+ * The client address a browser sign-in comes from: one per person and spec file (198.18.0.0/15, the RFC 2544
+ * benchmarking range). In the e2e stack every browser reaches the backend through the Next.js handler on one host,
+ * so without this a whole school's sign-ins share one address and the backend's per-address sign-in throttle
+ * (security_http.py: 60 POST /auth/login per address in 300 s; pod e2e #141, laneE/laneF "Çok fazla deneme") counts
+ * them together. The throttle and its caps stay as shipped; each simulated person gets the machine a real one would
+ * have. The handler forwards `x-forwarded-for` and the backend believes it because the hop is loopback (no nginx in
+ * the e2e stack; in production nginx appends the real peer, so a browser cannot choose its address there). Stable per
+ * person and file, so the "new device" sign-in mail and the remembered-device list see one device per spec, not one
+ * per sign-in. Specs that test the throttles (loop-r1-laneA T-R1-09, the backend unit tests) do not go through here.
+ */
+export function clientAddressFor(identifier: string): string {
+  let file = "";
+  try {
+    file = test.info().file;
+  } catch {
+    // outside a test (global setup): the person alone
+  }
+  let h = 0x811c9dc5;
+  for (const ch of `${path.basename(file)}|${identifier.trim().toLowerCase()}`) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  return `198.${18 + (h & 1)}.${(h >>> 8) & 0xff}.${((h >>> 16) % 254) + 1}`;
+}
+
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
  *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. A privacy notice an earlier spec
  *  published is acknowledged unless `ackNotice: false` (the notice gate's own test); the first-sign-in welcome sheet
@@ -99,6 +122,7 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
   // A page still showing the app after its cookies were cleared answers its next poll with 401 and redirects
   // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
   if (page.url() !== "about:blank") await page.goto("about:blank");
+  await page.context().setExtraHTTPHeaders({ "x-forwarded-for": clientAddressFor(identifier) });
   await page.goto("/login?method=local");
   // the fields are controlled inputs: text typed into the server-rendered form before React hydrated it is dropped
   // on a slow host (the form then answers "identifier required"), so wait until React owns the form
