@@ -83,6 +83,8 @@ export function createHeroDriver(o: {
   seek: (frame: number) => void;
   pause: () => void;
   onDone: () => void;
+  /** after the first seek: the scene is on screen */
+  onFirstFrame?: () => void;
   raf?: (cb: (t: number) => void) => number;
   caf?: (id: number) => void;
   inputPending?: () => boolean;
@@ -115,8 +117,10 @@ export function createHeroDriver(o: {
     skipped = 0;
     const frame = Math.min(end, Math.floor(((t - t0) * HERO_FPS) / 1000));
     if (frame !== last) {
+      const first = last === -1;
       last = frame;
       o.seek(frame);
+      if (first) o.onFirstFrame?.();
     }
     if (frame >= end) {
       // settle: hold exactly on the poster frame, never loop
@@ -217,6 +221,9 @@ function HeroPlayer({ theme, onState, onStart }: { theme: Theme; onState: (s: "p
           seek: (frame) => handle.current?.seek({ frame }),
           pause: () => handle.current?.pause(),
           onDone: () => onState("done"),
+          // "playing" from the first drawn frame: building the SVG tree and its first raster are the scene's one
+          // heavy moment (pod e2e #125: a 52 ms frame on a 2-vCPU software renderer); they are the entrance
+          onFirstFrame: () => onState("playing"),
         });
         driver.current.start();
       },
@@ -224,8 +231,12 @@ function HeroPlayer({ theme, onState, onStart }: { theme: Theme; onState: (s: "p
     [onState],
   );
   // any keystroke, text input or tap: the frame that handles it draws nothing of the hero (passive, capture)
+  const lastInputAt = useRef(-Infinity);
   useEffect(() => {
-    const note = () => driver.current?.noteInput();
+    const note = () => {
+      lastInputAt.current = performance.now();
+      driver.current?.noteInput();
+    };
     const opts = { capture: true, passive: true } as const;
     for (const type of INPUT_EVENTS) document.addEventListener(type, note, opts);
     return () => {
@@ -242,10 +253,15 @@ function HeroPlayer({ theme, onState, onStart }: { theme: Theme; onState: (s: "p
       timer = setTimeout(() => {
         onStart(theme);
         Promise.all([heroLoaders.player(), heroLoaders.data[theme]()])
-          .then(([Player, mod]) => {
+          .then(async ([Player, mod]) => {
+            // building the scene (lottie's SVG tree and its first raster) is the hero's heaviest moment: never in the
+            // middle of someone typing. It waits for a quiet HERO_INPUT_HOLD_MS like every drawn frame does
+            // (owner decision 2026-10-19, "make the app lighter, not the budget looser")
+            while (!cancelled && performance.now() - lastInputAt.current < HERO_INPUT_HOLD_MS) {
+              await new Promise((r) => setTimeout(r, HERO_INPUT_HOLD_MS - (performance.now() - lastInputAt.current)));
+            }
             if (cancelled) return;
             setLoaded({ Player, data: withoutBackground(mod) });
-            onState("playing");
           })
           .catch(() => {
             if (cancelled) return;

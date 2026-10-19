@@ -185,13 +185,16 @@ describe("SignInHero (auth.md §11.3)", () => {
     expect(p.autoplay).toBe(false);
     // the opaque page-colour background layer is dropped over the tint frame
     expect(p.src.layers.some((l) => l.nm === "background")).toBe(false);
-    expect(hero).toHaveAttribute("data-state", "playing");
+    // "playing" only once the first frame is drawn: building the scene is the entrance, not the pass
+    expect(hero).toHaveAttribute("data-state", "loading");
     const clock = manualClock();
     const pause = vi.spyOn(lot.handle, "pause");
     const seek = vi.spyOn(lot.handle, "seek");
     act(() => p.subscriptions?.ready?.());
+    expect(hero).toHaveAttribute("data-state", "loading");
     act(() => clock.frame(1000));
     expect(seek).toHaveBeenLastCalledWith({ frame: 0 });
+    expect(hero).toHaveAttribute("data-state", "playing");
     act(() => clock.frame(2000));
     expect(seek).toHaveBeenLastCalledWith({ frame: HERO_FPS });
     expect(hero).toHaveAttribute("data-state", "playing");
@@ -306,6 +309,9 @@ describe("SignInHero (auth.md §11.3)", () => {
     rerender(<SignInHero />);
     await screen.findByTestId("lottie-mock", undefined, { timeout: 3000 });
     expect(dark).toHaveBeenCalledTimes(1);
+    const clock = manualClock();
+    act(() => (lot.props as MockProps).subscriptions?.ready?.());
+    act(() => clock.frame(0));
     expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "playing");
   });
 

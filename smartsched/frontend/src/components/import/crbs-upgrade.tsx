@@ -13,6 +13,7 @@
  *
  * The endpoint needs `planning.admin`; other planners see why the flow is closed instead of a 403.
  */
+import { focusWhenSettled } from "@/components/moderation/priority-editor";
 import { AlertTriangle, Database, FileCode2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -96,7 +97,9 @@ export function CrbsUpgrade({ onStep, onBack }: { onStep: (s: FlowStep) => void;
       setConfirming(false);
       onStep("done");
       void qc.invalidateQueries();
-      requestAnimationFrame(() => resultRef.current?.focus());
+      // the confirm dialog gives focus back to its trigger after its exit animation, and that trigger is gone with the
+      // diff: focus the result heading again once it settled (a single frame lost that race on a slow host, e2e sweep 1)
+      focusWhenSettled(() => resultRef.current);
     } catch (e) {
       const err = errorKey(e);
       setError(err);
