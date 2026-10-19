@@ -1114,6 +1114,23 @@ for name, st, code, log_path in steps:
                   or "TIMEOUT after" in ln]
         for line in picked[-tail:] or lines[-tail:]:
             print(line[:300])
+        # the error of each failure from the list reporter's closing section ("  1) [chromium] › e2e/…"):
+        # the header, then its first Error / expect / Received / Timeout lines and the spec location
+        header = re.compile(r"^\\s+\\d+\\) \\[")
+        keep = re.compile(r"Error|rror:|expect\\(|Expected|Received|Timeout|timed out|waiting for|locator|at .*spec\\.ts|> \\d+ \\|")
+        out, shown = [], 0
+        for i, ln in enumerate(lines):
+            if header.match(ln) and "retry" not in ln:
+                out.append(ln[:300])
+                shown = 0
+                for nxt in lines[i + 1:i + 60]:
+                    if header.match(nxt) or shown >= 7:
+                        break
+                    if keep.search(nxt):
+                        out.append("      " + nxt.strip()[:260])
+                        shown += 1
+        for line in out[:110]:
+            print(line)
         continue
     for line in lines[-tail:]:
         print(line[:400])
