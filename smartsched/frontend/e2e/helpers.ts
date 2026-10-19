@@ -41,7 +41,7 @@ export async function ackPrivacyNotice(page: Page): Promise<boolean> {
 }
 
 /**
- * Make `termId` the working term of the signed-in user for the NEXT page load (call before `goto` / `reload`).
+ * Make `termId` the working term of the signed-in user (the current page is reloaded to pick it up).
  * The shell's term is the user's workspace memory (`smartsched.workspace`, keyed by user id; AppShell copies it into
  * `smartsched.ui` once /auth/me answers, and falls back to the current term by date when there is none), so writing
  * `smartsched.ui` alone is overwritten on load. `forget` also drops the user's remembered runs and weeks.
@@ -59,6 +59,8 @@ export async function pinTerm(page: Page, termId: number, { forget = false }: { 
     },
     { id: termId, forget },
   );
+  // the running shell keeps its term in memory: load the page again so it reads the pinned one
+  await page.reload();
 }
 
 /** `pinTerm` by term code (GET /terms through the proxy); returns the term id. */

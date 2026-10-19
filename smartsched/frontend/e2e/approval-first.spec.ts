@@ -139,7 +139,7 @@ test.beforeAll(async () => {
   const terms = await api<{ id: number; code: string }[]>("GET", "/terms");
   ctx.termId = terms.find((x) => x.code === TERM_CODE)!.id;
   const runs = await api<{ id: number; kind: string; term_id: number; label: string; is_active: boolean }[]>("GET", "/runs");
-  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.label.startsWith("Grid import"));
+  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && (r.label ?? "").startsWith("Grid import"));
   if (board && !board.is_active) await api("POST", `/runs/${board.id}/activate`);
   let schedules = await api<{ id: number; periods: { id: number }[] }[]>("GET", "/booking-admin/schedules");
   let schedule = schedules.find((s) => s.periods.length >= 18);

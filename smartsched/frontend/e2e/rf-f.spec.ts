@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PLANNING_LIST, REAL, SKIP_REASON, login } from "./helpers";
+import { PLANNING_LIST, REAL, SKIP_REASON, TERM_CODE, login, pinTermCode } from "./helpers";
 
 /**
  * RF-06 / RF-08 / RF-09 / users mfa_state (rf-f-2026-10-18) on a real stack. Run at 1440 (mouse) and 390×844
@@ -18,6 +18,8 @@ async function post(page: Page, path: string, body: unknown): Promise<number> {
 test("import: preview first, one Uygula, a second apply is refused, history names who imported", async ({ page }) => {
   test.setTimeout(300_000);
   await login(page);
+  // the Bahar planning list goes into its own term (the shell would open the current term by date: a mismatch)
+  await pinTermCode(page, TERM_CODE);
   await page.goto("/import?kind=planning-list");
   await page.getByTestId("file-input").setInputFiles(PLANNING_LIST);
   await page.getByTestId("import-start").click();
@@ -61,6 +63,7 @@ test("Ders saatleri: 18 rows, Turkish time, field error, Varsayılana dön", asy
 
 test("Dönem haftaları: kind per week, 'Elle değiştirildi', duplicate refused inline; Dönem profilleri still below", async ({ page }) => {
   await login(page);
+  await pinTermCode(page, TERM_CODE); // Bahar's 14+ week rows (the shell would open the current term by date)
   await page.goto("/admin/weeks");
   const weeks = page.getByTestId("term-weeks");
   await expect(weeks).toBeVisible();

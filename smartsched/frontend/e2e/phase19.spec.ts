@@ -14,7 +14,7 @@
  *     npx playwright test e2e/phase19.spec.ts
  */
 import { expect, test, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { REAL, SKIP_REASON, TERM_CODE, login, pinTermCode } from "./helpers";
 import { pinLanguage } from "./language";
 
 test.skip(!REAL, SKIP_REASON);
@@ -53,6 +53,7 @@ async function ensurePublished(page: Page): Promise<{ term: Term; run: Run }> {
 test("moderation: people → profile → raise a priority → re-solve preview diff → publish per the guard", async ({ page }) => {
   test.setTimeout(420_000 + RESOLVE_WAIT);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const { term } = await ensurePublished(page);
   // edits since publishing that earlier specs left (accepted wishes, priorities): this test adds exactly one
   const staged0 = (await call<{ total: number }>(page, "GET", `/terms/${term.id}/changes-since-publish`)).body.total;
@@ -138,6 +139,7 @@ test("moderation: people → profile → raise a priority → re-solve preview d
 
 test("a teacher without a linked instructor sees the 'not linked' empty state on /moderation", async ({ page }) => {
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const email = `p19-teacher-${Date.now()}@uni.edu.tr`;
   const made = await call(page, "POST", "/users", { email, full_name: "P19 Öğretmen", role: "TEACHER", password: "Teacher-2026!" });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
@@ -152,6 +154,7 @@ test("a teacher without a linked instructor sees the 'not linked' empty state on
 test("learned suggestions: accept one (soft, undoable) and dismiss one with a reason", async ({ page }) => {
   test.setTimeout(240_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/moderation?tab=preferences");
   await page.getByRole("tab", { name: "Öneriler" }).or(page.getByRole("radio", { name: "Öneriler" })).first().click();
   const list = page.getByTestId("suggestions-moderation");
@@ -187,6 +190,7 @@ test("learned suggestions: accept one (soft, undoable) and dismiss one with a re
 test("admin memory: reset everything with the typed word, then undo it", async ({ page }) => {
   test.setTimeout(180_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/moderation/learning");
   const panel = page.getByTestId("learning-memory");
   await expect(panel.getByTestId("memory-summary")).toBeVisible({ timeout: 60_000 });
@@ -228,6 +232,7 @@ const MBG_ENROLMENT = [120, 80, 15, 15, 12, 15, 15];
 test("the program wizard creates the MBG Tezli YL program and runs the pre-check", async ({ page }) => {
   test.setTimeout(420_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/programs/new");
   // 1 term (on the landing), then the draft opens on the program step
   const landing = page.getByTestId("wizard-landing");
