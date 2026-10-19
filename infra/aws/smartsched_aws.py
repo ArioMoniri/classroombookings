@@ -1105,6 +1105,15 @@ for name, st, code, log_path in steps:
     except OSError as exc:
         print(f"(log unreadable: {exc})")
         continue
+    if name.startswith("e2e-real"):
+        # Playwright: the failing titles and the summary, not the tail (the gate ends with its containers' logs)
+        import re
+        summary = re.compile(r"^\\s+\\d+ (failed|flaky|passed|skipped|did not run)\\b")
+        picked = [ln for ln in lines if ("\u2718" in ln and "(retry" not in ln) or summary.match(ln)
+                  or "TIMEOUT after" in ln]
+        for line in picked[-tail:] or lines[-tail:]:
+            print(line[:300])
+        continue
     for line in lines[-tail:]:
         print(line[:400])
 """
