@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { I18nProvider } from "@/lib/i18n/provider";
-import { createHeroDriver, HERO_DELAY_MS, HERO_FPS, HERO_SEGMENT, heroClock, heroLoaders, SignInHero } from "./signin-hero";
+import { createHeroDriver, HERO_DELAY_MS, HERO_FPS, HERO_INPUT_HOLD_MS, HERO_SEGMENT, heroClock, heroLoaders, SignInHero } from "./signin-hero";
 import { SignInShell } from "./signin-shell";
 
 type MockProps = { src: { layers: { nm?: string }[] }; loop?: boolean; autoplay?: boolean; segment?: readonly [number, number]; subscriptions?: { complete?: () => void; ready?: () => void }; lottieRef?: { current: unknown } };
@@ -101,15 +101,26 @@ describe("createHeroDriver (AUX-10: the hero yields to input)", () => {
     frame(100 + 1000);
     expect(seek).toHaveBeenLastCalledWith(30);
   });
-  it("skips the frame after an input event or while the browser reports pending input, at most 4 frames in a row", () => {
-    const { d, seek, frame, busy } = make();
+  it("holds for HERO_INPUT_HOLD_MS after an input event, then draws where the time says", () => {
+    const { d, seek, frame } = make();
     d.start();
     frame(0);
     seek.mockClear();
     d.noteInput();
     frame(100);
+    frame(117);
+    frame(100 + HERO_INPUT_HOLD_MS - 1);
     expect(seek).not.toHaveBeenCalled();
+    frame(100 + HERO_INPUT_HOLD_MS);
+    expect(seek).toHaveBeenLastCalledWith(Math.floor(((100 + HERO_INPUT_HOLD_MS) * HERO_FPS) / 1000));
+  });
+  it("skips while the browser reports pending input, at most 4 frames in a row", () => {
+    const { d, seek, frame, busy } = make();
+    d.start();
+    frame(0);
+    seek.mockClear();
     busy.input = true;
+    frame(100);
     frame(117);
     frame(134);
     frame(151);
@@ -192,7 +203,7 @@ describe("SignInHero (auth.md §11.3)", () => {
     expect(clock.pending()).toBe(false);
   });
 
-  it("a keystroke while it plays: the hero skips its work in that frame and catches up on time (one pass ≤ 5 s)", async () => {
+  it("a keystroke while it plays: the hero holds while the person types and catches up on time (one pass ≤ 5 s)", async () => {
     setMedia({ [WIDE]: true });
     render(<SignInHero />);
     await screen.findByTestId("lottie-mock", undefined, { timeout: 3000 });
@@ -209,10 +220,11 @@ describe("SignInHero (auth.md §11.3)", () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
     });
     act(() => clock.frame(533));
-    expect(seek).not.toHaveBeenCalled();
-    // the next frame draws where the time says, not where the skipped frame was (no delay builds up)
     act(() => clock.frame(550));
-    expect(seek).toHaveBeenLastCalledWith({ frame: 16 });
+    expect(seek).not.toHaveBeenCalled();
+    // after the hold the frame drawn is where the time says, not where the held frames were (no delay builds up)
+    act(() => clock.frame(533 + HERO_INPUT_HOLD_MS));
+    expect(seek).toHaveBeenLastCalledWith({ frame: Math.floor(((533 + HERO_INPUT_HOLD_MS) * HERO_FPS) / 1000) });
     act(() => clock.frame(140 / HERO_FPS * 1000));
     expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "done");
   });

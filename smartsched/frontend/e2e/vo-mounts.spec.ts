@@ -49,7 +49,9 @@ test.beforeAll(async () => {
   await admin.dispose();
   // E2E_CHROMIUM_CHANNEL=chromium: the full Chromium build. The headless shell's renderer crashes in
   // SpeechRecognition.available() (live captions "on_device", voice-captions.tsx); full Chromium answers it (e2e lane 2026-10-18)
-  browser = await chromium.launch({ args: FAKE_MIC, channel: process.env.E2E_CHROMIUM_CHANNEL || undefined });
+  // so the full build is the default here (E2E_CHROMIUM_CHANNEL overrides): with the shell the microphone stayed in
+  // "starting" or fell back to idle after the consent (pod CI e2e-real, 2026-10-19)
+  browser = await chromium.launch({ args: FAKE_MIC, channel: process.env.E2E_CHROMIUM_CHANNEL || "chromium" });
 });
 
 test.afterAll(async () => {
@@ -82,8 +84,10 @@ async function open(opts: typeof DESKTOP | typeof PHONE, grant = true, consent =
   return { ctx, page };
 }
 
-const chatBox = (page: Page) => page.getByTestId("chat-panel").locator("textarea").first();
-const chatMic = (page: Page) => page.getByTestId("voice-mic-chat").getByTestId("voice-mic");
+const chatBox = (page: Page) => page.getByTestId("chat-panel").locator("visible=true").locator("textarea").first();
+// below xl the run page mounts the chat twice (the Sohbet tab and the CSS-hidden side panel): the visible one counts
+const chatSlot = (page: Page) => page.getByTestId("voice-mic-chat").locator("visible=true");
+const chatMic = (page: Page) => chatSlot(page).getByTestId("voice-mic");
 
 test("1. chat at 1440: consent first, click to start / stop, transcript in the box, never sent until the user sends", async () => {
   const fresh = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -103,7 +107,7 @@ test("1. chat at 1440: consent first, click to start / stop, transcript in the b
   await expect(page.getByTestId("voice-consent-accept")).toBeFocused();
   await page.screenshot({ path: test.info().outputPath("chat-consent-1440.png") });
   await page.getByTestId("voice-consent-accept").click();
-  await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
+  await expect(chatSlot(page)).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
   await expect(mic).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("voice-level")).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("chat-recording-1440.png") });
@@ -119,15 +123,18 @@ test("1. chat at 1440: consent first, click to start / stop, transcript in the b
   expect(calls[0]!.url).toContain("lang=tr");
   expect(calls[0]!.type).toMatch(/^audio\/webm/);
   expect(calls[0]!.bytes).toBeGreaterThan(500);
-  // nothing was sent: no user turn in the list yet
-  await expect(page.getByTestId("chat-panel")).not.toContainText("Tamam, B-204");
+  // nothing was sent: no new answer in the list (it keeps this person's earlier conversation, e.g. a retry's)
+  const answers = async () => ((await page.getByTestId("chat-panel").innerText()).match(/Tamam, B-204/g) ?? []).length;
+  const before = await answers();
+  await page.waitForTimeout(500);
+  expect(await answers()).toBe(before);
   await page.screenshot({ path: test.info().outputPath("chat-inserted-1440.png") });
   // edit, then send with Enter: the stub's answer streams in
   await box.press("End");
   await box.type(" olsun");
   await expect(page.getByTestId("voice-chip")).toHaveCount(0);
   await box.press("Enter");
-  await expect(page.getByTestId("chat-panel")).toContainText("Tamam, B-204", { timeout: 60_000 });
+  await expect.poll(answers, { timeout: 60_000 }).toBe(before + 1);
   await focusNotOnBody(page);
   await ctx.close();
 });
@@ -142,10 +149,10 @@ test("2. the real transcription path: raw webm to the backend, the fake provider
   const mic = chatMic(page);
   await expect(mic).toBeVisible({ timeout: 90_000 });
   await mic.click();
-  await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
+  await expect(chatSlot(page)).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
   await hold(page, 1500);
   await mic.click();
-  const err = page.getByTestId("voice-mic-chat").getByTestId("voice-error");
+  const err = chatSlot(page).getByTestId("voice-error");
   await expect(err).toBeVisible({ timeout: 90_000 });
   expect(seen[0]?.type).toMatch(/^audio\/webm/);
   expect(seen[0]?.status, "the backend accepted the clip and the provider failed").toBe(502);
@@ -166,12 +173,16 @@ test("3. a spoken injection lands in the box and is refused on send", async () =
   await mic.click();
   const box = chatBox(page);
   await expect(box).toHaveValue(SPOKEN_INJECTION, { timeout: 15_000 });
+  // the panel keeps this person's earlier conversation (test 1's answer included): count the answers, not their absence
+  const answers = async () => ((await page.getByTestId("chat-panel").innerText()).match(/Tamam, B-204/g) ?? []).length;
+  const before = await answers();
   const refused = page.waitForResponse((r) => /\/chat(\/stream)?$/.test(new URL(r.url()).pathname) && r.request().method() === "POST");
   await box.press("Enter");
   // the agreed contract (backend chat.py post_chat_stream, F-VO-2): a refusal decided before the stream starts is the
   // HTTP answer itself (422 + the same JSON detail as POST /chat), not 200 + an error event
   expect((await refused).status()).toBe(422);
-  await expect(page.getByTestId("chat-panel")).not.toContainText("Tamam, B-204");
+  await page.waitForTimeout(500);
+  expect(await answers()).toBe(before);
   // VO09-F01: the refusal keeps the text in the box ("Metniniz duruyor")
   await expect(box).toHaveValue(SPOKEN_INJECTION);
   await page.screenshot({ path: test.info().outputPath("chat-injection-1440.png") });
@@ -182,7 +193,8 @@ test("3. a spoken injection lands in the box and is refused on send", async () =
 test("4. studio write-it and the paste tab: the transcript goes into their boxes", async () => {
   const { ctx, page } = await open(DESKTOP);
   await stubTranscript(page, "Hemşirelik dersleri B blokta olsun");
-  await page.goto("/generate");
+  // the studio reopens the step its draft was left on (a retry's, an earlier spec's): start at Kapsam explicitly
+  await page.goto("/generate?step=scope");
   await page.getByTestId("scope-step").waitFor({ timeout: 60_000 });
   await page.getByTestId("rail-step-rules").click();
   await page.getByTestId("rules-step").waitFor();
@@ -227,7 +239,7 @@ test("5. phone 390 × 844: press and hold in the chat tab, release → transcrip
   const x = box!.x + box!.width / 2;
   const y = box!.y + box!.height / 2;
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-  await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
+  await expect(chatSlot(page)).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
   await expect(page.getByTestId("voice-hold-hint")).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("chat-hold-390.png") });
   await m01(page);
@@ -240,11 +252,11 @@ test("5. phone 390 × 844: press and hold in the chat tab, release → transcrip
   // slide left cancels: nothing more is uploaded
   const before = await chatBox(page).inputValue();
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
-  await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
+  await expect(chatSlot(page)).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
   await page.waitForTimeout(600);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x - 120, y }] });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "idle");
+  await expect(chatSlot(page)).toHaveAttribute("data-phase", "idle");
   await expect(chatBox(page)).toHaveValue(before);
   await focusNotOnBody(page);
   await ctx.close();
@@ -271,7 +283,7 @@ test("5b. phone: the consent sheet is a bottom sheet with 44 px actions", async 
   // agree for the remaining tests
   await chatMic(page).tap();
   await page.getByTestId("voice-consent-accept").tap();
-  await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", /recording|starting/, { timeout: 15_000 });
+  await expect(chatSlot(page)).toHaveAttribute("data-phase", /recording|starting/, { timeout: 15_000 });
   await page.getByTestId("voice-cancel").tap();
   await ctx.close();
 });
@@ -286,7 +298,7 @@ test("6. the site policy blocks the microphone; a browser without the grant says
     await page.goto(`/runs/${runId}`);
     if (opts === PHONE) await page.getByRole("tab", { name: "Sohbet" }).click();
     await chatMic(page).click();
-    const err = page.getByTestId("voice-mic-chat").getByTestId("voice-error");
+    const err = chatSlot(page).getByTestId("voice-error");
     await expect(err).toHaveText("Bu sitede mikrofon kullanımı kapalı. Yöneticinize bildirin.");
     await expect(err).toHaveAttribute("data-code", "policy_blocked");
     await page.screenshot({ path: test.info().outputPath(`policy-${opts.viewport.width}.png`) });
@@ -307,7 +319,7 @@ test("6. the site policy blocks the microphone; a browser without the grant says
     await page.goto(`/runs/${runId}`);
     expect(await page.evaluate(() => (document as unknown as { featurePolicy?: { allowsFeature(f: string): boolean } }).featurePolicy?.allowsFeature("microphone"))).toBe(true);
     await chatMic(page).click();
-    await expect(page.getByTestId("voice-mic-chat")).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
+    await expect(chatSlot(page)).toHaveAttribute("data-phase", "recording", { timeout: 15_000 });
     await page.getByTestId("voice-cancel").click();
     await ctx.close();
   }
@@ -318,7 +330,7 @@ test("6. the site policy blocks the microphone; a browser without the grant says
   await login(page);
   await page.goto(`/runs/${runId}`);
   await chatMic(page).click();
-  const err = page.getByTestId("voice-mic-chat").getByTestId("voice-error");
+  const err = chatSlot(page).getByTestId("voice-error");
   await expect(err).toContainText("Mikrofon izni verilmedi.", { timeout: 15_000 });
   await expect(err).toContainText("Mikrofon › İzin ver");
   await page.screenshot({ path: test.info().outputPath("denied-1440.png") });

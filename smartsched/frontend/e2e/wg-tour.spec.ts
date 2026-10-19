@@ -147,7 +147,7 @@ test("phone touch: the step card is docked at the bottom with 48 px buttons", as
     await page.waitForTimeout(400);
   }
   await expect(card).toBeHidden({ timeout: 10_000 });
-  await expect(page.getByText("Tur bitti. Başlarken listesi Daha sekmesinde.")).toBeVisible();
+  await expect(page.getByText("Tur bitti. Başlarken listesi Diğer sekmesinde.")).toBeVisible();
   await context.close();
 });
 

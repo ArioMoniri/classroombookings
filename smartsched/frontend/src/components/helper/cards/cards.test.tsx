@@ -202,7 +202,9 @@ describe("confirm / undo plumbing", () => {
 
   it("a trusted click confirms once, moves the focus to the result line, and Geri al undoes", async () => {
     vi.spyOn(activation, "trusted").mockReturnValue(true);
-    const confirm = vi.spyOn(helperApi, "confirm").mockResolvedValue(card("result"));
+    // the fixture's undo window (undo_expires_at 2026-10-19T07:00Z) is in the past from that morning on: the result
+    // card then rightly hides Geri al (pod run #117), so this test sets its own open window
+    const confirm = vi.spyOn(helperApi, "confirm").mockResolvedValue({ ...card("result"), undo_expires_at: future() } as HelperCard);
     const undone = { ...card("result"), id: "6a6b6c6e", undo_token: null, message: { tr: "Rezervasyon iptal edildi.", en: "Booking cancelled." } } as HelperCard;
     const undo = vi.spyOn(helperApi, "undo").mockResolvedValue(undone);
     renderHelper(<Harness />);

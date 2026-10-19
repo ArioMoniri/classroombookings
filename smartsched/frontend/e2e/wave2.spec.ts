@@ -510,6 +510,9 @@ test("6. batch 3: withdrawal effects in the toast; find-room 'Neden?' verdict; a
 
   // a refused day: the refused rooms are among "Uymayan" with the busy ones shown
   await page.goto(`/find-room?date=${ggaa(B3_REFUSED_DAY)}`);
+  // the switch is one of the folded "more filters" (fr-advanced, closed while none is set)
+  const adv = view.getByTestId("fr-advanced");
+  if (!(await adv.evaluate((el) => (el as HTMLDetailsElement).open))) await adv.locator("summary").first().click();
   await view.getByRole("switch", { name: "Dolu derslikleri de göster" }).click();
   await view.getByTestId("fr-search").click();
   await expect(view.getByTestId("fr-summary")).toBeVisible();
