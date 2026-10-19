@@ -8,7 +8,7 @@
  * Run (see playwright.config.ts): E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:<api> PW_PORT=<web> npx playwright test analytics
  */
 import { expect, test, type Page } from "@playwright/test";
-import { api, login, pinTerm, REAL, SKIP_REASON } from "./helpers";
+import { api, login, REAL, SKIP_REASON } from "./helpers";
 
 test.skip(!REAL, SKIP_REASON);
 
@@ -26,7 +26,11 @@ async function runByLabel(page: Page, label: string): Promise<RunRow> {
 async function useTerm(page: Page, code: string) {
   const terms = await api<TermRow[]>(page, "/terms");
   const term = terms.find((t) => t.code === code)!;
-  await pinTerm(page, term.id);
+  await page.evaluate((id) => {
+    const raw = localStorage.getItem("smartsched.ui");
+    const cur = raw ? (JSON.parse(raw) as { state?: Record<string, unknown>; version?: number }) : {};
+    localStorage.setItem("smartsched.ui", JSON.stringify({ ...cur, state: { ...(cur.state ?? {}), termId: id } }));
+  }, term.id);
   return term;
 }
 
