@@ -433,6 +433,31 @@ class Worker:
         self.status(run, "success" if state == SUCCESS else "failure", description, DEPLOY.name)
         return state
 
+    def first_deploy(self, force: bool = False) -> int:
+        """`podci first-deploy`: deploy the deploy branch's head now, outside a CI run, when the pod has never had
+        a good deploy (the manual retry pod-bootstrap.sh prints). A good one records DEPLOYED_SHA and asks for the
+        pod CI reinstall, as a CI deploy does. With a good deploy on record it does nothing unless forced."""
+        cfg = self.cfg
+        if self.last_good_sha() and not force:
+            self.log(f"a good deploy is on record ({self.last_good_sha()}); nothing to do (pass --force to redeploy)")
+            return 0
+        branch = cfg.deploy_branch
+        sha = gitops.ls_remote(cfg.repo_url, [branch], self.token(), run=self.run_cmd).get(branch)
+        if not sha:
+            self.log(f"{branch} not found on the remote")
+            return 1
+        log_path = cfg.logs_dir / "first-deploy.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.log(f"first deploy of {branch}@{sha[:7]} (log {log_path})")
+        self._checkout_deploy(sha, branch, log_path)
+        code = self.execute(["bash", str(cfg.gates_dir / DEPLOY.script)], log_path, self._deploy_env(), None,
+                            DEPLOY.timeout)
+        if code == 0:
+            self.deployed_sha_path.write_text(sha + "\n", encoding="utf-8")
+            (cfg.state_dir / "update-request").write_text(sha + "\n", encoding="utf-8")
+        self.log(f"first deploy of {sha[:7]}: {'healthy' if code == 0 else f'deploy.sh exit {code}'}")
+        return code
+
     def _rollback(self, sha: str, branch: str, log_path: Path) -> bool:
         with open(log_path, "a", encoding="utf-8") as fh:
             fh.write(f"\n==== rollback to the last good deploy {sha}\n")

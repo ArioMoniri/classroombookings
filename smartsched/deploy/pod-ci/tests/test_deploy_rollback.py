@@ -164,3 +164,38 @@ def test_boot_unit_is_installed_and_enabled() -> None:
     assert "/opt/smartsched-ci/gates/stack-up.sh" in unit and "User=smartsched-ci" in unit
     assert "systemctl enable smartsched-stack.service" in (POD_CI / "install.sh").read_text()
     assert "systemctl enable smartsched-stack.service" in (POD_CI / "pod-bootstrap.sh").read_text()
+
+
+class LsRemote(FakeRun):
+    def __call__(self, argv: list[str], **kw: object) -> subprocess.CompletedProcess[object]:
+        if "ls-remote" in argv:
+            self.calls.append(list(argv))
+            return subprocess.CompletedProcess(argv, 0, stdout=f"{SHA_B}\trefs/heads/{argv[-1].split('/', 2)[-1]}\n",
+                                               stderr="")
+        return super().__call__(argv, **kw)  # type: ignore[arg-type]
+
+
+def test_first_deploy_command_deploys_the_branch_head_and_records_it(cfg: Config, store: Store) -> None:
+    ex, run_cmd = FakeExecute(), LsRemote()
+    assert worker(cfg, store, ex, FakeReporter(), run_cmd).first_deploy() == 0
+    assert ex.scripts == ["deploy.sh"]
+    assert checkouts(run_cmd) == [SHA_B]
+    assert (cfg.state_dir / runner.DEPLOYED_SHA).read_text().strip() == SHA_B
+    assert (cfg.state_dir / "update-request").read_text().strip() == SHA_B
+
+
+def test_first_deploy_command_leaves_a_good_deploy_alone_unless_forced(cfg: Config, store: Store) -> None:
+    cfg.state_dir.mkdir(parents=True, exist_ok=True)
+    (cfg.state_dir / runner.DEPLOYED_SHA).write_text(SHA_A + "\n")
+    ex = FakeExecute()
+    assert worker(cfg, store, ex, FakeReporter(), LsRemote()).first_deploy() == 0
+    assert ex.scripts == []
+    assert worker(cfg, store, ex, FakeReporter(), LsRemote()).first_deploy(force=True) == 0
+    assert ex.scripts == ["deploy.sh"]
+
+
+def test_failed_first_deploy_records_nothing(cfg: Config, store: Store) -> None:
+    ex = FakeExecute(fail={"deploy"})
+    assert worker(cfg, store, ex, FakeReporter(), LsRemote()).first_deploy() != 0
+    assert not (cfg.state_dir / runner.DEPLOYED_SHA).exists()
+    assert not (cfg.state_dir / "update-request").exists()

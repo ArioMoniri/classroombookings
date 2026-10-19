@@ -1,7 +1,7 @@
 import { inflateRawSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON, login as signIn } from "./helpers";
+import { REAL, SKIP_REASON, login as signIn, pinTerm } from "./helpers";
 import { pinLanguage } from "./language";
 
 /**
@@ -83,6 +83,11 @@ async function setup(page: Page): Promise<{ board: number; editable: number; roo
   const idx = await api<Index>(page, `/runs/${board.id}/calendar-index`);
   const room = idx.rooms.find((r) => r.name === ROOM_CODE);
   expect(room, `${ROOM_CODE} exists`).toBeTruthy();
+  // the pages work on the shell's term, by default the current term by the browser's date (Güz since the gate seeds
+  // it, e2e-backend-entry.sh): these steps read TERM's runs, so TERM is the working term
+  const term = (await api<{ id: number; code: string }[]>(page, "/terms")).find((t) => t.code === TERM);
+  expect(term, `${TERM} is imported`).toBeTruthy();
+  await pinTerm(page, term!.id);
   return { board: board.id, editable, roomId: room?.id ?? 0 };
 }
 

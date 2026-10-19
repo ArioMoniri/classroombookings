@@ -10,7 +10,7 @@
  * back in `finally`, so the spec can run repeatedly next to bookings.spec.ts on the same database.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, fillDate, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, fillDate, login, pickSegment } from "./helpers";
 import { pinLanguage } from "./language";
 
 const STAMP = Date.now().toString(36);
@@ -53,6 +53,10 @@ async function signIn(page: Page) {
     await ctx.clearCookies();
     await login(page, ME.username, ME.password);
     await call(page, "PUT", "/auth/profile", { language: "en" });
+    // a new account meets the first-sign-in welcome sheet (a modal) on its next home or /admin/* page, at a moment
+    // that races the steps' own clicks; this spec is not about the guide (wg-*.spec.ts), so the person closes it
+    // for good up front, through the same event the sheet's "Don't show again" sends
+    await call(page, "POST", "/welcome/events", { guide_key: "sheet", event: "dismissed" });
     await ctx.clearCookies();
     ready = true;
   }
@@ -329,7 +333,8 @@ test("admin gaps 9. a schedule description is saved; a period is added and remov
   await page.getByRole("button", { name: `Delete ${per}` }).click();
   await expect(page.getByRole("switch", { name: new RegExp(per) })).toHaveCount(0);
   await page.getByRole("button", { name: "Delete", exact: true }).first().click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  // the confirmation is an alertdialog (T-R2-02, admin/kit.tsx ConfirmDialog)
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("button", { name: new RegExp(`^${name}`) })).toHaveCount(0);
 });
 
@@ -428,9 +433,14 @@ test("admin gaps 14. LDAP settings save and read back; e-mail settings show the 
   await page.locator("#ldap-tp").fill("Parola-2026!");
   await page.locator("section[aria-labelledby=ldap-test]").getByRole("button", { name: "Test" }).click();
   await expect(page.locator("section[aria-labelledby=ldap-test]").getByRole("alert")).toBeVisible({ timeout: 45_000 });
+  // e-mail settings (W3-MAIL): the guided SMTP setup opens first (its Connection step holds the server), the
+  // outbox is the panel's third section
   await page.goto("/admin/email");
+  await expect(page.getByTestId("mail-status")).toBeVisible();
+  await page.getByTestId("mail-step-connection").click();
+  await expect(page.getByLabel("Server", { exact: true })).toBeVisible();
+  await pickSegment(page, "Outbox", page.getByTestId("email-settings-panel"));
   await expect(page.locator("#outbox")).toBeVisible();
-  await expect(page.locator("#smtp-host")).toBeVisible();
 });
 
 test("admin gaps 15. the login page shows the organisation's logo, name and login message; What's new opens from the header (S-02)", async ({ page }) => {

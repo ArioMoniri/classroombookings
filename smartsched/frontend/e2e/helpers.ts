@@ -40,6 +40,27 @@ export async function ackPrivacyNotice(page: Page): Promise<boolean> {
   return acked;
 }
 
+/**
+ * Make `termId` the working term of the signed-in user for the NEXT page load (call before `goto` / `reload`).
+ * The shell's term is the user's workspace memory (`smartsched.workspace`, keyed by user id; AppShell copies it into
+ * `smartsched.ui` once /auth/me answers, and falls back to the current term by date when there is none), so writing
+ * `smartsched.ui` alone is overwritten on load. `forget` also drops the user's remembered runs and weeks.
+ */
+export async function pinTerm(page: Page, termId: number, { forget = false }: { forget?: boolean } = {}): Promise<void> {
+  await page.evaluate(
+    async ({ id, forget }) => {
+      const me = (await (await fetch("/api/v1/auth/me", { headers: { Accept: "application/json" } })).json()) as { id: number };
+      const ui = JSON.parse(localStorage.getItem("smartsched.ui") ?? "{}") as { state?: Record<string, unknown> };
+      localStorage.setItem("smartsched.ui", JSON.stringify({ ...ui, state: { ...(ui.state ?? {}), termId: id } }));
+      const ws = JSON.parse(localStorage.getItem("smartsched.workspace") ?? "{}") as { state?: { users?: Record<string, Record<string, unknown>> }; version?: number };
+      const users = { ...(ws.state?.users ?? {}) };
+      users[String(me.id)] = { ...(forget ? {} : (users[String(me.id)] ?? {})), termId: id };
+      localStorage.setItem("smartsched.workspace", JSON.stringify({ ...ws, state: { ...(ws.state ?? {}), users }, version: ws.version ?? 1 }));
+    },
+    { id: termId, forget },
+  );
+}
+
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
  *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. A privacy notice an earlier spec
  *  published is acknowledged unless `ackNotice: false` (the notice gate's own test). */
@@ -48,6 +69,12 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
   // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
   if (page.url() !== "about:blank") await page.goto("about:blank");
   await page.goto("/login?method=local");
+  // the fields are controlled inputs: text typed into the server-rendered form before React hydrated it is dropped
+  // on a slow host (the form then answers "identifier required"), so wait until React owns the form
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="login-submit"]');
+    return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$"));
+  }, undefined, { timeout: 30_000 });
   await page.getByTestId("login-identifier").fill(identifier);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();

@@ -341,7 +341,8 @@ test("12. one-time reset code (shown once) and the reset-password page; setup is
   await page.getByTestId("users-search").fill(TEACHER.username);
   const row = page.locator(`[data-username="${TEACHER.username}"]`);
   await row.getByRole("button", { name: new RegExp(TEACHER.username) }).click();
-  await page.getByRole("menuitem", { name: "Tek kullanımlık sıfırlama kodu" }).click();
+  // the account menu's Giriş group (AUX §16.7, users-security.tsx): "Sıfırlama kodunu ekranda göster" opens the one-time code
+  await page.getByRole("menuitem", { name: "Sıfırlama kodunu ekranda göster" }).click();
   const code = await page.getByTestId("reset-token").inputValue();
   expect(code.length).toBeGreaterThan(8);
   await page.keyboard.press("Escape");
