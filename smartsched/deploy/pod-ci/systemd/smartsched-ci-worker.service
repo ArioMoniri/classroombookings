@@ -16,6 +16,8 @@ ProtectSystem=full
 ProtectHome=yes
 PrivateTmp=yes
 ExecStart=/usr/bin/python3 -m podci work
-# A full run (images + e2e) takes 30-60 min on t4g.large; the worker drains the whole queue.
-TimeoutStartSec=6h
+# The worker drains the whole queue in one activation, and a run with sharded e2e takes ~1.2 h, so a fixed limit
+# killed it mid-run (6h: gracious run #127 requeued at 17:10 after a worker started at 11:10). Each gate has its own
+# timeout (podci/gates.py), so the activation itself has none.
+TimeoutStartSec=infinity
 KillMode=control-group

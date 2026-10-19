@@ -695,7 +695,84 @@ def test_pod_diag_prints_failed_gate_tails(tmp_path: Any) -> None:
                         "[pod-ci] TIMEOUT after 1800 s"]
     assert "prepare ok" not in out and "old run" not in out and not any("e2e-real" in line for line in out)
     assert f"python3 - /var/lib/smartsched-ci {sa.FAILED_GATE_TAIL} <<" in sa.POD_DIAG
-    assert sa.POD_DIAG.endswith("PODCI_PY\n") and sa.POD_FAILED_GATES_PY.strip() in sa.POD_DIAG
+    assert sa.POD_FAILED_GATES_PY.strip() in sa.POD_DIAG
+    # the important blocks first (SSM keeps the first ~24 000 chars): status, failed gates, then the rest
+    assert sa.POD_DIAG.index("PODCI_STATUS") < sa.POD_DIAG.index("PODCI_PY") < sa.POD_DIAG.index("list-timers")
+    assert "stat -c '%U %a %n' /opt/smartsched/src /opt/smartsched/src/.git" in sa.POD_DIAG
+
+
+def status_db(tmp_path: Any, now: float) -> Any:
+    import sqlite3
+
+    db = sqlite3.connect(tmp_path / "ci.sqlite3")
+    db.executescript("""
+        CREATE TABLE runs (id INTEGER PRIMARY KEY, branch TEXT, sha TEXT, state TEXT, deploy INTEGER, attempts INTEGER,
+            created_at REAL, started_at REAL, finished_at REAL, summary TEXT);
+        CREATE TABLE steps (run_id INTEGER, seq INTEGER, name TEXT, state TEXT, blocking INTEGER, started_at REAL,
+            finished_at REAL, exit_code INTEGER, log_path TEXT);
+    """)
+    return db
+
+
+def test_pod_status_block_shows_runs_running_gates_shard_progress_and_redacted_error_context(tmp_path: Any) -> None:
+    import sys
+    import time
+
+    now = time.time()
+    db = status_db(tmp_path, now)
+    logs = tmp_path / "logs"
+    (logs / "91").mkdir(parents=True)
+    shard_log = logs / "91" / "e2e-real-2.log"
+    shard_log.write_text("Running 150 tests using 1 worker, shard 2 of 3\n"
+                         + "".join(f"  \u2713  {i} [chromium] \u203a e2e/a.spec.ts:1:1 \u203a ok (1.0s)\n"
+                                   for i in range(1, 141))
+                         + "".join(f"  \u2718  {i} [chromium] \u203a e2e/b.spec.ts:1:1 \u203a bad (9.0s)\n"
+                                   for i in range(141, 144))
+                         + "  \u2718  144 [chromium] \u203a e2e/b.spec.ts:1:1 \u203a bad (retry #1) (9.0s)\n",
+                         encoding="utf-8")
+    db.executemany("INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)", [
+        (90, "claude/gracious-cerf-w1598m", "e" * 40, "failure", 1, 1, now - 7200, now - 7000, now - 3000,
+         "failed: e2e-real-1"),
+        (91, "claude/gracious-cerf-w1598m", "f" * 40, "running", 1, 1, now - 1500, now - 1400, None, ""),
+    ])
+    db.executemany("INSERT INTO steps VALUES (?,?,?,?,?,?,?,?,?)", [
+        (90, 0, "prepare", "success", 1, now - 7000, now - 6900, 0, ""),
+        (90, 1, "e2e-real-1", "failure", 1, now - 6000, now - 3100, 1, ""),
+        (91, 0, "prepare", "success", 1, now - 1400, now - 1300, 0, ""),
+        (91, 1, "e2e-real-2", "running", 1, now - 1260, None, None, str(shard_log)),
+    ])
+    db.commit()
+    db.close()
+    ctx = logs / "90" / "artifacts" / "e2e-shard-1" / "bookings-spec-ts-book-a-room-chromium"
+    ctx.mkdir(parents=True)
+    (ctx / "error-context.md").write_text("\n".join([
+        "# Test info", "", "- Name: bookings \u203a book a room", "", "# Error details", "",
+        "Error: expect(locator).toHaveText(expected) failed",
+        'Expected: "Deneme Kullanici Bir"  contact sample@example.test or 0555 123 45 67',
+        "", "# Page snapshot", "", "```yaml",
+        '- generic [ref=e1]:', '  - heading "Rezervasyonlar" [level=1] [ref=e2]',
+        '  - row "Ornek Kisi 09:00 Oda 101" [ref=e3]:', '    - cell "Ornek Kisi" [ref=e4]',
+        "    - text: Ornek Kisi token=abc123", '  - link "Panel" [ref=e5]:', "    - /url: /panel?user=7", "```",
+    ]) + "\n", encoding="utf-8")
+    out = subprocess.run([sys.executable, "-", str(tmp_path)], input=sa.POD_STATUS_PY, text=True,
+                         capture_output=True, check=True).stdout
+    lines = out.splitlines()
+    assert lines[0].startswith("==== pod-ci runs (newest 12)")
+    assert lines[1].startswith("#91 ") and " running " in lines[1] and lines[2].startswith("#90 ")
+    assert "failed: e2e-real-1" in lines[2] and "took 66m40s" in lines[2]
+    assert any(line.startswith("==== RUNNING run #91") for line in lines)
+    shard = next(line for line in lines if "e2e-real-2" in line and "shard" in line)
+    assert "shard 2: 143/150 done, 3 failed" in shard and "21m" in shard
+    assert any(line.startswith("==== step durations of run #90") for line in lines)
+    ctx_out = out[out.index("==== Playwright error context of run #90"):]
+    for leaked in ("Ornek", "Kisi", "Deneme", "Kullanici", "sample@example.test", "0555 123 45 67", "abc123",
+                   "user=7", "Rezervasyonlar"):
+        assert leaked not in ctx_out, leaked
+    assert '- heading "[text]" [level=1] [ref=e2]' in ctx_out and "- cell \"[text]\" [ref=e4]" in ctx_out
+    assert "- text: [text]" in ctx_out and "/url: /panel" in ctx_out and "[email]" in ctx_out
+    assert "# Error details" in ctx_out and "toHaveText" in ctx_out
+    excerpt = ctx_out.splitlines()[2:]
+    assert 0 < len(excerpt) <= 15
 
 
 def test_resize_stops_changes_the_type_and_starts_without_touching_the_budget(aws: StubAws) -> None:

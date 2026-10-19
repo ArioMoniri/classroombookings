@@ -3,7 +3,8 @@
 Run state machine (anything else raises InvalidTransition):
 
     queued  -> running | superseded | cancelled
-    running -> success | failure | error | queued (requeued after an interrupted worker, max_attempts)
+    running -> success | failure | error | queued (requeued after an interrupted worker, max_attempts, or preempted
+               by a deploy-branch run) | superseded (cancelled: a newer commit of the branch is queued) | cancelled
     success/failure/error/superseded/cancelled -> queued   (explicit `rerun` only)
 
 Step states: pending -> running -> success | failure | error;  pending -> skipped.
@@ -23,7 +24,7 @@ QUEUED, RUNNING, SUCCESS, FAILURE, ERROR, SUPERSEDED, CANCELLED = (
 TERMINAL = frozenset({SUCCESS, FAILURE, ERROR, SUPERSEDED, CANCELLED})
 TRANSITIONS: dict[str, frozenset[str]] = {
     QUEUED: frozenset({RUNNING, SUPERSEDED, CANCELLED}),
-    RUNNING: frozenset({SUCCESS, FAILURE, ERROR, QUEUED}),
+    RUNNING: frozenset({SUCCESS, FAILURE, ERROR, QUEUED, SUPERSEDED, CANCELLED}),
     **{t: frozenset() for t in TERMINAL},
 }
 STEP_PENDING, STEP_RUNNING, STEP_SKIPPED = "pending", "running", "skipped"
@@ -60,6 +61,9 @@ CREATE TABLE IF NOT EXISTS steps (
     PRIMARY KEY (run_id, name)
 );
 CREATE TABLE IF NOT EXISTS heads (branch TEXT PRIMARY KEY, sha TEXT NOT NULL, seen_at REAL NOT NULL);
+-- a head whose diff from the previous head only touches infra/aws/POD_ACTION: same code, no run of its own
+CREATE TABLE IF NOT EXISTS aliases (branch TEXT NOT NULL, sha TEXT NOT NULL, alias_of TEXT NOT NULL,
+    created_at REAL NOT NULL, PRIMARY KEY (branch, sha));
 CREATE TABLE IF NOT EXISTS cpu_samples (ts REAL PRIMARY KEY, busy REAL NOT NULL, total REAL NOT NULL);
 """
 
@@ -317,6 +321,50 @@ class Store:
         self.db.execute("INSERT INTO heads (branch, sha, seen_at) VALUES (?,?,?) "
                         "ON CONFLICT(branch) DO UPDATE SET sha=excluded.sha, seen_at=excluded.seen_at",
                         (branch, sha, self.now()))
+
+    # ---- aliases (POD_ACTION-only heads) ---------------------------------------------------------
+    def add_alias(self, branch: str, sha: str, alias_of: str) -> str:
+        """Record sha as the same code as alias_of (resolved to its root); returns the root."""
+        root = self.alias_root(branch, alias_of)
+        if root != sha:
+            self.db.execute("INSERT OR REPLACE INTO aliases (branch, sha, alias_of, created_at) VALUES (?,?,?,?)",
+                            (branch, sha, root, self.now()))
+        return root
+
+    def alias_root(self, branch: str, sha: str) -> str:
+        seen = {sha}
+        while True:
+            row = self.db.execute("SELECT alias_of FROM aliases WHERE branch=? AND sha=?", (branch, sha)).fetchone()
+            if row is None or row[0] in seen:
+                return sha
+            sha = str(row[0])
+            seen.add(sha)
+
+    def aliases_of(self, branch: str, sha: str) -> list[str]:
+        rows = self.db.execute("SELECT sha FROM aliases WHERE branch=? AND alias_of=? ORDER BY created_at",
+                               (branch, sha)).fetchall()
+        return [str(r[0]) for r in rows]
+
+    def effective_head(self, branch: str) -> str | None:
+        """The branch head with POD_ACTION-only commits resolved to the commit whose code they carry."""
+        head = self.head(branch)
+        return None if head is None else self.alias_root(branch, head)
+
+    def newer_queued(self, branch: str, run_id: int) -> Run | None:
+        row = self.db.execute("SELECT * FROM runs WHERE branch=? AND state=? AND id>? ORDER BY id DESC LIMIT 1",
+                              (branch, QUEUED, run_id)).fetchone()
+        return self._run(row)
+
+    def queued_deploy_run(self, deploy_branch: str) -> Run | None:
+        row = self.db.execute("SELECT * FROM runs WHERE state=? AND (branch=? OR deploy) ORDER BY id ASC LIMIT 1",
+                              (QUEUED, deploy_branch)).fetchone()
+        return self._run(row)
+
+    def requeue(self, run_id: int, summary: str) -> Run:
+        """running -> queued with fresh steps (a preempted run starts over)."""
+        with self.tx() as db:
+            db.execute("DELETE FROM steps WHERE run_id=?", (run_id,))
+        return self.transition(run_id, QUEUED, summary=summary)
 
     # ---- CPU samples (idle detection) -----------------------------------------------------------
     def add_cpu_sample(self, ts: float, busy: float, total: float, keep_seconds: float) -> None:
