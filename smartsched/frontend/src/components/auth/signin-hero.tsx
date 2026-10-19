@@ -48,8 +48,16 @@ export const HERO_SEGMENT = [0, 140] as const;
 export const HERO_DELAY_MS = 300;
 /** The file's frame rate (docs/lottie/README.md): frame 140 is reached 4.67 s after the first frame. */
 export const HERO_FPS = 30;
-/** At most this many frames in a row are skipped for input (a held key must not freeze the scene). */
+/** At most this many frames in a row are skipped while the browser reports pending input. */
 const MAX_SKIP = 4;
+/**
+ * The hero draws nothing until this long after the last input event. Decision 2026-10-19 (owner: "typing stays under
+ * 50 ms frames"): skipping only the frame that handled a keystroke still drew the scene between keys, and one drawn
+ * lottie frame alone is 45-70 ms of main-thread work on a CPU-only renderer (CI, low-end laptops), so every frame
+ * drawn while someone typed was a long frame. The scene now holds while the person types (a held key holds it too)
+ * and catches up by time afterwards: the frame number comes from the clock, so the pass still ends at 4.67 s.
+ */
+export const HERO_INPUT_HOLD_MS = 250;
 /** Events that mean "the person is using the form": the hero draws nothing in the frame that handles one. */
 const INPUT_EVENTS = ["keydown", "beforeinput", "input", "pointerdown", "compositionupdate"] as const;
 
@@ -68,8 +76,8 @@ export type HeroDriver = { start: () => void; noteInput: () => void; stop: () =>
  * AUX-10 typing fix (fix-b-2026-10-18): the longest frame while typing was 55-70 ms because lottie drew the scene in
  * the same frame that handled the keystroke. The hero now runs its own clock instead of lottie's autoplay: each
  * animation frame works out the frame number from the elapsed time (whole frames at 30 fps) and seeks there, EXCEPT
- * in a frame that follows an input event (or while the browser reports pending input), which draws nothing of the
- * hero. The next frame draws where the time says, so skipping never delays the pass (one pass stays 4.67 s ≤ 5 s).
+ * within HERO_INPUT_HOLD_MS of an input event (or while the browser reports pending input), when it draws nothing of
+ * the hero. The next drawn frame is where the time says, so holding never delays the pass (one pass stays 4.67 s).
  */
 export function createHeroDriver(o: {
   seek: (frame: number) => void;
@@ -86,6 +94,7 @@ export function createHeroDriver(o: {
   let t0: number | null = null;
   let last = -1;
   let input = false;
+  let lastInput = -Infinity;
   let skipped = 0;
   let id: number | null = null;
   let finished = false;
@@ -93,13 +102,16 @@ export function createHeroDriver(o: {
     id = null;
     if (finished) return;
     if (t0 === null) t0 = t;
-    if ((input || inputPending()) && skipped < MAX_SKIP) {
+    if (input) {
+      // the frame that handles an input event starts the hold
       input = false;
-      skipped += 1;
+      lastInput = t;
+    }
+    if (t - lastInput < HERO_INPUT_HOLD_MS || (inputPending() && skipped < MAX_SKIP)) {
+      if (t - lastInput >= HERO_INPUT_HOLD_MS) skipped += 1;
       id = raf(tick);
       return;
     }
-    input = false;
     skipped = 0;
     const frame = Math.min(end, Math.floor(((t - t0) * HERO_FPS) / 1000));
     if (frame !== last) {

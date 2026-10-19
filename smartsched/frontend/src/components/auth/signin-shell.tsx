@@ -26,8 +26,10 @@ import { springs, useReduce } from "@/lib/motion";
 import { SignInHero } from "./signin-hero";
 
 /** Page-local tokens (§9). Control height 44 fine / 48 coarse also drives the fields (--control-h-lg). */
+// --signin-top 8vh -> 5vh (decision 2026-10-19): with Microsoft, door 2 open, an error and the passkey button (AU-B)
+// the footer fell below the fold at 1440 x 900 (sign-in #25 keeps it in view)
 const SHEET_TOKENS =
-  "[--signin-control-h:44px] pointer-coarse:[--signin-control-h:48px] [--control-h-lg:var(--signin-control-h)] [--signin-top:28px] min-[600px]:[--signin-top:clamp(24px,8vh,96px)]";
+  "[--signin-control-h:44px] pointer-coarse:[--signin-control-h:48px] [--control-h-lg:var(--signin-control-h)] [--signin-top:28px] min-[600px]:[--signin-top:clamp(24px,5vh,96px)]";
 
 /**
  * `<b>…</b>` and `{var}` in a message → React nodes (the variables are inserted as text after splitting, so an
