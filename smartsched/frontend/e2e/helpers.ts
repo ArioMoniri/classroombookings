@@ -103,6 +103,8 @@ export async function dismissWelcomeSheet(page: Page): Promise<boolean> {
  * the hop is loopback (no nginx in the e2e stack; in production nginx appends the real peer, so a browser cannot
  * choose its address there). The throttle tests (loop-r1-laneA T-R1-09, the backend unit tests) do not use this.
  */
+const reporting = new WeakSet<Page>();
+
 export function clientAddressFor(identifier: string): string {
   let file = "";
   try {
@@ -124,6 +126,12 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
   // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
   if (page.url() !== "about:blank") await page.goto("about:blank");
   await page.context().setExtraHTTPHeaders({ "x-forwarded-for": clientAddressFor(identifier) });
+  // an uncaught error in the app is printed with the test's output (the pod keeps only the logs: run #141's Studio
+  // scope sentence vanished with no trace of why)
+  if (!reporting.has(page)) {
+    reporting.add(page);
+    page.on("pageerror", (e) => console.log(`[pageerror] ${page.url()} ${e.message}`));
+  }
   await page.goto("/login?method=local");
   // the fields are controlled inputs: text typed into the server-rendered form before React hydrated it is dropped
   // on a slow host (the form then answers "identifier required"), so wait until React owns the form
@@ -222,7 +230,7 @@ export const API_BASE = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_
 export async function ensureBookingSetup(): Promise<{ termId: number; scheduleId: number; periods: Record<string, number> }> {
   const ctx = await pwRequest.newContext();
   try {
-    const login = await ctx.post(`${API_BASE}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
+    const login = await ctx.post(`${API_BASE}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD }, headers: { "x-forwarded-for": clientAddressFor(`api|${ADMIN_EMAIL}`) } });
     expect(login.ok(), `admin login ${login.status()}`).toBeTruthy();
     const headers = { Authorization: `Bearer ${((await login.json()) as { access_token: string }).access_token}` };
     const call = async <T>(method: "GET" | "POST" | "PUT", p: string, data?: unknown): Promise<T> => {

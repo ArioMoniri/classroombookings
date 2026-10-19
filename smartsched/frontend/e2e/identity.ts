@@ -9,7 +9,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { request, type APIRequestContext } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, clientAddressFor } from "./helpers";
 
 export const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 
@@ -22,7 +22,7 @@ export interface Admin {
 
 export async function adminApi(): Promise<Admin> {
   const ctx = await request.newContext();
-  const login = await ctx.post(`${API}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
+  const login = await ctx.post(`${API}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD }, headers: { "x-forwarded-for": clientAddressFor(`api|${ADMIN_EMAIL}`) } });
   if (!login.ok()) throw new Error(`admin login failed: ${login.status()}`);
   const { access_token: token } = (await login.json()) as { access_token: string };
   const headers = { Authorization: `Bearer ${token}` };
