@@ -92,15 +92,16 @@ export async function dismissWelcomeSheet(page: Page): Promise<boolean> {
 }
 
 /**
- * The client address a browser sign-in comes from: one per person and spec file (198.18.0.0/15, the RFC 2544
- * benchmarking range). In the e2e stack every browser reaches the backend through the Next.js handler on one host,
- * so without this a whole school's sign-ins share one address and the backend's per-address sign-in throttle
- * (security_http.py: 60 POST /auth/login per address in 300 s; pod e2e #141, laneE/laneF "Çok fazla deneme") counts
- * them together. The throttle and its caps stay as shipped; each simulated person gets the machine a real one would
- * have. The handler forwards `x-forwarded-for` and the backend believes it because the hop is loopback (no nginx in
- * the e2e stack; in production nginx appends the real peer, so a browser cannot choose its address there). Stable per
- * person and file, so the "new device" sign-in mail and the remembered-device list see one device per spec, not one
- * per sign-in. Specs that test the throttles (loop-r1-laneA T-R1-09, the backend unit tests) do not go through here.
+ * The client address a browser sign-in comes from: one per person and spec file, inside 127.0.0.0/24 (127.0.0.2 to
+ * .254; only 127.0.0.1 is a trusted proxy hop). In the e2e stack every browser reaches the backend through the
+ * Next.js handler on one host, so a whole school's sign-ins shared 127.0.0.1 and the backend's per-address sign-in
+ * throttle (security_http.py: 60 POST /auth/login per address in 300 s) refused the admin on a fast host (pod e2e
+ * #141: laneE/laneF, visual-quality, "Çok fazla deneme"). The throttle and its caps stay as shipped; each simulated
+ * person gets a machine of their own, as a real one would have. The /24 is the one every e2e request came from
+ * before, so the network the backend remembers for devices and audit (hash of the /24, audit.hash_ip) is unchanged:
+ * no new-device mails or notifications. The handler forwards `x-forwarded-for` and the backend believes it because
+ * the hop is loopback (no nginx in the e2e stack; in production nginx appends the real peer, so a browser cannot
+ * choose its address there). The throttle tests (loop-r1-laneA T-R1-09, the backend unit tests) do not use this.
  */
 export function clientAddressFor(identifier: string): string {
   let file = "";
@@ -111,7 +112,7 @@ export function clientAddressFor(identifier: string): string {
   }
   let h = 0x811c9dc5;
   for (const ch of `${path.basename(file)}|${identifier.trim().toLowerCase()}`) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
-  return `198.${18 + (h & 1)}.${(h >>> 8) & 0xff}.${((h >>> 16) % 254) + 1}`;
+  return `127.0.0.${(h % 253) + 2}`;
 }
 
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
