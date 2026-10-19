@@ -5,7 +5,6 @@
   web             serve /ci/ on PODCI_WEB_BIND:PODCI_WEB_PORT
   heartbeat       heartbeat metrics + idle self-stop only
   cleanup         disk cleanup to below PODCI_DISK_MAX_PERCENT
-  first-deploy [--force]  deploy the deploy branch head now when no good deploy is on record (bootstrap retry)
   rerun ID        queue a finished run again
   runs            print the last runs
   render-nginx FILE                 insert the /ci/ location into an nginx config (idempotent)
@@ -121,13 +120,6 @@ def main(argv: list[str] | None = None) -> int:
     if cmd == "work":
         runner.Worker(cfg, store, reporter, cloud, token, log=log).work()
         return 0
-    if cmd == "first-deploy":
-        w = runner.Worker(cfg, store, reporter, cloud, token, log=log)
-        with runner.exclusive(cfg.state_dir / "first-deploy.lock") as got:
-            if not got:
-                log("another first deploy is running; exiting")
-                return 0
-            return 0 if w.first_deploy(force="--force" in a.args) == 0 else 1
     if cmd == "heartbeat":
         log(str(runner.heartbeat(cfg, store, cloud, time.time(), uptime_seconds(), log=log)))
         return 0
