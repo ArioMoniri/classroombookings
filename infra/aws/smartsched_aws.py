@@ -1116,6 +1116,18 @@ POD_DIAG = (
     "systemctl list-timers 'smartsched-*' --no-pager 2>&1 | head -8; "
     "systemctl is-active smartsched-ci-web.service 2>&1; "
     "docker ps --format '{{.Names}} {{.Status}}' 2>&1; "
+    # the app stack itself (why the site is down even when CI is idle): boot unit, last good deploy, checkout,
+    # .env present, stopped app containers, app images, disk, and the first-boot deploy's own lines
+    "echo '==== app stack'; systemctl is-active smartsched-stack.service 2>&1; "
+    "journalctl -u smartsched-stack.service -b -n 15 --no-pager -o cat 2>&1 | tail -15; "
+    "echo \"deployed-sha: $(cat /var/lib/smartsched-ci/deployed-sha 2>&1)\"; "
+    "echo \"checkout: $(git -C /opt/smartsched/src rev-parse --short HEAD 2>&1)\"; "
+    "test -f /opt/smartsched/src/smartsched/deploy/.env && echo '.env: present' || echo '.env: MISSING'; "
+    "docker ps -a --filter status=exited --filter status=created --format '{{.Names}} {{.Status}}' 2>&1 "
+    "| grep -v -e podci- -e smartsched-ci- | head -15; "
+    "docker images --format '{{.Repository}}:{{.Tag}} {{.CreatedSince}}' 2>&1 | grep -i smartsched | head -10; "
+    "df -h / /var/lib/docker 2>&1 | tail -2; "
+    "grep -a -e '\\[pod-bootstrap\\]' -e 'deploy.sh' /var/log/cloud-init-output.log 2>&1 | tail -12; "
     "journalctl -u 'smartsched-ci-*' -n 400 --no-pager -o short-iso 2>&1 | grep '\\[pod-ci\\]' | tail -25; "
     f"python3 - /var/lib/smartsched-ci {FAILED_GATE_TAIL} <<'PODCI_PY' 2>&1\n"
     + POD_FAILED_GATES_PY.lstrip("\n") + "PODCI_PY\n"
