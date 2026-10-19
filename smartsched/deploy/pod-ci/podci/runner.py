@@ -8,6 +8,7 @@ import os
 import shutil
 import signal
 import subprocess
+import threading
 import time
 from collections.abc import Callable, Iterator
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -24,10 +25,12 @@ from podci.github import StatusReporter
 from podci.state import (
     ERROR,
     FAILURE,
+    QUEUED,
     RUNNING,
     STEP_RUNNING,
     STEP_SKIPPED,
     SUCCESS,
+    SUPERSEDED,
     Run,
     Store,
 )
@@ -38,23 +41,74 @@ DEPLOYED_SHA = "deployed-sha"
 Log = Callable[[str], None]
 
 
-def run_logged(argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None, timeout: int) -> int:
-    """Run argv with stdout+stderr appended to log_path; kill the whole process group on timeout."""
+CANCELLED_EXIT = 143  # a gate killed because its run was cancelled (superseded / preempted)
+
+
+def _kill_group(proc: subprocess.Popen[bytes], grace: float = 30) -> None:
+    """SIGTERM the gate's process group, SIGKILL it after `grace` seconds."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=grace)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait()
+
+
+def remove_run_containers(run_tag: str, run: Callable[..., Any] = subprocess.run) -> None:
+    """docker rm -f every container of a run: labelled smartsched-ci.run=<RUN_TAG> (lib.sh docker_common) or named
+    podci-<RUN_TAG>-* (e2e-real.sh, backend gates); then the run's networks. Never touches the app stack."""
+    if not run_tag:
+        return
+    ids: list[str] = []
+    for flt in (f"label=smartsched-ci.run={run_tag}", f"name=podci-{run_tag}-"):
+        try:
+            proc = run(["docker", "ps", "-aq", "--filter", flt], capture_output=True, text=True, timeout=60)
+            ids += [i for i in str(proc.stdout or "").split() if i not in ids]
+        except (OSError, subprocess.SubprocessError):
+            continue
+    try:
+        if ids:
+            run(["docker", "rm", "-f", *ids], capture_output=True, timeout=120)
+        nets = run(["docker", "network", "ls", "-q", "--filter", f"label=smartsched-ci.run={run_tag}"],
+                   capture_output=True, text=True, timeout=60)
+        net_ids = str(nets.stdout or "").split()
+        if net_ids:
+            run(["docker", "network", "rm", *net_ids], capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def run_logged(argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None, timeout: int,
+               cancel: threading.Event | None = None, slice_seconds: float = 5.0, kill_grace: float = 30) -> int:
+    """Run argv with stdout+stderr appended to log_path; kill the whole process group on timeout. With `cancel`
+    the wait runs in slices: once the event is set the group gets SIGTERM, SIGKILL after kill_grace seconds, and the
+    run's containers (RUN_TAG in env) are removed (docker rm -f); returns CANCELLED_EXIT."""
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "ab") as fh:
         proc = subprocess.Popen(argv, stdout=fh, stderr=subprocess.STDOUT, env=env, cwd=str(cwd) if cwd else None,
                                 start_new_session=True)
-        try:
-            return proc.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGTERM)
+        deadline = time.monotonic() + timeout
+        while True:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                _kill_group(proc, kill_grace)
+                fh.write(f"\n[pod-ci] TIMEOUT after {timeout} s\n".encode())
+                return 124
             try:
-                proc.wait(timeout=30)
+                return proc.wait(timeout=min(left, slice_seconds) if cancel is not None else left)
             except subprocess.TimeoutExpired:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.wait()
-            fh.write(f"\n[pod-ci] TIMEOUT after {timeout} s\n".encode())
-            return 124
+                pass
+            if cancel is not None and cancel.is_set():
+                _kill_group(proc, kill_grace)
+                remove_run_containers(env.get("RUN_TAG", ""))
+                fh.write(b"\n[pod-ci] CANCELLED (run cancelled: superseded or preempted)\n")
+                return CANCELLED_EXIT
 
 
 @contextmanager
@@ -463,16 +517,25 @@ def serving_site(cfg: Config) -> bool:
     return (cfg.state_dir / DEPLOYED_SHA).is_file()
 
 
+def idle_window_minutes(cfg: Config, serving: bool) -> int:
+    """The idle self-stop window: idle_minutes, but at least idle_minutes_predeploy until the first deploy (a pod
+    whose first deploy is still pending must not stop an hour after a red run while the fix is being pushed)."""
+    return cfg.idle_minutes if serving else max(cfg.idle_minutes, cfg.idle_minutes_predeploy)
+
+
 def heartbeat(cfg: Config, store: Store, cloud: Cloud, now: float, uptime: float,
               sample: tuple[float, float] | None = None, log: Log = print) -> dict[str, Any]:
     """Publish Heartbeat/CIJobRunning, record a CPU sample and stop the pod when it is idle: no CI run
-    queued/running or finished in the window, CPU < idle_cpu % over the last idle_minutes, and up for
-    longer than the window. The CloudWatch alarm (CPU only) is the backstop if this process is broken."""
+    queued/running or finished in the window, CPU < idle_cpu % over the last idle window, and up for
+    longer than the window. The CloudWatch alarm (CPU only) is the backstop if this process is broken; before the
+    first deploy it stays disarmed until the (longer) pre-deploy window has passed without CI work."""
     busy, total = sample or cpu_times()
-    window = cfg.idle_minutes * 60
+    serving = serving_site(cfg)
+    minutes = idle_window_minutes(cfg, serving)
+    window = minutes * 60
     store.add_cpu_sample(now, busy, total, keep_seconds=2 * window)
     active = store.active()
-    out: dict[str, Any] = {"ci_active": active, "cpu_percent": None, "stop": False}
+    out: dict[str, Any] = {"ci_active": active, "cpu_percent": None, "stop": False, "idle_minutes": minutes}
     try:
         cloud.heartbeat(store.running())
     except Exception as exc:  # noqa: BLE001
@@ -484,17 +547,23 @@ def heartbeat(cfg: Config, store: Store, cloud: Cloud, now: float, uptime: float
     last = store.last_finished_at()
     # A pod with a good deploy serves the website: it never stops itself, and the CloudWatch backstop stays
     # disarmed (an hour of low CPU is a quiet site, not an idle CI box; the site kept going dark, 2026-10-19).
-    serving = serving_site(cfg)
     out["serving"] = serving
-    if serving:
+    quiet = 0.0 if active else min(uptime, now - last if last is not None else uptime)
+    if serving or (cfg.idle_stop and quiet < window):
+        # serving: always disarmed. First deploy pending: the 60-min CPU alarm would undercut the longer window
         try:
             cloud.set_alarm_actions(False)
         except Exception as exc:  # noqa: BLE001
             log(f"warning: disarming the idle alarm failed: {exc}")
+    elif cfg.idle_stop:
+        try:
+            cloud.set_alarm_actions(True)
+        except Exception as exc:  # noqa: BLE001
+            log(f"warning: re-arming the idle alarm failed: {exc}")
     idle = (cfg.idle_stop and not serving and not active and uptime > window and out["cpu_percent"] is not None
             and out["cpu_percent"] < cfg.idle_cpu and (last is None or now - last > window))
     if idle:
-        log(f"idle for {cfg.idle_minutes} min (CPU {out['cpu_percent']}%, no CI job): stopping the pod")
+        log(f"idle for {minutes} min (CPU {out['cpu_percent']}%, no CI job): stopping the pod")
         out["stop"] = True
         try:
             cloud.stop_self()

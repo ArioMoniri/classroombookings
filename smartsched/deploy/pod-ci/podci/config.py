@@ -37,6 +37,9 @@ class Config:
     idle_stop: bool = True
     idle_alarm: str = "smartsched-pod-idle-stop"
     idle_minutes: int = 60
+    # until the first deploy (no deployed-sha) the pod waits this long without CI work before it stops itself (a
+    # pod that never served the site must not stop an hour after a failed run while the fix is being pushed)
+    idle_minutes_predeploy: int = 240
     idle_cpu: float = 5.0
     gate_cpus: str = "2"
     gate_memory: str = "3g"
@@ -50,6 +53,14 @@ class Config:
     # = the backend PYTHON_IMAGE build arg in docker-compose.yml (deploy/pins.py checks they agree)
     python_image: str = "python:3.12.15-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258"  # noqa: E501
     max_attempts: int = 2
+    # Rule B: once a blocking gate failed, no new gate starts (running ones finish); the run fails anyway
+    fail_fast: bool = True
+    # Rule A: a running run is cancelled when a newer commit of its branch is queued. A deploy-branch run that has
+    # been running for longer than this many minutes finishes instead (and deploys when green), so a stream of pushes
+    # can never starve the site of deploys; 0 = always cancel
+    supersede_grace_minutes: int = 30
+    # how often the worker re-checks cancel / preemption while gates run (seconds)
+    check_interval: float = 15.0
     extra: dict[str, str] = field(default_factory=dict)
 
     @property
