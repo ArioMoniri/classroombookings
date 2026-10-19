@@ -2,7 +2,7 @@
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `ea4955c` (committed 2026-10-19 22:08 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8a61508` (committed 2026-10-19 23:50 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
