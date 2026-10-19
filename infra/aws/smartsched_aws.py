@@ -1075,15 +1075,20 @@ def filter_console(text: str, limit: int = 200) -> list[str]:
             for line in keep[-limit:]]
 
 
-# The newest finished pod CI run: the last FAILED_GATE_TAIL lines of every failed or errored gate's log
-# (state from /var/lib/smartsched-ci/ci.sqlite3, opened read-only), so a red gate always shows why it failed
-# even when its error lines match no pattern (ruff/mypy/pytest summaries, "[pod-ci] TIMEOUT after N s").
-# argv: the pod CI state directory, the tail length. Lines are capped at 400 chars (SSM keeps 24 000 chars).
-FAILED_GATE_TAIL = 40
-POD_FAILED_GATES_PY = """
-import os, sqlite3, sys
+# The newest finished pod CI run, every failed or errored gate first (state from /var/lib/smartsched-ci/ci.sqlite3,
+# opened read-only): an e2e-real shard's failing titles and summary, then each failure's Error / Expected / Received /
+# locator / spec lines; any other gate the last FAILED_GATE_TAIL lines of its log (pytest / ruff / mypy summaries,
+# "[pod-ci] TIMEOUT after N s"). Each gate gets a fair share of the block's character budget, so one shard can never
+# crowd out the others. Only then the Playwright error-context.md excerpts that run kept (gates/e2e-real.sh ->
+# logs/<run>/artifacts): at most 3 files per gate, 10 lines each, within what is left. The excerpts are redacted ON
+# THE POD: secrets, e-mail addresses, phone numbers, runs of capitalised words (what a person's name looks like) and
+# every label/text of the page snapshot (only roles and [attributes] stay); pod_runtime applies LOG_REDACT once more.
+# argv: the pod CI state directory, the tail length.
+FAILED_GATE_TAIL = 25
+POD_FAILED_GATES_PY = r"""
+import glob, os, re, sqlite3, sys
 state = sys.argv[1] if len(sys.argv) > 1 else "/var/lib/smartsched-ci"
-tail = int(sys.argv[2]) if len(sys.argv) > 2 else 40
+tail = int(sys.argv[2]) if len(sys.argv) > 2 else 25
 db_path = os.path.join(state, "ci.sqlite3")
 if not os.path.exists(db_path):
     sys.exit(print("pod-ci: no state database"))
@@ -1098,114 +1103,65 @@ steps = db.execute("SELECT name, state, exit_code, log_path FROM steps WHERE run
                    " AND state IN ('failure', 'error') ORDER BY seq", (run[0],)).fetchall()
 if not steps:
     print("no failed gates")
+BUDGET = 11500  # characters of this whole block (SSM keeps ~24 000 of the diagnostics)
+used = 0
+# part 1: every failed gate gets its share first (titles + summary, then the failure details / the log tail)
+gate_cap = max(1200, (BUDGET * 2 // 3) // max(1, len(steps)))
+TITLE = re.compile("^\\s+(✘|x)\\s+\\d+ ")
+SUMMARY = re.compile(r"^\s+\d+ (failed|flaky|passed|skipped|did not run|interrupted)\b")
+HEADER = re.compile(r"^\s+\d+\) \[")
+DETAIL = re.compile(r"Error|rror:|expect\(|Expected|Received|Timeout|timed out|waiting for|[Ll]ocator"
+                    r"|at .*spec\.ts|> \d+ \|")
+
+
+def e2e_lines(lines):
+    titles = [ln for ln in lines if TITLE.match(ln) and "(retry" not in ln]
+    picked = titles[:10] + [ln for ln in lines if SUMMARY.match(ln) or "TIMEOUT after" in ln]
+    details = []
+    for i, ln in enumerate(lines):
+        if HEADER.match(ln) and "retry" not in ln:
+            details.append(ln)
+            shown = 0
+            for nxt in lines[i + 1:i + 60]:
+                if HEADER.match(nxt) or shown >= 5:
+                    break
+                if DETAIL.search(nxt):
+                    details.append("      " + nxt.strip())
+                    shown += 1
+    return (picked + details)[:tail] if (picked or details) else lines[-tail:]
+
+
 for name, st, code, log_path in steps:
-    print(f"==== {name}: {st} (exit {code}) {log_path}")
+    head = f"==== {name}: {st} (exit {code}) {log_path}"
+    print(head)
+    used += len(head) + 1
     try:
         with open(log_path, encoding="utf-8", errors="replace") as fh:
             lines = fh.read().splitlines()
     except OSError as exc:
         print(f"(log unreadable: {exc})")
         continue
-    if name.startswith("e2e-real"):
-        # Playwright: the failing titles and the summary, not the tail (the gate ends with its containers' logs)
-        import re
-        summary = re.compile(r"^\\s+\\d+ (failed|flaky|passed|skipped|did not run)\\b")
-        picked = [ln for ln in lines if ("\u2718" in ln and "(retry" not in ln) or summary.match(ln)
-                  or "TIMEOUT after" in ln]
-        for line in picked[-tail:] or lines[-tail:]:
-            print(line[:300])
-        # the error of each failure from the list reporter's closing section ("  1) [chromium] > e2e/..."):
-        # the header, then its first Error / expect / Received / Timeout lines and the spec location
-        header = re.compile(r"^\\s+\\d+\\) \\[")
-        keep = re.compile(r"Error|rror:|expect\\(|Expected|Received|Timeout|timed out|waiting for|locator"
-                          r"|at .*spec\\.ts|> \\d+ \\|")
-        out, shown = [], 0
-        for i, ln in enumerate(lines):
-            if header.match(ln) and "retry" not in ln:
-                out.append(ln[:300])
-                shown = 0
-                for nxt in lines[i + 1:i + 60]:
-                    if header.match(nxt) or shown >= 7:
-                        break
-                    if keep.search(nxt):
-                        out.append("      " + nxt.strip()[:260])
-                        shown += 1
-        for line in out[:110]:
-            print(line)
-        continue
-    for line in lines[-tail:]:
-        print(line[:400])
-"""
-
-# The pod CI picture first (SSM keeps only the first ~24 000 chars of stdout): the newest 12 runs (wait, duration,
-# summary), the RUNNING run's gates with their elapsed time and each running e2e shard's progress from its log
-# ("shard 2: 143/150 done, 3 failed"), the step durations of the newest finished run, and short excerpts of the
-# Playwright error-context.md files that run kept (gates/e2e-real.sh -> logs/<run>/artifacts). The excerpts are
-# redacted ON THE POD before they are printed: secrets, e-mail addresses, phone numbers, runs of capitalised words
-# (what a person's name looks like) and every label/text of the page snapshot (only roles and [attributes] stay);
-# pod_runtime applies LOG_REDACT once more. Read-only (sqlite mode=ro). argv: the pod CI state directory.
-POD_STATUS_PY = r"""
-import glob, os, re, sqlite3, sys, time
-state = sys.argv[1] if len(sys.argv) > 1 else "/var/lib/smartsched-ci"
-db_path = os.path.join(state, "ci.sqlite3")
-if not os.path.exists(db_path):
-    sys.exit(print("pod-ci: no state database"))
-db = sqlite3.connect("file:" + db_path + "?mode=ro", uri=True)
-now = time.time()
-
-
-def mins(seconds):
-    if seconds is None:
-        return "-"
-    seconds = int(seconds)
-    return f"{seconds // 60}m{seconds % 60:02d}s" if seconds >= 60 else f"{seconds}s"
-
-
-print("==== pod-ci runs (newest 12): id branch sha state wait duration summary")
-for rid, branch, sha, st, created, started, finished, summary in db.execute(
-        "SELECT id, branch, sha, state, created_at, started_at, finished_at, summary FROM runs"
-        " ORDER BY id DESC LIMIT 12"):
-    wait = (started or (finished if st != "queued" else now) or now) - created if created else None
-    took = ((finished or now) - started) if started else None
-    print(f"#{rid} {branch[:32]} {sha[:7]} {st} wait {mins(wait)} took {mins(took)} {(summary or '')[:110]}")
-# the running run: per-gate state + elapsed, and each running e2e shard's progress from its log
-done_re = re.compile(r"^\s+(✓|✔|✘|-|ok|x)\s+\d+ ")
-total_re = re.compile(r"Running (\d+) tests?")
-for rid, branch, sha, started in db.execute(
-        "SELECT id, branch, sha, started_at FROM runs WHERE state = 'running' ORDER BY id"):
-    print(f"==== RUNNING run #{rid} {branch}@{sha[:7]} for {mins(now - started if started else None)}")
-    for name, st, s0, s1, code, log_path in db.execute(
-            "SELECT name, state, started_at, finished_at, exit_code, log_path FROM steps WHERE run_id = ?"
-            " ORDER BY seq", (rid,)):
-        took = ((s1 or now) - s0) if s0 else None
-        line = f"  {name:<16} {st:<8} {mins(took)}" + (f" exit {code}" if code not in (None, 0) else "")
-        if name.startswith("e2e-real") and st == "running" and log_path:
-            try:
-                with open(log_path, encoding="utf-8", errors="replace") as fh:
-                    text = fh.read().splitlines()
-            except OSError:
-                text = []
-            total = next((int(m.group(1)) for ln in text for m in [total_re.search(ln)] if m), None)
-            ran = [ln for ln in text if done_re.match(ln) and "(retry" not in ln]
-            failed = sum(1 for ln in ran if "✘" in ln or ln.lstrip().startswith("x "))
-            shard = name.rsplit("-", 1)[-1]
-            line += f"  shard {shard}: {len(ran)}/{total if total is not None else '?'} done, {failed} failed"
+    # Playwright: failing titles + summary first, then each failure's Error / Expected / Received / locator / spec
+    # lines; any other gate: the end of its log (the pytest / ruff / mypy summary)
+    chosen = e2e_lines(lines) if name.startswith("e2e-real") else lines[-tail:]
+    spent = 0
+    for line in chosen:
+        line = line[:240]
+        if spent + len(line) + 1 > gate_cap:
+            print(f"... ({name}: cut at {gate_cap} chars)")
+            break
         print(line)
-# the newest finished run: step durations and the redacted Playwright failure context it kept
-run = db.execute("SELECT id, branch, sha, state FROM runs WHERE finished_at IS NOT NULL AND state != 'superseded'"
-                 " ORDER BY finished_at DESC, id DESC LIMIT 1").fetchone()
-if run is None:
-    sys.exit(print("pod-ci: no finished run"))
-print(f"==== step durations of run #{run[0]} {run[1]}@{run[2][:7]}: {run[3]}")
-print("  " + ", ".join(f"{n} {st} {mins((s1 - s0) if s0 and s1 else None)}" for n, st, s0, s1 in db.execute(
-    "SELECT name, state, started_at, finished_at FROM steps WHERE run_id = ? ORDER BY seq", (run[0],))))
+        spent += len(line) + 1
+    used += spent
+# part 2: the Playwright error-context.md excerpts the run kept (gates/e2e-real.sh -> logs/<run>/artifacts), only
+# after every gate had its part, shared across the gates (<= 3 files and 10 lines per file each), redacted here
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 PHONE = re.compile(r"(?<![\w:.-])\+?\d[\d ()/-]{7,}\d(?![\w:.-])")
 HEADINGS = {"# Test info", "# Error details", "# Page snapshot", "# Test source"}
 SECRET = re.compile(r"(?i)(password|passwd|secret|token|api[_-]?key|authorization|basic_auth)(\S*\s*[:=]\s*|\s+)\S+")
 QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
 # two or more capitalised words in a row (Turkish letters included): what a person's name looks like
-CAP = r"[A-Z\u00c7\u011e\u0130\u00d6\u015e\u00dc][\w.'-]*"
+CAP = "[A-ZÇĞİÖŞÜ][\\w.'-]*"
 NAME = re.compile(r"\b" + CAP + r"(\s+" + CAP + r")+")
 ARIA = re.compile(r"^(\s*-\s+)(/?[\w-]+)(.*)$")
 
@@ -1233,43 +1189,127 @@ def redact(line, snapshot):
 
 
 art = os.path.join(state, "logs", str(run[0]), "artifacts")
-files = sorted(glob.glob(os.path.join(art, "**", "error-context.md"), recursive=True))
-if files:
-    print(f"==== Playwright error context of run #{run[0]} ({len(files)} file(s); redacted, <= 15 lines each)")
-budget, chars = 120, 6000  # lines and characters of all excerpts together
-for path in files:
-    if budget <= 0 or chars <= 0:
-        print(f"  ... {len(files) - files.index(path)} more not shown")
+per_gate = []
+for name, *_ in steps:
+    if name.startswith("e2e-real-"):
+        files = sorted(glob.glob(os.path.join(art, "e2e-shard-" + name.rsplit("-", 1)[-1], "**", "error-context.md"),
+                             recursive=True))
+        if files:
+            per_gate.append((name, files))
+lines_left = 120
+for n, (name, files) in enumerate(per_gate):
+    share = (BUDGET - used) // (len(per_gate) - n)
+    if share < 200 or lines_left <= 0:
+        print(f"==== error context: {len(per_gate) - n} gate(s) not shown (output budget)")
         break
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            raw = fh.read().splitlines()
-    except OSError:
-        continue
-    print("-- " + os.path.relpath(path, art)[:160])
-    budget -= 1
-    snapshot, shown = False, 0
-    for ln in raw:
-        if not ln.strip() or ln.strip().startswith("```"):
+    print(f"==== error context of {name}: {len(files)} file(s), first {min(3, len(files))} (redacted, 10 lines each)")
+    spent = 0
+    for path in files[:3]:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                raw = fh.read().splitlines()
+        except OSError:
             continue
-        if ln.startswith("# "):
-            snapshot = ln.startswith("# Page snapshot")
-            out = ln.strip() if ln.strip() in HEADINGS else "# [heading]"
-        else:
-            out = redact(ln, snapshot)
-        print("  " + out[:200])
-        shown, budget, chars = shown + 1, budget - 1, chars - len(out[:200]) - 3
-        if shown >= 15 or budget <= 0 or chars <= 0:
+        rel = "-- " + os.path.relpath(path, art)[:140]
+        print(rel)
+        spent += len(rel) + 1
+        snapshot, shown = False, 0
+        for ln in raw:
+            if not ln.strip() or ln.strip().startswith("```"):
+                continue
+            if ln.startswith("# "):
+                snapshot = ln.startswith("# Page snapshot")
+                out = ln.strip() if ln.strip() in HEADINGS else "# [heading]"
+            else:
+                out = redact(ln, snapshot)
+            out = "  " + out[:200]
+            if spent + len(out) + 1 > share:
+                break
+            print(out)
+            spent, shown, lines_left = spent + len(out) + 1, shown + 1, lines_left - 1
+            if shown >= 10 or lines_left <= 0:
+                break
+        if spent >= share or lines_left <= 0:
             break
+    used += spent
+"""
+
+# The pod CI picture first (SSM keeps only the first ~24 000 chars of stdout): the newest 12 runs (wait, duration,
+# summary), the RUNNING run's gates with their elapsed time, each running e2e shard's progress from its log
+# ("shard 2: 143/150 done, 3 failed") and the failing titles of its failed or running gates from their live logs,
+# and the step durations of the newest finished run. Read-only (sqlite mode=ro). argv: the pod CI state directory.
+POD_STATUS_PY = r"""
+import glob, os, re, sqlite3, sys, time
+state = sys.argv[1] if len(sys.argv) > 1 else "/var/lib/smartsched-ci"
+db_path = os.path.join(state, "ci.sqlite3")
+if not os.path.exists(db_path):
+    sys.exit(print("pod-ci: no state database"))
+db = sqlite3.connect("file:" + db_path + "?mode=ro", uri=True)
+now = time.time()
+
+
+def mins(seconds):
+    if seconds is None:
+        return "-"
+    seconds = int(seconds)
+    return f"{seconds // 60}m{seconds % 60:02d}s" if seconds >= 60 else f"{seconds}s"
+
+
+print("==== pod-ci runs (newest 12): id branch sha state wait duration summary")
+for rid, branch, sha, st, created, started, finished, summary in db.execute(
+        "SELECT id, branch, sha, state, created_at, started_at, finished_at, summary FROM runs"
+        " ORDER BY id DESC LIMIT 12"):
+    wait = (started or (finished if st != "queued" else now) or now) - created if created else None
+    took = ((finished or now) - started) if started else None
+    print(f"#{rid} {branch[:32]} {sha[:7]} {st} wait {mins(wait)} took {mins(took)} {(summary or '')[:110]}")
+# the running run: per-gate state + elapsed, and each running e2e shard's progress from its log
+done_re = re.compile(r"^\s+(✓|✔|✘|-|ok|x)\s+\d+ ")
+total_re = re.compile(r"Running (\d+) tests?")
+fail_re = re.compile(r"^\s+(\u2718|x)\s+\d+ ")
+for rid, branch, sha, started in db.execute(
+        "SELECT id, branch, sha, started_at FROM runs WHERE state = 'running' ORDER BY id"):
+    print(f"==== RUNNING run #{rid} {branch}@{sha[:7]} for {mins(now - started if started else None)}")
+    for name, st, s0, s1, code, log_path in db.execute(
+            "SELECT name, state, started_at, finished_at, exit_code, log_path FROM steps WHERE run_id = ?"
+            " ORDER BY seq", (rid,)):
+        took = ((s1 or now) - s0) if s0 else None
+        line = f"  {name:<16} {st:<8} {mins(took)}" + (f" exit {code}" if code not in (None, 0) else "")
+        text = []
+        if log_path and (st in ("failure", "error") or (name.startswith("e2e-real") and st == "running")):
+            try:
+                with open(log_path, encoding="utf-8", errors="replace") as fh:
+                    text = fh.read().splitlines()
+            except OSError:
+                text = []
+        titles = [ln for ln in text if fail_re.match(ln) and "(retry" not in ln]
+        if name.startswith("e2e-real") and st == "running":
+            total = next((int(m.group(1)) for ln in text for m in [total_re.search(ln)] if m), None)
+            ran = [ln for ln in text if done_re.match(ln) and "(retry" not in ln]
+            shard = name.rsplit("-", 1)[-1]
+            line += f"  shard {shard}: {len(ran)}/{total if total is not None else '?'} done, {len(titles)} failed"
+        print(line)
+        # failures show while the run is still going: the failing titles from the gate's live log
+        for t in titles[:6]:
+            print("      " + t.strip()[:180])
+        if len(titles) > 6:
+            print(f"      ... {len(titles) - 6} more")
+# the newest finished run: step durations (its failed gates and error context: POD_FAILED_GATES_PY, next)
+run = db.execute("SELECT id, branch, sha, state FROM runs WHERE finished_at IS NOT NULL AND state != 'superseded'"
+                 " ORDER BY finished_at DESC, id DESC LIMIT 1").fetchone()
+if run is None:
+    sys.exit(print("pod-ci: no finished run"))
+print(f"==== step durations of run #{run[0]} {run[1]}@{run[2][:7]}: {run[3]}")
+print("  " + ", ".join(f"{n} {st} {mins((s1 - s0) if s0 and s1 else None)}" for n, st, s0, s1 in db.execute(
+    "SELECT name, state, started_at, finished_at FROM steps WHERE run_id = ? ORDER BY seq", (run[0],))))
 """
 
 # Read-only diagnostics run on the pod through SSM Run Command (the instance profile has
 # AmazonSSMManagedInstanceCore). Output is redacted line by line before it is returned; the failed-gate tails
 # come last so the 400-line cap in pod_runtime never cuts them.
 POD_DIAG = (
-    "python3 - /var/lib/smartsched-ci <<'PODCI_STATUS' 2>&1 | cut -c1-300 | head -c 10000\n"
+    "python3 - /var/lib/smartsched-ci <<'PODCI_STATUS' 2>&1 | cut -c1-300 | head -c 5000\n"
     + POD_STATUS_PY.lstrip("\n") + "PODCI_STATUS\necho\n"
-    + f"python3 - /var/lib/smartsched-ci {FAILED_GATE_TAIL} <<'PODCI_PY' 2>&1 | head -c 8000\n"
+    + f"python3 - /var/lib/smartsched-ci {FAILED_GATE_TAIL} <<'PODCI_PY' 2>&1 | head -c 12500\n"
     + POD_FAILED_GATES_PY.lstrip("\n") + "PODCI_PY\necho\n"
     # owners/modes of the deploy checkout (git refuses a checkout owned by another user) and its .env
     "stat -c '%U %a %n' /opt/smartsched/src /opt/smartsched/src/.git /opt/smartsched/src/smartsched/deploy/.env 2>&1; "
