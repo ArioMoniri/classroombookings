@@ -4565,7 +4565,8 @@
       "goal": "Strict code review, read-only, report within ~20 minutes. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Review the e2e/app fixes another agent made for failing Playwright specs on the pod CI: `git diff 5154eae0 HEAD -- smartsched/frontend` plus any uncommitted working-tree …",
       "ledger": "Strict review of e2e fix diff",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-19 19:08"
     },
     {
       "id": "ac19329def86c4b0b",
