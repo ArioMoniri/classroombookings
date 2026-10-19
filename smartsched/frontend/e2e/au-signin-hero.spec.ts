@@ -9,7 +9,7 @@
  * 3. 390 × 844 touch: no hero and the Lottie player / JSON are never downloaded.
  * 4. Reduced motion: the poster PNG, no player download.
  * 5. Motion-audit case: no finite animation over 300 ms, decorative (aria-hidden, pointer-events none), at most 2
- *    backdrop-filter surfaces (only the sheet blurs; the frame has none), hidden in forced colours, and the 2FA step
+ *    backdrop-filter surfaces (the hero frame has none; the sheet keeps its tint without a blur since 2026-10-19), hidden in forced colours, and the 2FA step
  *    route has no hero.
  *
  * The "was the Lottie bundle requested" probe reads every JS/JSON response body for markers of lottie-web

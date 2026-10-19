@@ -118,6 +118,13 @@ test.beforeAll(async () => {
   const { access_token } = (await r.json()) as { access_token: string };
   const c = await admin.ctx.post(`${API}/auth/change-password`, { headers: { Authorization: `Bearer ${access_token}` }, data: { current_password: USER.first, new_password: USER.password } });
   expect(c.status()).toBeLessThan(300);
+  // the spec drives its own sign-in form (not helpers.login): close the first-sign-in welcome sheet and read any
+  // published privacy notice through the API up front, so neither modal races the security steps
+  const t2 = ((await (await admin.ctx.post(`${API}/auth/login`, { data: { username: USER.username, password: USER.password } })).json()) as { access_token: string }).access_token;
+  const auth = { Authorization: `Bearer ${t2}` };
+  await admin.ctx.post(`${API}/welcome/events`, { headers: auth, data: { guide_key: "sheet", event: "dismissed" } });
+  const notice = (await (await admin.ctx.get(`${API}/me/privacy`, { headers: auth })).json()) as { needs_ack?: boolean; notice?: { id: number } | null };
+  if (notice.needs_ack && notice.notice) await admin.ctx.post(`${API}/me/privacy/ack`, { headers: auth, data: { notice_id: notice.notice.id } });
 });
 
 test.afterAll(async () => {

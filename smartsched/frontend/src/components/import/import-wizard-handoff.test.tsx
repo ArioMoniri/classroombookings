@@ -156,10 +156,12 @@ describe("/import with a file from the helper", () => {
   });
 
   it("the 10 minutes passing on the page give the same expiry line", async () => {
-    useFileHandoffStore.getState().set(handoff({ items: [{ ...handoff().items[0]!, expiresAt: Date.now() + 30 }] }));
+    // 500 ms, not 30: on a loaded CI host the first render alone took longer than 30 ms, so the file was already
+    // expired when the test looked for it (pod run #121)
+    useFileHandoffStore.getState().set(handoff({ items: [{ ...handoff().items[0]!, expiresAt: Date.now() + 500 }] }));
     wrap(<ImportWizard />);
     expect(screen.getByTestId("import-handed-file")).toBeInTheDocument();
-    expect(await screen.findByTestId("import-handed-expired", undefined, { timeout: 2000 })).toBeInTheDocument();
+    expect(await screen.findByTestId("import-handed-expired", undefined, { timeout: 4000 })).toBeInTheDocument();
   });
 
   it("a hand-over for another kind is not shown (the page's own zone stays)", () => {
