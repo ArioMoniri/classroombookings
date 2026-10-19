@@ -185,13 +185,16 @@ describe("SignInHero (auth.md §11.3)", () => {
     expect(p.autoplay).toBe(false);
     // the opaque page-colour background layer is dropped over the tint frame
     expect(p.src.layers.some((l) => l.nm === "background")).toBe(false);
-    expect(hero).toHaveAttribute("data-state", "playing");
+    // "playing" only once the first frame is drawn: building the scene is the entrance, not the pass
+    expect(hero).toHaveAttribute("data-state", "loading");
     const clock = manualClock();
     const pause = vi.spyOn(lot.handle, "pause");
     const seek = vi.spyOn(lot.handle, "seek");
     act(() => p.subscriptions?.ready?.());
+    expect(hero).toHaveAttribute("data-state", "loading");
     act(() => clock.frame(1000));
     expect(seek).toHaveBeenLastCalledWith({ frame: 0 });
+    expect(hero).toHaveAttribute("data-state", "playing");
     act(() => clock.frame(2000));
     expect(seek).toHaveBeenLastCalledWith({ frame: HERO_FPS });
     expect(hero).toHaveAttribute("data-state", "playing");
@@ -227,6 +230,25 @@ describe("SignInHero (auth.md §11.3)", () => {
     expect(seek).toHaveBeenLastCalledWith({ frame: Math.floor(((533 + HERO_INPUT_HOLD_MS) * HERO_FPS) / 1000) });
     act(() => clock.frame(140 / HERO_FPS * 1000));
     expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "done");
+  });
+
+  it("typing while the hero loads: the scene is not built until HERO_INPUT_HOLD_MS after the last key", async () => {
+    setMedia({ [WIDE]: true });
+    render(<SignInHero />);
+    // keys every 100 ms well past the idle + 300 ms load point: the player and the file are in, the scene waits
+    let lastKey = 0;
+    for (let i = 0; i < 12; i++) {
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
+      });
+      lastKey = performance.now();
+      expect(screen.queryByTestId("lottie-mock")).toBeNull();
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await screen.findByTestId("lottie-mock", undefined, { timeout: 3000 });
+    expect(performance.now() - lastKey).toBeGreaterThanOrEqual(HERO_INPUT_HOLD_MS - 5);
+    // not playing before its first frame is drawn
+    expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "loading");
   });
 
   it("typing in the form never re-renders the hero (it is memoised, its props are stable)", async () => {
@@ -306,6 +328,9 @@ describe("SignInHero (auth.md §11.3)", () => {
     rerender(<SignInHero />);
     await screen.findByTestId("lottie-mock", undefined, { timeout: 3000 });
     expect(dark).toHaveBeenCalledTimes(1);
+    const clock = manualClock();
+    act(() => (lot.props as MockProps).subscriptions?.ready?.());
+    act(() => clock.frame(0));
     expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "playing");
   });
 

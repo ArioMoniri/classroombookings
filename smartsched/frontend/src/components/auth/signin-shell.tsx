@@ -28,8 +28,12 @@ import { SignInHero } from "./signin-hero";
 /** Page-local tokens (§9). Control height 44 fine / 48 coarse also drives the fields (--control-h-lg). */
 // --signin-top 8vh -> 5vh (decision 2026-10-19): with Microsoft, door 2 open, an error and the passkey button (AU-B)
 // the footer fell below the fold at 1440 x 900 (sign-in #25 keeps it in view)
+// 5vh -> clamp(12px, 20vh - 168px, 96px) (decision 2026-10-19, pod e2e #125): that state left only 19 px to spare
+// with Inter, and a host whose fallback font sets lines taller (the CI's Playwright image) pushed the footer 21 px
+// below the fold. The top gap now shrinks on short screens (12 px at 900, 48 px at 1080, 72 px at 1200) and the
+// gaps between the doors and above the footer tighten at ≤ 960 px tall: about 70 px back at 1440 x 900
 const SHEET_TOKENS =
-  "[--signin-control-h:44px] pointer-coarse:[--signin-control-h:48px] [--control-h-lg:var(--signin-control-h)] [--signin-top:28px] min-[600px]:[--signin-top:clamp(24px,5vh,96px)]";
+  "[--signin-control-h:44px] pointer-coarse:[--signin-control-h:48px] [--control-h-lg:var(--signin-control-h)] [--signin-top:28px] min-[600px]:[--signin-top:clamp(12px,calc(20vh-168px),96px)]";
 
 /**
  * `<b>…</b>` and `{var}` in a message → React nodes (the variables are inserted as text after splitting, so an
@@ -112,7 +116,7 @@ export function SignInFooter({ kvkkUrl }: { kvkkUrl?: string | null }) {
   const langs: readonly Locale[] = languages.length ? languages : ["tr", "en"];
   return (
     // door 2 opening pushes the footer: it moves on transform only (layout="position", §10 "the column makes room")
-    <motion.footer layout={reduce ? false : "position"} transition={springs.smooth} className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6" aria-label={t("signin.footer.region")}>
+    <motion.footer layout={reduce ? false : "position"} transition={springs.smooth} className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6 min-[600px]:[@media(max-height:960px)]:pt-3" aria-label={t("signin.footer.region")}>
       <div className="flex min-h-11 items-center gap-4 type-footnote">
         {kvkkUrl ? (
           <a href={kvkkUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-1.5 text-tint-text underline-offset-4 outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="signin-kvkk">
@@ -163,7 +167,7 @@ export function SignInShell({ children, logoUrl, kvkkUrl, labelledBy = "signin-t
           // no backdrop blur on the sheet (decision 2026-10-19): it sits over the scene's smooth gradient, where a blur
           // changes nothing visible, but a CPU-only renderer re-blurred the 480 x 884 px area for every frame while the
           // person typed (50-75 ms frames; AUX-10 asks for typing under 50 ms). The material's tint stays.
-          className="flex w-full flex-col [--mat-regular-filter:none] max-[599px]:min-h-dvh max-[599px]:rounded-none max-[599px]:shadow-none max-[599px]:pl-[max(1rem,env(safe-area-inset-left))] max-[599px]:pr-[max(1rem,env(safe-area-inset-right))] max-[599px]:pt-[max(16px,env(safe-area-inset-top))] max-[599px]:pb-[max(8px,env(safe-area-inset-bottom))] min-[600px]:h-[calc(100dvh-16px)] min-[600px]:w-(--signin-sheet-w) min-[600px]:overflow-y-auto min-[600px]:overscroll-contain min-[600px]:pl-[max(2rem,env(safe-area-inset-left))] min-[600px]:pr-[max(2rem,env(safe-area-inset-right))] min-[600px]:pt-8 min-[600px]:pb-4 lg:pl-[max(2.5rem,env(safe-area-inset-left))] lg:pr-[max(2.5rem,env(safe-area-inset-right))] lg:pb-5 [scroll-padding-block:24px] contrast-more:bg-(--mat-regular-solid) forced-colors:bg-[Canvas] forced-colors:border forced-colors:border-[CanvasText]"
+          className="flex w-full flex-col [--mat-regular-filter:none] max-[599px]:min-h-dvh max-[599px]:rounded-none max-[599px]:shadow-none max-[599px]:pl-[max(1rem,env(safe-area-inset-left))] max-[599px]:pr-[max(1rem,env(safe-area-inset-right))] max-[599px]:pt-[max(16px,env(safe-area-inset-top))] max-[599px]:pb-[max(8px,env(safe-area-inset-bottom))] min-[600px]:h-[calc(100dvh-16px)] min-[600px]:w-(--signin-sheet-w) min-[600px]:overflow-y-auto min-[600px]:overscroll-contain min-[600px]:pl-[max(2rem,env(safe-area-inset-left))] min-[600px]:pr-[max(2rem,env(safe-area-inset-right))] min-[600px]:pt-8 min-[600px]:[@media(max-height:960px)]:pt-5 min-[600px]:pb-4 lg:pl-[max(2.5rem,env(safe-area-inset-left))] lg:pr-[max(2.5rem,env(safe-area-inset-right))] lg:pb-5 [scroll-padding-block:24px] contrast-more:bg-(--mat-regular-solid) forced-colors:bg-[Canvas] forced-colors:border forced-colors:border-[CanvasText]"
           data-testid="signin-sheet"
         >
           <div className="flex w-full max-w-[400px] flex-1 flex-col">

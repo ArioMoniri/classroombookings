@@ -91,7 +91,7 @@ export function SignInPage({ org, params, invite, lastMethodLocal: lastLocalCook
           <LocalInviteAccept token={invite.token} org={orgName} next={params.next} />
         </div>
       ) : multi ? (
-        <div className="mt-7">
+        <div className="mt-7 min-[600px]:[@media(max-height:960px)]:mt-5">
           <ProviderButtons
             providers={buttons}
             invited={invitedSlug}
@@ -102,7 +102,7 @@ export function SignInPage({ org, params, invite, lastMethodLocal: lastLocalCook
           />
         </div>
       ) : doors.microsoft ? (
-        <div className="mt-7">
+        <div className="mt-7 min-[600px]:[@media(max-height:960px)]:mt-5">
           <MicrosoftSignIn href={msHref} label={t("signin.microsoft.label")} busyLabel={t("signin.microsoft.busy")} describedBy={`${HINT_IDS.domain} ${HINT_IDS.signup}`} onNavigate={() => rememberMethod("microsoft")} />
           <div className="mt-3 flex flex-col gap-1.5 type-footnote text-label-2" data-testid="signin-hints">
             {validInvite ? (
@@ -118,7 +118,8 @@ export function SignInPage({ org, params, invite, lastMethodLocal: lastLocalCook
       ) : null}
 
       {disclosure ? (
-        <div className="mt-6 pt-2 hairline-t">
+        // short screens (≤ 960 px tall) tighten the gaps between the doors: see SHEET_TOKENS in signin-shell.tsx
+        <div className="mt-6 pt-2 hairline-t min-[600px]:[@media(max-height:960px)]:mt-4">
           <Button type="button" variant="ghost" shape="rect" size="lg" aria-expanded={open}
             aria-controls="signin-door2"
             onClick={() => {
@@ -150,7 +151,7 @@ export function SignInPage({ org, params, invite, lastMethodLocal: lastLocalCook
           </AnimatePresence>
         </div>
       ) : formPrimary ? (
-        <div className="mt-7" id="signin-door2">
+        <div className="mt-7 min-[600px]:[@media(max-height:960px)]:mt-5" id="signin-door2">
           <LocalSignInForm next={params.next} primary resetLink={doors.resetLink} lastMethodLocal={false} autoFocus={fine && !error && !localInvite && !params.mfa} footnote={doors.offline || localInvite ? undefined : t("signin.local.noAccount")} passkeySignIn={passkeySignIn && !localInvite} lastMethodPasskey={lastMethodPasskey} />
         </div>
       ) : null}

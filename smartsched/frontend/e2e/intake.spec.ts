@@ -32,7 +32,11 @@ test.describe.configure({ mode: "serial" });
 test.skip(!REAL, SKIP_REASON);
 
 async function startJob(page: Page, file: string, opts: { general?: boolean } = {}) {
+  // the AI switch follows the administrator's policy once GET /ai/policy answers: read it after that, not before
+  // (read too early, the switch looked enabled and `uncheck` then waited forever on the disabled one)
+  const policy = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith("/ai/policy") && r.request().method() === "GET", { timeout: 30_000 });
   await page.goto("/onboarding");
+  await policy;
   const drop = page.getByTestId("onboarding-drop");
   await expect(drop).toBeVisible();
   await page.getByTestId("onboarding-input").setInputFiles(file);
@@ -40,7 +44,8 @@ async function startJob(page: Page, file: string, opts: { general?: boolean } = 
   // deterministic path: no file content to the model (no key is configured on the e2e backend anyway). With the
   // administrator's AI policy off the switch is unticked and disabled (T-R1-23)
   const ai = drop.getByRole("checkbox", { name: "Anahtar tanımlıysa yapay zekâ modelini kullan" });
-  if ((await ai.getAttribute("aria-disabled")) === "true") {
+  await expect(drop.getByTestId("onboarding-ai-off").or(ai.and(page.locator(":not([data-disabled])")))).toBeVisible();
+  if (await drop.getByTestId("onboarding-ai-off").isVisible()) {
     await expect(ai).not.toBeChecked();
     await expect(drop.getByTestId("onboarding-ai-off")).toContainText("Yönetici kapattı");
   } else await ai.uncheck();

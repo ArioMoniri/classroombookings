@@ -94,6 +94,7 @@ export function focusPageHeading(timeoutMs = 2000, opts: { afterNavigation?: boo
   // focus on <body>. Wait for a different heading, and take the old one only when the time is up (same page).
   const before = opts.afterNavigation ? document.querySelector<HTMLElement>("main h1") : null;
   const tick = () => {
+    if (typeof document === "undefined") return; // the page (or a test's jsdom) is gone
     const found = document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("#main");
     const waiting = !!before && (found === before || !found?.matches("h1")) && performance.now() - started < timeoutMs;
     const h = waiting ? null : found;

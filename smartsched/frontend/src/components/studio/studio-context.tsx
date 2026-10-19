@@ -6,7 +6,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useStore } from "zustand";
 import { useMe, usePrograms, useRooms, useWeeks } from "@/lib/api/hooks";
 import { api } from "@/lib/api/endpoints";
-import { DraftConflictError } from "@/lib/api/studio-endpoints";
 import { sk, useStudioClasses, useStudioDraft, useStudioMeta, useStudioRules, useStudioSummary } from "@/lib/api/studio-hooks";
 import type { ClassRow, Precheck, RulesOut, StudioKind, StudioMeta, StudioStep, StudioSummary } from "@/lib/api/studio-schemas";
 import { STUDIO_STEPS } from "@/lib/api/studio-schemas";
@@ -16,9 +15,10 @@ import { dayName } from "@/lib/time";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { RowState } from "./class-filters";
 import type { SentenceContext } from "./rule-sentence";
-import { deriveSummary, isPlacementPin, patchFor, type DraftLocal, type StudioAction, type StudioState, type SummaryView } from "./studio-reducer";
+import { deriveSummary, isPlacementPin, type DraftLocal, type StudioAction, type StudioState, type SummaryView } from "./studio-reducer";
 import { StudioDataContext, type StudioData } from "./studio-data";
 import { createStudioStore, type StudioStore, type StudioStoreState } from "./studio-store";
+import { createDraftSaver } from "./draft-saver";
 
 export const ADVANCED_KEY = "smartsched.studio.advanced";
 
@@ -108,36 +108,12 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
   }, [draft.data, termId, kind, store]);
 
   /* ------------------------------------------------------------------- autosave */
-  const saving = useRef<Promise<void> | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const saveNow = useCallback(async (): Promise<void> => {
-    // loop: edits made while a request is in flight are sent right after it
-    for (let round = 0; round < 10; round++) {
-    if (saving.current) {
-      await saving.current;
-    }
-    const s = store.getState().studio;
-    if (!s.server || s.dirty.length === 0 || s.status === "conflict" || (round > 0 && s.status !== "idle")) return;
-    const sent = [...s.dirty];
-    const sentEdits = { ...s.edits };
-    const { dispatch } = store.getState();
-    dispatch({ type: "saving" });
-    const run = (async () => {
-      try {
-        const d = await api.studio.saveDraft(termId, kind, s.server?.version ?? 0, patchFor(s.local, sent));
-        dispatch({ type: "saved", draft: d, sent, sentEdits });
-        qc.setQueryData(sk.draft(termId, kind), d);
-      } catch (e) {
-        if (e instanceof DraftConflictError) dispatch({ type: "conflict", current: e.current });
-        else dispatch({ type: "saveFailed", error: e instanceof Error ? e.message : String(e) });
-      }
-    })();
-    saving.current = run;
-    await run;
-    saving.current = null;
-    }
-  }, [store, termId, kind, qc]);
+  const saveNow = useMemo(
+    () => createDraftSaver(store, (version, patch) => api.studio.saveDraft(termId, kind, version, patch), (d) => qc.setQueryData(sk.draft(termId, kind), d)),
+    [store, termId, kind, qc],
+  );
 
   useEffect(
     () =>
