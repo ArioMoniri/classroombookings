@@ -1250,7 +1250,7 @@ def pod_ci_upgrade_script(s: Settings) -> str:
     self-update watcher stopped first (install.sh re-enables it), and the worker restarted so the next gate runs the
     new code (a run in progress is interrupted and requeued by the worker's recovery)."""
     return "\n".join([
-        "set -euo pipefail",
+        "set -eu",  # SSM runs the script with /bin/sh (dash): no pipefail
         "systemctl stop smartsched-ci-update.path smartsched-ci-update.service || true",
         "rm -rf /tmp/podci-new",
         f"git clone --quiet --depth 1 --branch {shlex.quote(s.deploy_branch)} "

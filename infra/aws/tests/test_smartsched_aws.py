@@ -721,7 +721,7 @@ def test_resize_stops_changes_the_type_and_starts_without_touching_the_budget(aw
 def test_ci_upgrade_script_reinstalls_from_the_deploy_branch_and_restarts_the_worker() -> None:
     script = sa.pod_ci_upgrade_script(sa.Settings(deploy_branch="claude/gracious-cerf-w1598m"))
     lines = script.splitlines()
-    assert lines[0] == "set -euo pipefail"
+    assert lines[0] == "set -eu"  # /bin/sh on the pod (SSM): dash has no pipefail
     assert lines.index("systemctl stop smartsched-ci-update.path smartsched-ci-update.service || true") < \
         next(i for i, x in enumerate(lines) if "install.sh --upgrade" in x)
     assert "--branch claude/gracious-cerf-w1598m https://github.com/ArioMoniri/classroombookings.git" in script
