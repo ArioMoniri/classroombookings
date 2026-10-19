@@ -17,6 +17,21 @@ def usage_percent(path: Path = Path("/")) -> float:
     return 100.0 * u.used / u.total
 
 
+KEEP_ARTIFACT_RUNS = 3
+
+
+def prune_artifacts(cfg: Config, keep: int = KEEP_ARTIFACT_RUNS) -> list[int]:
+    """Kept Playwright failure context (logs/<run>/artifacts, gates/e2e-real.sh) only for the newest `keep` runs that
+    have any; returns the run ids whose artifacts were removed. Runs on every job, whatever the disk usage."""
+    if not cfg.logs_dir.exists():
+        return []
+    have = sorted((int(d.name) for d in cfg.logs_dir.iterdir()
+                   if d.name.isdigit() and (d / "artifacts").is_dir()), reverse=True)
+    for rid in have[keep:]:
+        shutil.rmtree(cfg.logs_dir / str(rid) / "artifacts", ignore_errors=True)
+    return have[keep:]
+
+
 def cleanup_steps(cfg: Config, store: Store) -> list[tuple[str, Callable[[Exec], None]]]:
     def old_runs(_: Exec) -> None:
         ids = store.old_run_ids(cfg.keep_runs)

@@ -5,10 +5,11 @@
 #     HERE on the pod (admin password, APP/JWT/AUTH secrets, Postgres password)
 #  3. store admin e-mail/password and app secrets in SSM Parameter Store (SecureString, /smartsched/*)
 #  4. /ci/ basic-auth credentials -> SSM /smartsched/ci/basic_auth
-#  5. render the /ci/ nginx location, first deploy (deploy.sh --tls), start pod CI. The deploy-time settings that
+#  5. render the /ci/ nginx location, prepare the images (deploy.sh --prepare: no containers, no traffic), start pod
+#     CI. There is no ungated first deploy: pod CI's first green run deploys. The deploy-time settings that
 #     `smartsched_aws.py up` stored in SSM {prefix}/bootstrap/* (institution name, AI key, SMTP, security contact,
-#     calendar OAuth clients, OBSERVABILITY) reach deploy.sh as environment variables, never as arguments; it writes
-#     them into the database once (seed/bootstrap_settings.py). Pod CI deploys pass them the same way.
+#     calendar OAuth clients, OBSERVABILITY) reach deploy.sh from pod CI's deploy step as environment variables, never
+#     as arguments; it writes them into the database once (seed/bootstrap_settings.py).
 # Re-running it is safe: an existing .env keeps its secrets and is re-synced to SSM.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,17 +39,17 @@ as_ci python3 -m podci sync-secrets "$DEPLOY/.env"
 as_ci python3 -m podci basic-auth /var/lib/smartsched-ci/basic_auth
 as_ci python3 -m podci render-nginx "$DEPLOY/nginx/default.conf"
 
-# deploy-time settings from SSM (values never printed; the file is the CI user's, 0600, deleted after the deploy)
+# No ungated deploy here: the first deploy is pod CI's first green run (every gate, then gates/deploy.sh, which also
+# hands the deploy-time settings from SSM {prefix}/bootstrap/* to deploy.sh). This only prepares images so that run's
+# deploy is faster: `deploy.sh --prepare` pulls and builds, never starts a container and never writes deployed-sha
+# (so smartsched-stack.service reports "first deploy pending" until then).
+# deploy-time settings from SSM (values never printed; the file is the CI user's, 0600, deleted afterwards): the
+# prepare writes OBSERVABILITY into .env once (it decides the image set), nothing else is applied here
 BOOT_ENV=/var/lib/smartsched-ci/bootstrap.env
 as_ci python3 -m podci bootstrap-env "$BOOT_ENV" || { echo "[pod-bootstrap] no deploy-time settings read"; : > "$BOOT_ENV"; }
-
-echo "[pod-bootstrap] first deploy (images build on the pod; ~10-20 min on t4g.large)"
-if as_ci bash -c "set -a; . '$BOOT_ENV'; set +a; cd '$DEPLOY' && ./deploy.sh --tls"; then
-  # the rollback target of pod CI deploys and what smartsched-stack.service starts at boot
-  as_ci bash -c "git -C '$SRC' rev-parse HEAD > /var/lib/smartsched-ci/deployed-sha"
-else
-  echo "[pod-bootstrap] first deploy failed; pod CI deploys the next green commit (with the same settings). Manual retry:"
-  echo "  sudo runuser -u smartsched-ci -- bash -c 'cd $DEPLOY && ./deploy.sh --tls'"
+echo "[pod-bootstrap] preparing images (no containers started; the first green pod CI run deploys)"
+if ! as_ci bash -c "set -a; . '$BOOT_ENV'; set +a; cd '$DEPLOY' && ./deploy.sh --prepare --tls"; then
+  echo "[pod-bootstrap] image preparation failed; the first pod CI deploy builds them"
 fi
 rm -f "$BOOT_ENV"
 

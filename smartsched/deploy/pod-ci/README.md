@@ -9,8 +9,8 @@ GitHub Actions minutes are not used for CI. The pod polls GitHub, runs the same 
 systemd timer (2 min) -> podci poll -> git ls-remote (token from SSM) -> new head? -> SQLite queue
                                      -> heartbeat metrics + idle check
 path unit (queue-signal) -> podci work (flock, one job at a time)
-    prepare -> validate -> backend-deps -> backend -> backend-unit-1 -> backend-unit-2 -> backend-unit-3 -> infra -> frontend -> frontend-unit-1 -> frontend-unit-2 -> e2e-build -> e2e-real-1 -> e2e-real-2 -> e2e-real-3 -> parity -> planner -> images -> watchdog
-    -> deploy (deploy branch only, all blocking gates green, commit still the branch head)
+    prepare -> validate -> backend-deps -> backend -> backend-unit-1 -> backend-unit-2 -> backend-unit-3 -> infra -> frontend -> frontend-unit-1 -> frontend-unit-2 -> e2e-build -> images -> e2e-real-1 -> e2e-real-2 -> e2e-real-3 -> parity -> planner -> watchdog
+    -> deploy (deploy branch only, all blocking gates green, commit descends from the deployed one)
     -> POST /repos/{owner}/{repo}/statuses/{sha} per gate + overall ("pod-ci", "pod-ci/<gate>")
 nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 ```
@@ -46,8 +46,9 @@ concurrently, at most `PODCI_PARALLEL` slots at once (0 = half the CPUs), capped
 the app stack) / 4 GB per slot. On the 2 vCPU / 8 GB arm64 t4g.large that also serves the app (~2 GB) that is one
 slot: one gate at a time, as before. On a 16 GB c7g.2xlarge it is three slots of 2 vCPU / ~4.1 GB. On the
 16 vCPU / 32 GiB c7g.4xlarge (MemTotal ~31 GiB) it is six slots of 2 vCPU / ~4.6 GiB (8 wanted, 6 fit the memory);
-the three `e2e-real-*` shards take two each, so they run at the same time once the backend and vitest gates are
-green (`planner` then waits for the first shard to finish). Each gate gets `GATE_CPUS` / `GATE_MEMORY` /
+the three `e2e-real-*` shards take two each, so they run at the same time once the backend venv (`backend-deps`) and
+the `e2e-build` output are there; the backend pytest gates run alongside and still block the run and the deploy
+(`images` comes after `e2e-build` in the order, so it never takes the slots ahead of the shards). Each gate gets `GATE_CPUS` / `GATE_MEMORY` /
 `NODE_MEMORY` / `NODE_HEAP_MB` for its slots (`e2e-build`, `e2e-real-*` and `images` take two). An `e2e-real` shard
 splits its two-slot share (~9.3 GiB) so its caps add up to it: 1.5 GiB for the side containers, 2/5 of the rest
 (at least 3 GiB) for the seeded backend, the remainder for Playwright (next start + Chromium; heap 3/4 of it); with
@@ -77,8 +78,20 @@ The stack smoke test of the Actions workflow is replaced by the real deploy plus
 - **Restart-safe**: state lives in `/var/lib/smartsched-ci/ci.sqlite3` (WAL). A run left `running` by a
   killed worker is requeued once (`PODCI_MAX_ATTEMPTS`, default 2), then marked `error`. Leftover
   containers and networks (label `smartsched-ci.run`) are removed when a worker starts.
-- **Deploy only when safe**: all blocking gates green and the commit is still the head of the deploy
-  branch. The pod's deploy checkout is detached at the tested SHA (`deploy.sh --no-pull`).
+- **Deploy only when safe**: all blocking gates green and the commit descends from the deployed one
+  (`git merge-base --is-ancestor` in the mirror; no deployed-sha yet = first deploy), even when a newer commit is
+  already queued (that one deploys when it is green). An older commit never replaces a newer deploy; after a
+  rewritten history only the branch head deploys. The pod's deploy checkout is detached at the tested SHA
+  (`deploy.sh --no-pull`).
+- **Cancel and fail fast** (`podci/runner.py` `_run_gates`, re-checked every `PODCI_CHECK_INTERVAL` s):
+  a newer queued commit of the branch cancels the running run (`superseded`, statuses `error: cancelled,
+  superseded by <sha>`; gates get SIGTERM, SIGKILL after 30 s, then `docker rm -f` of the run's containers). A
+  deploy-branch run running for longer than `PODCI_SUPERSEDE_GRACE_MINUTES` (30) finishes instead and deploys
+  when green, so a stream of pushes cannot starve the site. A run of another branch is cancelled and requeued
+  when a deploy-branch run is queued. After a blocking gate failed no new gate starts (`PODCI_FAIL_FAST=1`;
+  `not run: run already failed at <gate>`), gates already running finish. A failed run stays failed.
+- **POD_ACTION-only pushes**: a new head whose diff from the previous head only touches `infra/aws/POD_ACTION`
+  is not queued; it is an alias of the previous head (same code) and gets that run's statuses.
 - **A failure never takes the live stack down**: a failed gate never reaches `deploy.sh`; `deploy.sh --update`
   builds first and then `up -d` (never `down`), so a failed build leaves the running containers alone. A failed
   deploy (build, migrations, health) is rolled back: the deploy checkout goes back to the last good commit

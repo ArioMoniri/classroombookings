@@ -62,7 +62,27 @@ if [ "$PW_MEMORY" != "$NODE_MEMORY" ]; then NODE_HEAP_MB=$(( $(mib "$PW_MEMORY")
 NODE_MEMORY="$PW_MEMORY"            # in_playwright (lib.sh) caps the Playwright container with these
 echo "shard ${SHARD}: seeded backend --memory ${BACKEND_MEMORY}, playwright --memory ${NODE_MEMORY} (heap ${NODE_HEAP_MB} MB), --cpus ${GATE_CPUS} each"
 [ -f "$fe/.next/BUILD_ID" ] || { echo "no next build in $fe/.next: the e2e-build gate builds it"; exit 1; }
+# Playwright's error-context.md files (the failure, the page's aria snapshot) outlive the workspace: copied into
+# ARTIFACT_DIR (runner.py: logs/<run>/artifacts, kept for the last 3 runs by podci/disk.py), at most
+# ARTIFACT_MAX_BYTES (20 MB) per run across all shards. Only those files: no traces, videos or screenshots.
+keep_failure_context() {
+  local src="$WS/$sdir/test-results" dest cap used size f rel
+  [[ -n "${ARTIFACT_DIR:-}" && -d "$src" ]] || return 0
+  dest="$ARTIFACT_DIR/e2e-shard-${idx}"
+  cap="${ARTIFACT_MAX_BYTES:-20971520}"
+  while IFS= read -r -d '' f; do
+    mkdir -p "$dest" || return 0
+    used="$(du -sb "$ARTIFACT_DIR" 2>/dev/null | cut -f1)"; used="${used:-0}"
+    size="$(stat -c %s "$f" 2>/dev/null || echo 0)"
+    if (( used + size > cap )); then echo "failure context: ${cap} bytes per run reached; the rest is not kept"; break; fi
+    rel="${f#"$src"/}"
+    mkdir -p "$dest/$(dirname "$rel")" && cp "$f" "$dest/$rel" || true
+  done < <(find "$src" -type f -name error-context.md -print0 2>/dev/null)
+  [[ -d "$dest" ]] && echo "failure context: $(find "$dest" -type f | wc -l) error-context.md kept in $dest"
+  return 0
+}
 cleanup() {
+  keep_failure_context || true
   for c in "$backend" "$empty" "$smtp" "$idp"; do
     echo "==== ${c##*-${RUN_TAG}-} log (tail)"; docker logs --tail 200 "$c" 2>&1 || true
   done

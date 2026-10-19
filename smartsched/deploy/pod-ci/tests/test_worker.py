@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from podfakes import REPO, SHA_A, SHA_B, FakeReporter, FakeRun
+from podfakes import REPO, SHA_A, SHA_B, SHA_C, FakeReporter, FakeRun
 
 from podci import runner
 from podci.cloud import NoCloud
@@ -90,6 +90,7 @@ def test_green_run_on_deploy_branch_deploys(cfg: Config, store: Store) -> None:
 
 
 def test_failed_gate_skips_dependents_and_deploy(cfg: Config, store: Store) -> None:
+    cfg = dataclasses.replace(cfg, fail_fast=False)  # the DAG alone (fail-fast: test_fail_fast_*)
     ex, rep = FakeExecute(fail={"frontend"}), FakeReporter()
     rid = queue(store)
     make(cfg, store, ex, rep).work()
@@ -117,14 +118,88 @@ def test_non_blocking_watchdog_failure_keeps_run_green(cfg: Config, store: Store
     assert store.step(rid, "deploy") is None  # non-deploy branch has no deploy step
 
 
-def test_superseded_head_is_tested_but_not_deployed(cfg: Config, store: Store) -> None:
-    rid = queue(store)
-    store.set_head(DEPLOY_BRANCH, SHA_B)  # a newer commit arrived while this one ran
+class GitFake(FakeRun):
+    """subprocess.run for git in the mirror: `merge-base --is-ancestor A B` answers from a parent map."""
+
+    def __init__(self, parents: dict[str, str]) -> None:
+        super().__init__()
+        self.parents = parents
+
+    def ancestors(self, sha: str) -> set[str]:
+        out = {sha}
+        while sha in self.parents:
+            sha = self.parents[sha]
+            out.add(sha)
+        return out
+
+    def __call__(self, argv: list[str], **kw: Any) -> Any:
+        res = super().__call__(argv, **kw)
+        if "merge-base" in argv:
+            a, b = argv[-2], argv[-1]
+            res.returncode = 0 if a in self.ancestors(b) else 1
+        return res
+
+
+def deployed(cfg: Config, sha: str) -> None:
+    cfg.state_dir.mkdir(parents=True, exist_ok=True)
+    (cfg.state_dir / runner.DEPLOYED_SHA).write_text(sha + "\n")
+
+
+def test_a_green_run_deploys_even_when_a_newer_commit_is_queued(cfg: Config, store: Store) -> None:
+    """Pushes during a 72-min run no longer throw its green deploy away; the newer commit deploys when green."""
+    deployed(cfg, SHA_A)
+    rid = queue(store, sha=SHA_B)
+    store.set_head(DEPLOY_BRANCH, SHA_C)  # a newer commit arrived while this one ran
     ex = FakeExecute()
-    make(cfg, store, ex).work(max_runs=1)
+    w = CheckoutStubWorker(cfg, store, FakeReporter(), NoCloud(), lambda: "tok", execute=ex,
+                           run_cmd=GitFake({SHA_B: SHA_A, SHA_C: SHA_B}), log=lambda _: None,
+                           disk_usage=lambda: 10.0)
+    w.run_one(store.get(rid))  # type: ignore[arg-type]
     run = store.get(rid)
-    assert run and run.state == SUCCESS and "deploy skipped (a newer commit is queued)" in run.summary
+    assert run and run.state == SUCCESS and run.summary == "all gates passed, deployed"
+    assert ex.scripts[-1] == "deploy.sh" and w.last_good_sha() == SHA_B
+
+
+def test_never_deploys_an_older_commit_over_a_newer_deploy(cfg: Config, store: Store) -> None:
+    deployed(cfg, SHA_B)
+    rid = queue(store, sha=SHA_A)  # e.g. an operator rerun of an older commit
+    ex = FakeExecute()
+    CheckoutStubWorker(cfg, store, FakeReporter(), NoCloud(), lambda: "tok", execute=ex,
+                       run_cmd=GitFake({SHA_B: SHA_A}), log=lambda _: None, disk_usage=lambda: 10.0).work()
+    run = store.get(rid)
+    assert run and run.state == SUCCESS and f"deploy skipped (older than the deployed {SHA_B[:7]})" in run.summary
     assert "deploy.sh" not in ex.scripts
+    assert store.step(rid, "deploy").state == "skipped"  # type: ignore[union-attr]
+
+
+def test_a_rewritten_history_deploys_only_the_branch_head(cfg: Config, store: Store) -> None:
+    deployed(cfg, SHA_A)
+    rid = queue(store, sha=SHA_B)  # neither descends from the other (force push)
+    store.set_head(DEPLOY_BRANCH, SHA_C)
+    ex = FakeExecute()
+    CheckoutStubWorker(cfg, store, FakeReporter(), NoCloud(), lambda: "tok", execute=ex,
+                       run_cmd=GitFake({}), log=lambda _: None, disk_usage=lambda: 10.0).work(max_runs=1)
+    run = store.get(rid)
+    assert run and "deploy skipped (not a descendant of the deployed" in run.summary
+    assert "deploy.sh" not in ex.scripts
+
+
+def test_a_rewritten_history_still_deploys_the_current_head(cfg: Config, store: Store) -> None:
+    deployed(cfg, SHA_A)
+    rid = queue(store, sha=SHA_B)  # queue() makes SHA_B the branch head
+    ex = FakeExecute()
+    CheckoutStubWorker(cfg, store, FakeReporter(), NoCloud(), lambda: "tok", execute=ex,
+                       run_cmd=GitFake({}), log=lambda _: None, disk_usage=lambda: 10.0).work(max_runs=1)
+    assert store.get(rid).summary == "all gates passed, deployed"  # type: ignore[union-attr]
+
+
+def test_first_deploy_needs_no_ancestry(cfg: Config, store: Store) -> None:
+    rid = queue(store)
+    store.set_head(DEPLOY_BRANCH, SHA_B)
+    ex = FakeExecute()
+    CheckoutStubWorker(cfg, store, FakeReporter(), NoCloud(), lambda: "tok", execute=ex,
+                       run_cmd=GitFake({}), log=lambda _: None, disk_usage=lambda: 10.0).work(max_runs=1)
+    assert store.get(rid).summary == "all gates passed, deployed"  # type: ignore[union-attr]
 
 
 def test_infrastructure_error_marks_run_error_and_worker_survives(cfg: Config, store: Store) -> None:
@@ -197,7 +272,7 @@ def test_worker_exits_when_installed_code_changes(cfg: Config, store: Store, tmp
     assert stamp == runner.code_stamp(install)
     ex = FakeExecute()
     rid = queue(store, "claude/smartsched-universal", SHA_A)
-    rid2 = queue(store, "claude/smartsched-universal", SHA_B)
+    rid2 = queue(store, "claude/other-branch", SHA_B)  # another branch: not a superseding commit (Rule A)
 
     class Reinstalled(FakeExecute):
         def __call__(self, argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None,
@@ -284,7 +359,7 @@ def test_e2e_shards_run_concurrently_and_parity_waits_for_all_of_them(cfg: Confi
     gates = tuple(g for g in GATES if g.name not in ("planner", "images", "watchdog"))
     ex = ConcurrentExecute(fail={"e2e-real-2"})
     rid = queue(store, "claude/smartsched-universal")
-    w = CheckoutStubWorker(dataclasses.replace(cfg, parallel=0), store, FakeReporter(), NoCloud(), lambda: "tok",
+    w = CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, fail_fast=False), store, FakeReporter(), NoCloud(), lambda: "tok",
                            execute=ex, run_cmd=FakeRun(), log=lambda _: None, disk_usage=lambda: 10.0,
                            cpu_count=16, memory_mb=31_600, gates=gates)
     assert w.slots.count == 6
@@ -327,8 +402,8 @@ class ConcurrentExecute(FakeExecute):
 
 
 def parallel_worker(cfg: Config, store: Store, ex: FakeExecute, rep: FakeReporter | None = None,
-                    gates: tuple[Gate, ...] = GATES) -> CheckoutStubWorker:
-    return CheckoutStubWorker(dataclasses.replace(cfg, parallel=0), store, rep or FakeReporter(), NoCloud(),
+                    gates: tuple[Gate, ...] = GATES, fail_fast: bool = True) -> CheckoutStubWorker:
+    return CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, fail_fast=fail_fast), store, rep or FakeReporter(), NoCloud(),
                               lambda: "tok", execute=ex, run_cmd=FakeRun(), log=lambda _: None,
                               disk_usage=lambda: 10.0, gates=gates, cpu_count=8, memory_mb=15_800)
 
@@ -362,15 +437,16 @@ def test_gates_run_concurrently_along_the_needs_dag_within_the_slot_cap(cfg: Con
 def test_a_failed_gate_skips_only_its_dependants_when_parallel(cfg: Config, store: Store) -> None:
     ex = ConcurrentExecute(fail={"backend-unit-2"})
     rid = queue(store)
-    parallel_worker(cfg, store, ex).work()
+    parallel_worker(cfg, store, ex, fail_fast=False).work()
     states = {s.name: s.state for s in store.steps(rid)}
     assert states["backend-unit-2"] == FAILURE
-    assert states["e2e-real-1"] == states["e2e-real-2"] == states["e2e-real-3"] == "skipped"
+    # the e2e shards do not need the pytest shards (gates.py): they still run, the run fails anyway
+    assert states["e2e-real-1"] == states["e2e-real-2"] == states["e2e-real-3"] == SUCCESS
     assert states["planner"] == states["parity"] == states["deploy"] == "skipped"
     assert states["backend-unit-1"] == states["backend-unit-3"] == states["frontend-unit-2"] == SUCCESS
     assert states["images"] == states["infra"] == SUCCESS
     run = store.get(rid)
-    assert run and run.state == FAILURE and run.summary.startswith("failed: backend-unit-2, e2e-real-1")
+    assert run and run.state == FAILURE and run.summary.startswith("failed: backend-unit-2, parity, planner")
 
 
 def test_after_orders_without_requiring_success(cfg: Config, store: Store) -> None:
@@ -380,7 +456,7 @@ def test_after_orders_without_requiring_success(cfg: Config, store: Store) -> No
              Gate("never", "never.sh", "n", needs=("missing",)))
     ex = ConcurrentExecute(fail={"e2e-real"})
     rid = queue(store, "claude/smartsched-universal")
-    parallel_worker(cfg, store, ex, gates=gates).work()
+    parallel_worker(cfg, store, ex, gates=gates, fail_fast=False).work()
     states = {s.name: s.state for s in store.steps(rid)}
     assert states == {"prepare": SUCCESS, "e2e-real": FAILURE, "parity": SUCCESS, "never": "skipped"}
     assert ex.events.index(("end", "e2e-real")) < ex.events.index(("start", "parity"))

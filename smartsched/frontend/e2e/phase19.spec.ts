@@ -212,8 +212,11 @@ test("admin memory: reset everything with the typed word, then undo it", async (
   await dialog.getByTestId("reset-word").fill("SIFIR");
   await expect(dialog.getByTestId("reset-word-mismatch")).toHaveText("Yazılan kelime eşleşmiyor.");
   await expect(dialog.getByTestId("reset-confirm")).toBeDisabled();
+  await expect(dialog.getByTestId("reset-word")).toHaveAttribute("aria-describedby", "reset-word-hint");
   await dialog.getByTestId("reset-word").press("Enter");
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("alert")).toHaveText("Yazılan kelime eşleşmiyor.");
+  await expect(dialog.getByTestId("reset-word")).toHaveAttribute("aria-invalid", "true");
   await dialog.getByTestId("reset-word").fill("sıfırla");
   await dialog.getByTestId("reset-confirm").click();
   await expect(dialog).toBeHidden();

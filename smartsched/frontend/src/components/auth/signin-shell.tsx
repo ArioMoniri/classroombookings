@@ -116,7 +116,7 @@ export function SignInFooter({ kvkkUrl }: { kvkkUrl?: string | null }) {
   const langs: readonly Locale[] = languages.length ? languages : ["tr", "en"];
   return (
     // door 2 opening pushes the footer: it moves on transform only (layout="position", §10 "the column makes room")
-    <motion.footer layout={reduce ? false : "position"} transition={springs.smooth} className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6 [@media(max-height:960px)]:pt-3" aria-label={t("signin.footer.region")}>
+    <motion.footer layout={reduce ? false : "position"} transition={springs.smooth} className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-6 min-[600px]:[@media(max-height:960px)]:pt-3" aria-label={t("signin.footer.region")}>
       <div className="flex min-h-11 items-center gap-4 type-footnote">
         {kvkkUrl ? (
           <a href={kvkkUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-1.5 text-tint-text underline-offset-4 outline-hidden hover:underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus)" data-testid="signin-kvkk">

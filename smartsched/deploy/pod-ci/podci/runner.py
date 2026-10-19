@@ -127,9 +127,45 @@ def exclusive(path: Path) -> Iterator[bool]:
         fh.close()
 
 
+POD_ACTION = "infra/aws/POD_ACTION"
+Changed = Callable[[str, str, str], "list[str] | None"]
+
+
+def mirror_changed_files(cfg: Config, token: str, run: Callable[..., Any] = subprocess.run) -> Changed:
+    """(branch, old, new) -> files changed between two heads, from the pod's mirror (fetched first); None when git
+    could not tell (then the new head is queued as usual)."""
+    def changed(branch: str, old: str, new: str) -> list[str] | None:
+        if not (cfg.mirror_dir / "HEAD").exists():  # the worker creates the mirror; a first clone is not for poll
+            return None
+        try:
+            gitops.fetch_into_mirror(cfg.mirror_dir, cfg.repo_url, branch, new, token, run=run)
+            gitops.fetch_into_mirror(cfg.mirror_dir, cfg.repo_url, branch, old, token, run=run)
+        except (gitops.GitError, OSError, subprocess.SubprocessError):
+            return None
+        return gitops.changed_files(cfg.mirror_dir, old, new, run=run)
+    return changed
+
+
+def pod_action_only(files: list[str] | None) -> bool:
+    return bool(files) and all(f == POD_ACTION for f in files or ())
+
+
+def _final_status(run: Run) -> tuple[str, str] | None:
+    if run.state == SUCCESS:
+        return "success", run.summary
+    if run.state == FAILURE:
+        return "failure", run.summary
+    if run.state == ERROR:
+        return "error", run.summary
+    return None
+
+
 def poll(cfg: Config, store: Store, reporter: StatusReporter, token: str,
-         ls_remote: Callable[..., dict[str, str]] = gitops.ls_remote, log: Log = print) -> list[Run]:
-    """git ls-remote the configured branches; enqueue each new head (supersedes older queued runs)."""
+         ls_remote: Callable[..., dict[str, str]] = gitops.ls_remote, log: Log = print,
+         changed: Changed | None = None) -> list[Run]:
+    """git ls-remote the configured branches; enqueue each new head (supersedes older queued runs). A head whose diff
+    from the previous head only touches infra/aws/POD_ACTION (the owner's pod trigger) is not queued: it is an alias
+    of the previous head (same code), which gets that run's statuses."""
     heads = ls_remote(cfg.repo_url, cfg.branches, token)
     queued: list[Run] = []
     for branch in cfg.branches:
@@ -137,7 +173,22 @@ def poll(cfg: Config, store: Store, reporter: StatusReporter, token: str,
         if not sha:
             log(f"branch {branch} not found on {cfg.repo}")
             continue
-        if store.head(branch) == sha:
+        prev = store.head(branch)
+        if prev == sha:
+            continue
+        if prev and changed is not None and store.find(branch, sha) is None and pod_action_only(
+                changed(branch, prev, sha)):
+            root = store.add_alias(branch, sha, prev)
+            store.set_head(branch, sha)
+            log(f"{branch}@{sha[:7]} only changes {POD_ACTION}: not queued, same code as {root[:7]}")
+            base = store.find(branch, root)
+            final = _final_status(base) if base else None
+            if base is not None and final is not None:
+                reporter.post(sha, final[0], cfg.status_context, f"same code as {root[:7]}: {final[1]}"[:140],
+                              cfg.run_url(base.id))
+            elif base is not None and base.state in (QUEUED, RUNNING):
+                reporter.post(sha, "pending", cfg.status_context, f"same code as {root[:7]} (run #{base.id})",
+                              cfg.run_url(base.id))
             continue
         store.set_head(branch, sha)
         run = store.enqueue(branch, sha, deploy=branch == cfg.deploy_branch)
@@ -145,6 +196,7 @@ def poll(cfg: Config, store: Store, reporter: StatusReporter, token: str,
             continue
         log(f"queued run #{run.id}: {branch}@{run.short}")
         for old in store.supersede_older(branch, run.id):
+            log(f"run #{old.id} superseded by #{run.id}")
             reporter.post(old.sha, "error", cfg.status_context, f"not run: superseded by {run.short}",
                           cfg.run_url(old.id))
         reporter.post(sha, "pending", cfg.status_context, "queued on the SmartSched pod", cfg.run_url(run.id))
@@ -208,10 +260,17 @@ def plan_slots(cfg: Config, cpu_count: int, memory_mb: int) -> Slots:
 
 class Worker:
     def __init__(self, cfg: Config, store: Store, reporter: StatusReporter, cloud: Cloud,
-                 token: Callable[[], str], execute: Execute = run_logged, run_cmd: Callable[..., Any] = subprocess.run,
+                 token: Callable[[], str], execute: Execute | None = None,
+                 run_cmd: Callable[..., Any] = subprocess.run,
                  log: Log = print, disk_usage: Callable[[], float] = disk.usage_percent,
                  gates: tuple[Gate, ...] = GATES, cpu_count: int | None = None, memory_mb: int | None = None):
         self.cfg, self.store, self.reporter, self.cloud = cfg, store, reporter, cloud
+        # set when the running run is cancelled (Rule A: superseded, Rule C: preempted); run_logged honours it
+        self.cancel = threading.Event()
+        self._abort: tuple[str, str] | None = None  # (SUPERSEDED | QUEUED, description) of the running run
+        if execute is None:
+            def execute(argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None, timeout: int) -> int:
+                return run_logged(argv, log_path, env, cwd, timeout, cancel=self.cancel)
         self.token, self.execute, self.run_cmd, self.log = token, execute, run_cmd, log
         self.disk_usage = disk_usage
         self.gates = gates
@@ -275,8 +334,11 @@ class Worker:
 
     def run_one(self, run: Run) -> str:
         cfg = self.cfg
+        disk.prune_artifacts(cfg)
         disk.ensure(cfg, self.store, lambda argv: self.run_cmd(argv, capture_output=True, timeout=900).returncode,
                     usage=self.disk_usage, log=self.log)
+        self.cancel.clear()
+        self._abort = None
         run = self.store.transition(run.id, RUNNING)
         steps = [(g.name, g.blocking) for g in self.gates] + ([(DEPLOY.name, True)] if run.deploy else [])
         self.store.add_steps(run.id, steps)
@@ -289,19 +351,25 @@ class Worker:
             shutil.rmtree(ws, ignore_errors=True)
             logs.mkdir(parents=True, exist_ok=True)
             self._checkout(run, ws, logs / "checkout.log")
-            env = self._gate_env(run, ws)
+            env = self._gate_env(run, ws, logs)
             results = self._run_gates(run, env, logs)
+            really_failed = [g.name for g in self.gates if g.blocking and results.get(g.name) == FAILURE]
+            if self._abort is not None and not really_failed:
+                return self._finish_aborted(run, *self._abort)
             blocking_failed = [g.name for g in self.gates if g.blocking and results[g.name] != SUCCESS]
             final = FAILURE if blocking_failed else SUCCESS
             summary = f"failed: {', '.join(blocking_failed)}" if blocking_failed else "all gates passed"
+            if self._abort is not None:  # a failed run stays failed; its remaining gates were stopped
+                summary = f"failed: {', '.join(really_failed)}; remaining gates stopped ({self._abort[1]})"
+                remove_run_containers(f"{run.id}-{run.short}", run=self.run_cmd)
             if run.deploy:
-                if final == SUCCESS and self.store.head(run.branch) == run.sha:
+                allowed, reason = self._deploy_allowed(run) if final == SUCCESS else (False, "gates failed")
+                if allowed:
                     if self._deploy(run, logs) != SUCCESS:
                         final, summary = FAILURE, "gates passed, deploy failed"
                     else:
                         summary = "all gates passed, deployed"
                 else:
-                    reason = "gates failed" if final != SUCCESS else "a newer commit is queued"
                     self.store.step_transition(run.id, DEPLOY.name, STEP_SKIPPED)
                     summary += f"; deploy skipped ({reason})"
         except Exception as exc:  # noqa: BLE001 - infrastructure error: record it, report it, keep the worker alive
@@ -315,9 +383,53 @@ class Worker:
         finally:
             shutil.rmtree(ws, ignore_errors=True)
         self.store.transition(run.id, final, summary=summary)
-        self.status(run, {SUCCESS: "success", FAILURE: "failure"}.get(final, "error"), summary)
+        state = {SUCCESS: "success", FAILURE: "failure"}.get(final, "error")
+        self.status(run, state, summary)
+        for alias in self.store.aliases_of(run.branch, run.sha):  # POD_ACTION-only heads carrying this code
+            self.reporter.post(alias, state, self.context(), f"same code as {run.short}: {summary}"[:140],
+                               self.cfg.run_url(run.id))
         self.log(f"run #{run.id} {run.branch}@{run.short}: {final} ({summary})")
         return final
+
+    def _finish_aborted(self, run: Run, new_state: str, description: str) -> str:
+        """A cancelled run (gates already stopped): superseded -> terminal, preempted -> queued again."""
+        remove_run_containers(f"{run.id}-{run.short}", run=self.run_cmd)
+        for st in self.store.steps(run.id):
+            if st.state == STEP_RUNNING:
+                self.store.step_transition(run.id, st.name, ERROR)
+            elif st.state == "pending":
+                self.store.step_transition(run.id, st.name, STEP_SKIPPED)
+        if new_state == QUEUED:
+            self.store.requeue(run.id, summary=description)
+            self.status(run, "pending", f"requeued: {description}"[:140])
+            self.log(f"run #{run.id} {run.branch}@{run.short}: requeued ({description})")
+            return QUEUED
+        self.store.transition(run.id, new_state, summary=description)
+        self.status(run, "error", description[:140])
+        self.log(f"run #{run.id} {run.branch}@{run.short}: {new_state} ({description})")
+        return new_state
+
+    def _deploy_allowed(self, run: Run) -> tuple[bool, str]:
+        """A green deploy-branch run deploys when nothing was deployed yet or its commit descends from the deployed
+        one (a newer queued commit deploys later, when it is green). Never an older commit over a newer deploy. A
+        rewritten history (neither descends from the other) deploys only the branch's current head."""
+        deployed = self.last_good_sha()
+        if not deployed or deployed == run.sha:
+            return True, ""
+        mirror = self.cfg.mirror_dir
+        try:  # the deployed commit may predate the mirror (pod-bootstrap.sh's checkout)
+            gitops.fetch_into_mirror(mirror, self.cfg.repo_url, run.branch, deployed, self.token(), run=self.run_cmd)
+        except Exception as exc:  # noqa: BLE001
+            self.log(f"warning: deployed {deployed[:7]} not fetched into the mirror: {exc}")
+        forward = gitops.is_ancestor(mirror, deployed, run.sha, run=self.run_cmd)
+        if forward:
+            return True, ""
+        backward = gitops.is_ancestor(mirror, run.sha, deployed, run=self.run_cmd)
+        if backward:
+            return False, f"older than the deployed {deployed[:7]}"
+        if forward is False and backward is False and self.store.effective_head(run.branch) == run.sha:
+            return True, ""
+        return False, f"not a descendant of the deployed {deployed[:7]}"
 
     def _token_or_empty(self) -> str:
         try:
@@ -331,7 +443,7 @@ class Worker:
         gitops.export_tree(self.cfg.mirror_dir, run.sha, ws / "src", run=self.run_cmd)
         log_path.write_text(f"exported {run.branch}@{run.sha} into {ws / 'src'}\n", encoding="utf-8")
 
-    def _gate_env(self, run: Run, ws: Path) -> dict[str, str]:
+    def _gate_env(self, run: Run, ws: Path, logs: Path | None = None) -> dict[str, str]:
         cfg = self.cfg
         src = ws / "src"
         env = {k: v for k, v in os.environ.items() if k in ("PATH", "LANG", "LC_ALL", "DOCKER_HOST", "TZ")}
@@ -341,22 +453,45 @@ class Worker:
             "CI_UID": str(os.getuid()), "CI_GID": str(os.getgid()), "GATE_CPUS": cfg.gate_cpus,
             "GATE_MEMORY": cfg.gate_memory, "GATES_DIR": str(cfg.gates_dir), "PY_BASE_IMAGE": cfg.python_image,
             "PY_IMAGE": python_ci_image(cfg.gates_dir, cfg.python_image), "PW_IMAGE": playwright_image(src),
-            "HOME": str(cfg.state_dir), "DOCKER_BUILDKIT": "1",
+            "HOME": str(cfg.state_dir), "DOCKER_BUILDKIT": "1", "RUN_SHA": run.sha,
+            # images.sh keeps this commit's images (ci-<full sha>) for the deploy step of a deploy-branch run
+            "RUN_DEPLOY": "1" if run.deploy else "0",
         })
+        if logs is not None:  # kept with the run's logs after the workspace is deleted (e2e error-context.md)
+            env["ARTIFACT_DIR"] = str(logs / "artifacts")
         return env
 
     def _run_gates(self, run: Run, env: dict[str, str], logs: Path) -> dict[str, str]:
         """Every gate once, along the `needs` DAG: a gate starts when its needs succeeded and its `after` gates
         finished (in GATES order among the ready ones), at most self.slots.count slots at once (a gate takes
         `weight` slots); a gate whose need failed or was skipped is skipped. Only the subprocess runs in a thread:
-        the store and the status posts stay on this thread."""
+        the store and the status posts stay on this thread, which re-checks every cfg.check_interval seconds:
+          Rule A  a newer commit of the branch is queued -> the run is cancelled (superseded)
+          Rule C  a non-deploy-branch run while a deploy-branch run is queued -> cancelled and requeued
+          Rule B  (cfg.fail_fast) a blocking gate failed -> no new gate starts; running gates finish
+        A cancel sets self.cancel (run_logged kills the gates) and records self._abort for run_one."""
         results: dict[str, str] = {}
         running: dict[Future[int], tuple[Gate, float]] = {}
         pending = list(self.gates)
         free = self.slots.count
+        failed_at: str | None = None
         with ThreadPoolExecutor(max_workers=self.slots.count, thread_name_prefix="gate") as pool:
             try:
                 while pending or running:
+                    if self._abort is None:
+                        self._abort = self._check_abort(run)
+                        if self._abort is not None:
+                            self.log(f"run #{run.id}: {self._abort[1]}; stopping its gates")
+                            self.cancel.set()
+                    if self._abort is not None:
+                        for g in pending:
+                            results[g.name] = self._skip_gate(run, g, [], reason=self._abort[1])
+                        pending.clear()
+                    elif failed_at is not None and self.cfg.fail_fast:
+                        for g in pending:
+                            results[g.name] = self._skip_gate(run, g, [],
+                                                              reason=f"not run: run already failed at {failed_at}")
+                        pending.clear()
                     for g in list(pending):
                         if any(n not in results for n in (*g.needs, *g.after)):
                             continue
@@ -379,18 +514,37 @@ class Worker:
                                 results[g.name] = self._skip_gate(run, g, [n for n in g.needs if n not in results])
                             pending.clear()
                         break
-                    done, _ = wait(running, return_when=FIRST_COMPLETED)
+                    done, _ = wait(running, timeout=self.cfg.check_interval, return_when=FIRST_COMPLETED)
                     for fut in done:
                         g, started = running.pop(fut)
                         free += max(1, min(g.weight, self.slots.count))
                         results[g.name] = self._finish_gate(run, g, fut.result(), started)
+                        if g.blocking and results[g.name] != SUCCESS and failed_at is None:
+                            failed_at = g.name
             finally:
                 wait(running)  # never leave a gate subprocess behind an exception
         return results
 
-    def _skip_gate(self, run: Run, g: Gate, unmet: list[str]) -> str:
+    def _check_abort(self, run: Run) -> tuple[str, str] | None:
+        if not run.deploy and run.branch != self.cfg.deploy_branch:
+            first = self.store.queued_deploy_run(self.cfg.deploy_branch)
+            if first is not None:
+                return QUEUED, f"preempted by deploy-branch run #{first.id} ({first.short})"
+        newer = self.store.newer_queued(run.branch, run.id)
+        if newer is None:
+            return None
+        grace = self.cfg.supersede_grace_minutes * 60
+        started = self.store.get(run.id)
+        elapsed = self.store.now() - (started.started_at if started and started.started_at else self.store.now())
+        if run.deploy and grace > 0 and elapsed >= grace:
+            return None  # far enough along: finish, deploy when green; the newer commit deploys after it
+        return SUPERSEDED, f"cancelled, superseded by {newer.short} (run #{newer.id})"
+
+    def _skip_gate(self, run: Run, g: Gate, unmet: list[str], reason: str | None = None) -> str:
         self.store.step_transition(run.id, g.name, STEP_SKIPPED)
-        self.status(run, "error" if g.blocking else "success", f"skipped: needs {', '.join(unmet)}", g.name)
+        description = reason or f"skipped: needs {', '.join(unmet)}"
+        cancelled = self._abort is not None
+        self.status(run, "error" if g.blocking or cancelled else "success", description[:140], g.name)
         return STEP_SKIPPED
 
     def _start_gate(self, run: Run, g: Gate, env: dict[str, str],
@@ -402,6 +556,10 @@ class Worker:
         return ["bash", str(self.cfg.gates_dir / g.script), *g.args], log_path, gate_env
 
     def _finish_gate(self, run: Run, g: Gate, code: int, started: float) -> str:
+        if self._abort is not None and code != 0:
+            self.store.step_transition(run.id, g.name, ERROR, exit_code=code)
+            self.status(run, "error", self._abort[1][:140], g.name)
+            return ERROR
         state = SUCCESS if code == 0 else FAILURE
         self.store.step_transition(run.id, g.name, state, exit_code=code)
         took = f"{int(time.monotonic() - started)} s"
@@ -435,11 +593,11 @@ class Worker:
         with open(log_path, "a", encoding="utf-8") as fh:
             fh.write(f"checked out {sha} in {cfg.deploy_dir}; /ci/ location rendered into nginx\n")
 
-    def _deploy_env(self) -> dict[str, str]:
+    def _deploy_env(self, sha: str = "") -> dict[str, str]:
         cfg = self.cfg
         return {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(cfg.state_dir),
                 "DEPLOY_DIR": str(cfg.deploy_dir), "DEPLOY_FLAGS": " ".join(cfg.deploy_flags),
-                **self._bootstrap_env()}
+                "DEPLOY_SHA": sha, **self._bootstrap_env()}
 
     def _bootstrap_env(self) -> dict[str, str]:
         """Deploy-time settings from SSM {prefix}/bootstrap/* (smartsched_aws.py up): deploy.sh writes each group
@@ -470,7 +628,7 @@ class Worker:
             if previous and previous != run.sha:
                 self._rollback(previous, run.branch, log_path)
             return FAILURE
-        code = self.execute(["bash", str(cfg.gates_dir / DEPLOY.script)], log_path, self._deploy_env(), None,
+        code = self.execute(["bash", str(cfg.gates_dir / DEPLOY.script)], log_path, self._deploy_env(run.sha), None,
                             DEPLOY.timeout)
         state = SUCCESS if code == 0 else FAILURE
         self.store.step_transition(run.id, DEPLOY.name, state, exit_code=code)
@@ -497,7 +655,7 @@ class Worker:
                 fh.write(f"rollback checkout failed: {exc}\n")
             self.log(f"rollback to {sha[:7]} failed: {exc}")
             return False
-        code = self.execute(["bash", str(self.cfg.gates_dir / DEPLOY.script)], log_path, self._deploy_env(), None,
+        code = self.execute(["bash", str(self.cfg.gates_dir / DEPLOY.script)], log_path, self._deploy_env(sha), None,
                             DEPLOY.timeout)
         self.log(f"rollback to {sha[:7]}: {'ok' if code == 0 else f'deploy.sh exit {code}'}")
         return code == 0

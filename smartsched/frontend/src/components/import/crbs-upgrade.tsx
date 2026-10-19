@@ -13,7 +13,7 @@
  *
  * The endpoint needs `planning.admin`; other planners see why the flow is closed instead of a 403.
  */
-import { focusWhenSettled } from "@/components/moderation/priority-editor";
+import { focusWhenSettled } from "@/lib/focus-when-settled";
 import { AlertTriangle, Database, FileCode2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";

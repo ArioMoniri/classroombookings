@@ -232,6 +232,25 @@ describe("SignInHero (auth.md §11.3)", () => {
     expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "done");
   });
 
+  it("typing while the hero loads: the scene is not built until HERO_INPUT_HOLD_MS after the last key", async () => {
+    setMedia({ [WIDE]: true });
+    render(<SignInHero />);
+    // keys every 100 ms well past the idle + 300 ms load point: the player and the file are in, the scene waits
+    let lastKey = 0;
+    for (let i = 0; i < 12; i++) {
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "a", bubbles: true }));
+      });
+      lastKey = performance.now();
+      expect(screen.queryByTestId("lottie-mock")).toBeNull();
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await screen.findByTestId("lottie-mock", undefined, { timeout: 3000 });
+    expect(performance.now() - lastKey).toBeGreaterThanOrEqual(HERO_INPUT_HOLD_MS - 5);
+    // not playing before its first frame is drawn
+    expect(screen.getByTestId("signin-hero")).toHaveAttribute("data-state", "loading");
+  });
+
   it("typing in the form never re-renders the hero (it is memoised, its props are stable)", async () => {
     setMedia({ [WIDE]: true });
     lot.renders = 0;

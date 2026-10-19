@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import os
 import re
 import shutil
@@ -136,6 +138,7 @@ def test_cpu_times() -> None:
 
 
 def test_idle_stop_only_when_quiet_for_the_window(cfg: Config, store: Store, clock: Clock) -> None:
+    cfg = dataclasses.replace(cfg, idle_minutes_predeploy=60)  # the plain 60-min window
     cloud = NoCloud()
     t0 = clock.t
     busy = 0.0
@@ -151,6 +154,28 @@ def test_idle_stop_only_when_quiet_for_the_window(cfg: Config, store: Store, clo
     assert out["stop"] is True and out["cpu_percent"] == pytest.approx(2.0)
     assert ("stop", "i-local") in cloud.events
     assert ("heartbeat", False) in cloud.events
+
+
+def test_before_the_first_deploy_the_pod_waits_240_minutes_and_keeps_the_alarm_disarmed(
+        cfg: Config, store: Store, clock: Clock) -> None:
+    """No deployed-sha yet: an hour without CI work is someone pushing the fix, not an idle box."""
+    assert cfg.idle_minutes == 60 and cfg.idle_minutes_predeploy == 240
+    cloud = NoCloud()
+    t0 = clock.t
+    busy = total = 0.0
+    out: dict[str, object] = {}
+    for minute in range(0, 246, 2):  # 2 % CPU for four hours
+        busy += 2.4
+        total += 120.0
+        out = runner.heartbeat(cfg, store, cloud, t0 + minute * 60, uptime=600 + minute * 60, sample=(busy, total),
+                               log=lambda _: None)
+        if minute < 240:
+            assert out["stop"] is False, minute
+        if minute == 120:  # the CPU-only CloudWatch alarm (60 min) must not undercut the window
+            assert [e for e in cloud.events if e[0] == "alarm_actions"][-1] == ("alarm_actions", False)
+            assert ("alarm_actions", True) not in cloud.events
+    assert out["stop"] is True and out["idle_minutes"] == 240
+    assert ("alarm_actions", True) in cloud.events  # re-armed once the window has passed
 
 
 def test_no_idle_stop_while_ci_active_or_recently_booted(cfg: Config, store: Store, clock: Clock) -> None:

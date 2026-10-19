@@ -112,17 +112,15 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
     await page.getByTestId("login-submit").click();
   };
   await submit();
-  // left /login, or the form answered: a field the hydration dropped ("… gerekli") is typed once more; a refusal (wrong
-  // password, a 429 lock with its minutes, offline) fails here with the form's own sentence instead of a bare timeout
+  // left /login, or the form answered. A "… gerekli" after both fields were filled means the form threw the typed
+  // values away (a hydration reset: an app bug, not something to type again); a refusal (wrong password, a 429 lock
+  // with its minutes, offline) fails with the form's own sentence instead of a bare timeout
   const away = () => !new URL(page.url()).pathname.startsWith("/login");
   const required = page.locator('[data-testid="login-identifier-required"], [data-testid="login-password-required"]');
-  let retried = false;
   for (const until = Date.now() + 30_000; !away(); ) {
     if (Date.now() > until) throw new Error(`login as ${identifier} did not leave ${new URL(page.url()).pathname} in 30 s`);
-    if (!retried && (await required.count())) {
-      retried = true;
-      await submit();
-    } else if ((await page.getByTestId("login-error").count()) && !away()) {
+    if (await required.count()) throw new Error(`login form dropped typed ${identifier}: hydration reset`);
+    if (await page.getByTestId("login-error").count()) {
       await page.waitForTimeout(1_000); // a refusal stays; a late redirect does not
       if (!away() && (await page.getByTestId("login-error").count())) throw new Error(`login as ${identifier} refused: ${(await page.getByTestId("login-error").innerText().catch(() => "")).trim()}`);
     }
@@ -223,10 +221,14 @@ export async function ensureBookingSetup(): Promise<{ termId: number; scheduleId
     }
     const sessions = await call<{ term_id: number; default_schedule_id: number | null; is_selectable: boolean }[]>("GET", "/booking-admin/sessions");
     const sess = sessions.find((x) => x.term_id === termId);
-    if (sess && (!sess.is_selectable || sess.default_schedule_id === null)) await call("PUT", `/booking-admin/sessions/${termId}`, { is_selectable: true, default_schedule_id: sess.default_schedule_id ?? schedule.id });
+    expect(sess, `booking session for ${TERM_CODE}`).toBeTruthy();
+    // the default schedule is what the grid shows: keep it when it has the 18 periods, else make the full one default
+    const current = schedules.find((x) => x.id === sess!.default_schedule_id);
+    const used = current && current.periods.length >= 18 ? current : schedule;
+    if (!sess!.is_selectable || sess!.default_schedule_id !== used.id) await call("PUT", `/booking-admin/sessions/${termId}`, { is_selectable: true, default_schedule_id: used.id });
     const groups = await call<{ id: number }[]>("GET", "/room-admin/groups");
     if (!groups.length) await call("POST", "/room-admin/groups/from-buildings");
-    return { termId, scheduleId: sess?.default_schedule_id ?? schedule.id, periods: Object.fromEntries(schedule.periods.map((x) => [x.name, x.id])) };
+    return { termId, scheduleId: used.id, periods: Object.fromEntries(used.periods.map((x) => [x.name, x.id])) };
   } finally {
     await ctx.dispose();
   }

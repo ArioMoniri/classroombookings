@@ -249,25 +249,31 @@ function HeroPlayer({ theme, onState, onStart }: { theme: Theme; onState: (s: "p
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let idle: number | undefined;
+    // the player chunk's evaluation, building the scene (lottie's SVG tree) and its first raster are the hero's
+    // heaviest moments: none of them in the middle of someone typing. Each waits for a quiet HERO_INPUT_HOLD_MS like
+    // every drawn frame does (owner decision 2026-10-19, "make the app lighter, not the budget looser")
+    const quiet = async () => {
+      while (!cancelled && performance.now() - lastInputAt.current < HERO_INPUT_HOLD_MS) {
+        await new Promise((r) => setTimeout(r, HERO_INPUT_HOLD_MS - (performance.now() - lastInputAt.current)));
+      }
+    };
     const start = () => {
       timer = setTimeout(() => {
-        onStart(theme);
-        Promise.all([heroLoaders.player(), heroLoaders.data[theme]()])
-          .then(async ([Player, mod]) => {
-            // building the scene (lottie's SVG tree and its first raster) is the hero's heaviest moment: never in the
-            // middle of someone typing. It waits for a quiet HERO_INPUT_HOLD_MS like every drawn frame does
-            // (owner decision 2026-10-19, "make the app lighter, not the budget looser")
-            while (!cancelled && performance.now() - lastInputAt.current < HERO_INPUT_HOLD_MS) {
-              await new Promise((r) => setTimeout(r, HERO_INPUT_HOLD_MS - (performance.now() - lastInputAt.current)));
-            }
+        void (async () => {
+          await quiet();
+          if (cancelled) return;
+          onStart(theme);
+          try {
+            const [Player, mod] = await Promise.all([heroLoaders.player(), heroLoaders.data[theme]()]);
+            await quiet();
             if (cancelled) return;
             setLoaded({ Player, data: withoutBackground(mod) });
-          })
-          .catch(() => {
+          } catch {
             if (cancelled) return;
             setFailed(true);
             onState("poster");
-          });
+          }
+        })();
       }, HERO_DELAY_MS);
     };
     if (typeof window.requestIdleCallback === "function") idle = window.requestIdleCallback(start, { timeout: 2000 });
