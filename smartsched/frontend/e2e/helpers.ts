@@ -4,7 +4,7 @@
  * name "Show password", so label regexes match two elements).
  */
 import path from "node:path";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, request as pwRequest, type Locator, type Page } from "@playwright/test";
 import { resolveFixturesDir } from "../src/test/fixtures-dir";
 
 export const REAL = process.env.E2E_REAL === "1";
@@ -165,4 +165,50 @@ export async function pickSegmentById(scope: Page | Locator, testId: string, val
 export async function fillDate(field: Locator, iso: string): Promise<void> {
   await field.fill(iso);
   await field.press("Tab");
+}
+
+/** The backend's API base for Node-side calls (global-setup.ts uses the same). */
+export const API_BASE = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
+
+/**
+ * The booking setup CRBS's installer would make, idempotent (what bookings.spec.ts and reserve.spec.ts build in their
+ * beforeAll): TERM_CODE's imported board is the published timetable, a schedule with the university's 18 periods on
+ * weekdays is the term's default and the term is bookable, and the rooms have groups (one per building). The e2e gate
+ * runs the specs in shards, each on a fresh seed, so a spec that books must not rely on an earlier spec having done
+ * this. Returns the term id, the schedule and its periods by name.
+ */
+export async function ensureBookingSetup(): Promise<{ termId: number; scheduleId: number; periods: Record<string, number> }> {
+  const ctx = await pwRequest.newContext();
+  try {
+    const login = await ctx.post(`${API_BASE}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
+    expect(login.ok(), `admin login ${login.status()}`).toBeTruthy();
+    const headers = { Authorization: `Bearer ${((await login.json()) as { access_token: string }).access_token}` };
+    const call = async <T>(method: "GET" | "POST" | "PUT", p: string, data?: unknown): Promise<T> => {
+      const r = await ctx.fetch(`${API_BASE}${p}`, { method, headers, data });
+      const text = await r.text();
+      expect(r.status(), `${method} ${p} → ${r.status()} ${text.slice(0, 300)}`).toBeLessThan(300);
+      return (text ? JSON.parse(text) : null) as T;
+    };
+    const terms = await call<{ id: number; code: string }[]>("GET", "/terms");
+    const termId = terms.find((x) => x.code === TERM_CODE)!.id;
+    const runs = await call<{ id: number; kind: string; term_id: number; label: string | null; is_active: boolean }[]>("GET", "/runs");
+    const board = runs.find((r) => r.term_id === termId && r.kind === "COURSE" && (r.label ?? "").startsWith("Grid import"));
+    if (board && !runs.some((r) => r.term_id === termId && r.kind === "COURSE" && r.is_active)) await call("POST", `/runs/${board.id}/activate`);
+    let schedules = await call<{ id: number; periods: { id: number; name: string }[] }[]>("GET", "/booking-admin/schedules");
+    let schedule = schedules.find((x) => x.periods.length >= 18);
+    if (!schedule) {
+      const made = await call<{ id: number }>("POST", "/booking-admin/schedules", { name: `Ders saatleri ${Date.now().toString(36)}`.slice(0, 32) });
+      await call("POST", `/booking-admin/schedules/${made.id}/periods/from-grid?days=1,2,3,4,5`);
+      schedules = await call("GET", "/booking-admin/schedules");
+      schedule = schedules.find((x) => x.id === made.id)!;
+    }
+    const sessions = await call<{ term_id: number; default_schedule_id: number | null; is_selectable: boolean }[]>("GET", "/booking-admin/sessions");
+    const sess = sessions.find((x) => x.term_id === termId);
+    if (sess && (!sess.is_selectable || sess.default_schedule_id === null)) await call("PUT", `/booking-admin/sessions/${termId}`, { is_selectable: true, default_schedule_id: sess.default_schedule_id ?? schedule.id });
+    const groups = await call<{ id: number }[]>("GET", "/room-admin/groups");
+    if (!groups.length) await call("POST", "/room-admin/groups/from-buildings");
+    return { termId, scheduleId: sess?.default_schedule_id ?? schedule.id, periods: Object.fromEntries(schedule.periods.map((x) => [x.name, x.id])) };
+  } finally {
+    await ctx.dispose();
+  }
 }
