@@ -11,6 +11,7 @@
  * Values set here are inherited by the test workers.
  */
 import { request } from "@playwright/test";
+import { ensureBookingSetup } from "./helpers";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? "admin@smartsched.local";
@@ -61,6 +62,10 @@ export default async function globalSetup(): Promise<void> {
     // CH12-F09: the run report needs a solver run (an import board has no issue groups): any horizon will do
     const anySolver = [...runs].reverse().find((r) => r.kind === "COURSE" && USABLE.has(r.status) && r.stats?.solver !== undefined && String(r.id) !== process.env.E2E_BOARD_RUN);
     process.env.AUDIT_RUN ??= process.env.E2E_SOLVER_RUN ?? (anySolver ? String(anySolver.id) : undefined) ?? process.env.E2E_BOARD_RUN;
+    // the booking setup CRBS's installer would make (published board, 18-period schedule, bookable term, room groups).
+    // bookings.spec.ts / reserve.spec.ts build it too, but the gate runs the specs in shards on fresh seeds: a shard
+    // without them (e.g. loop-r2-laneB: "term 2026-BAHAR is not open for bookings") must not depend on another shard
+    await ensureBookingSetup();
     console.log(`e2e: backend ${API}, term ${TERM} #${term.id}, board run #${process.env.E2E_BOARD_RUN ?? "?"}, solver run #${process.env.E2E_SOLVER_RUN ?? "?"}, edit run #${process.env.E2E_EDIT_RUN ?? "?"}, audit run #${process.env.AUDIT_RUN ?? "?"}`);
   } finally {
     await ctx.dispose();

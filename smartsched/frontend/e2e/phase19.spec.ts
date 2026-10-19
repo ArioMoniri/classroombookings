@@ -158,7 +158,11 @@ test("a teacher without a linked instructor sees the 'not linked' empty state on
 test("learned suggestions: accept one (soft, undoable) and dismiss one with a reason", async ({ page }) => {
   test.setTimeout(240_000);
   await login(page);
-  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
+  const termId = await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
+  // the suggestions come from `learning-refresh` (this spec's backend premise); the e2e gate's seed does not run it and
+  // a shard's fresh seed has no earlier spec that did: refresh the term here (idempotent, POST /learning/refresh)
+  const refreshed = await call(page, "POST", "/learning/refresh", { term_id: termId });
+  expect(refreshed.status, JSON.stringify(refreshed.body)).toBeLessThan(300);
   await page.goto("/moderation?tab=preferences");
   await page.getByRole("tab", { name: "Öneriler" }).or(page.getByRole("radio", { name: "Öneriler" })).first().click();
   const list = page.getByTestId("suggestions-moderation");
@@ -203,10 +207,16 @@ test("admin memory: reset everything with the typed word, then undo it", async (
   await expect(dialog).toBeVisible();
   await expect(dialog.getByTestId("reset-reason")).toBeFocused();
   await dialog.getByTestId("reset-reason").fill("e2e: yeniden yapılanma denemesi");
-  // a wrong word is refused with a message; SIFIRLA (Turkish-aware) goes through
+  // a wrong word is refused with a message before any submit, Sıfırla stays disabled (reset-dialog.tsx); Enter on the
+  // field does not send it either; SIFIRLA (Turkish-aware) goes through
   await dialog.getByTestId("reset-word").fill("SIFIR");
-  await dialog.getByTestId("reset-confirm").click();
+  await expect(dialog.getByTestId("reset-word-mismatch")).toHaveText("Yazılan kelime eşleşmiyor.");
+  await expect(dialog.getByTestId("reset-confirm")).toBeDisabled();
+  await expect(dialog.getByTestId("reset-word")).toHaveAttribute("aria-describedby", "reset-word-hint");
+  await dialog.getByTestId("reset-word").press("Enter");
+  await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("alert")).toHaveText("Yazılan kelime eşleşmiyor.");
+  await expect(dialog.getByTestId("reset-word")).toHaveAttribute("aria-invalid", "true");
   await dialog.getByTestId("reset-word").fill("sıfırla");
   await dialog.getByTestId("reset-confirm").click();
   await expect(dialog).toBeHidden();

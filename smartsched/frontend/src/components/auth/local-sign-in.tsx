@@ -93,6 +93,17 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
     if (autoFocus) idRef.current?.focus();
   }, [autoFocus]);
 
+  // Text typed (or autofilled) into the server-rendered fields before React attached its handlers never reached the
+  // state, and the next render wrote the empty state back over it: the form then answered "… gerekli" for fields
+  // the person could see filled (pod e2e #125: laneE T-R1-33/34 and visual-quality sign-ins on a 2-vCPU host).
+  // Adopt what the fields hold once hydrated; onSubmit reads the fields too, for anything filled without an event.
+  useEffect(() => {
+    const id = idRef.current?.value ?? "";
+    const pw = passwordRef.current?.value ?? "";
+    if (id) setIdentifier((v) => v || id);
+    if (pw) setPassword((v) => v || pw);
+  }, []);
+
   // the 429 countdown updates once per minute, not per second (§11)
   const rateError = error?.kind === "rate" ? error : null;
   useEffect(() => {
@@ -121,9 +132,15 @@ export function LocalSignInForm({ next, primary, resetLink, lastMethodLocal, aut
     requestAnimationFrame(() => alertRef.current?.focus());
   };
 
+  const identifierState = identifier;
+  const passwordState = password;
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy || rate) return;
+    const identifier = identifierState || idRef.current?.value || "";
+    const password = passwordState || passwordRef.current?.value || "";
+    if (identifier !== identifierState) setIdentifier(identifier);
+    if (password !== passwordState) setPassword(password);
     const emptyId = !identifier.trim();
     const emptyPw = !password;
     if (emptyId || emptyPw) {

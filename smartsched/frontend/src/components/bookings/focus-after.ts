@@ -31,14 +31,15 @@ export function focusAfter(selectors: (string | null | undefined)[], delay = 320
     window.removeEventListener("keydown", stop, true);
   };
   window.setTimeout(() => {
-    if (done) return;
+    if (done || typeof document === "undefined") return;
     focusFirst(all);
     window.addEventListener("pointerdown", stop, true);
     window.addEventListener("keydown", stop, true);
     const until = Date.now() + settle;
     const onPreferred = () => preferred.some((sel) => document.activeElement?.matches(sel));
     const tick = () => {
-      if (done) return;
+      // the page (or a test's jsdom) can be gone by the time a pending tick fires
+      if (done || typeof document === "undefined") return;
       const a = document.activeElement as HTMLElement | null;
       if (!a || a === document.body || !a.isConnected) focusFirst(all);
       else if (!onPreferred() && preferred.some((sel) => usable(document.querySelector<HTMLElement>(sel)))) focusFirst(preferred);

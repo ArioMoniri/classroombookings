@@ -165,24 +165,34 @@ test("T-R2-05 real 44 px boxes on touch: switches, the toast close, the recurrin
 });
 
 test("T-R2-02 the confirm dialog is an aria-modal alertdialog that traps Tab (1440 keyboard, 768 tablet) and Esc returns focus", async ({ browser }) => {
-  for (const opts of [DESKTOP, TABLET]) {
-    const page = await newPage(browser, opts, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.goto("/admin/holidays");
-    const del = page.getByRole("button", { name: /\bsil\b/i }).first();
-    await expect(del).toBeVisible();
-    await del.focus();
-    await page.keyboard.press("Enter");
-    const dlg = page.locator("[role=alertdialog]").last();
-    await expect(dlg).toBeVisible();
-    expect(await dlg.getAttribute("aria-modal")).toBe("true");
-    for (let i = 0; i < 10; i++) {
-      await page.keyboard.press("Tab");
-      expect(await page.evaluate(() => !!document.activeElement?.closest("[role=alertdialog]")), `Tab ${i + 1} left the dialog at ${opts.viewport.width}`).toBe(true);
+  // a holiday of its own to open the delete confirm on (a shard's fresh seed has none; bookings.spec.ts makes one)
+  const auth = { Authorization: `Bearer ${ctx.admin}` };
+  const terms = (await (await ctx.api.get(`${API}/terms`, { headers: auth })).json()) as { id: number; code: string }[];
+  const made = await ctx.api.post(`${API}/holidays`, { headers: auth, data: { term_id: terms.find((t) => t.code === "2026-BAHAR")!.id, name: `E2E tatil ${STAMP}`, date_start: "2026-05-01", date_end: "2026-05-01" } });
+  expect(made.status(), await made.text()).toBe(201);
+  const holidayId = ((await made.json()) as { id: number }).id;
+  try {
+    for (const opts of [DESKTOP, TABLET]) {
+      const page = await newPage(browser, opts, ADMIN_EMAIL, ADMIN_PASSWORD);
+      await page.goto("/admin/holidays");
+      const del = page.getByRole("button", { name: /\bsil\b/i }).first();
+      await expect(del).toBeVisible();
+      await del.focus();
+      await page.keyboard.press("Enter");
+      const dlg = page.locator("[role=alertdialog]").last();
+      await expect(dlg).toBeVisible();
+      expect(await dlg.getAttribute("aria-modal")).toBe("true");
+      for (let i = 0; i < 10; i++) {
+        await page.keyboard.press("Tab");
+        expect(await page.evaluate(() => !!document.activeElement?.closest("[role=alertdialog]")), `Tab ${i + 1} left the dialog at ${opts.viewport.width}`).toBe(true);
+      }
+      await page.keyboard.press("Escape");
+      await expect(dlg).toBeHidden();
+      expect(await focusText(page)).toMatch(/sil/i);
+      await page.context().close();
     }
-    await page.keyboard.press("Escape");
-    await expect(dlg).toBeHidden();
-    expect(await focusText(page)).toMatch(/sil/i);
-    await page.context().close();
+  } finally {
+    await ctx.api.delete(`${API}/holidays/${holidayId}`, { headers: auth });
   }
 });
 

@@ -6,6 +6,8 @@
  * 1. 1440 mouse: the hero plays once (≤ 5 s from "playing" to "done") and does not loop (two screenshots 1.5 s
  *    apart are identical).
  * 2. 1440: no long animation frame > 50 ms while typing in the identifier during the pass.
+ * 2b. 1440: typing from the first moment (before the hero loaded, LoAF observed from page load): no frame > 50 ms
+ *    while typing; the pass plays afterwards.
  * 3. 390 × 844 touch: no hero and the Lottie player / JSON are never downloaded.
  * 4. Reduced motion: the poster PNG, no player download.
  * 5. Motion-audit case: no finite animation over 300 ms, decorative (aria-hidden, pointer-events none), at most 2
@@ -91,6 +93,37 @@ test.describe("AUX-10 sign-in hero · 1440 mouse", () => {
     const b = await hero.screenshot({ animations: "allow" });
     expect(Buffer.compare(a, b), "the hero moved after done: it loops").toBe(0);
     expect((await states(page)).at(-1)?.state).toBe("done");
+  });
+
+  test("typing from the first moment: no long animation frame while typing, the hero still plays its pass after", async ({ page }) => {
+    // the observer runs from page load (buffered), so the hero's loading (player chunk, scene build, first raster)
+    // is measured too, not only its drawn frames; the person starts typing as soon as the form is theirs
+    await page.addInitScript(() => {
+      const w = window as unknown as { __loaf: { start: number; end: number }[] };
+      w.__loaf = [];
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) w.__loaf.push({ start: e.startTime, end: e.startTime + e.duration });
+      }).observe({ type: "long-animation-frame", buffered: true });
+    });
+    await recordStates(page);
+    await page.goto("/login?method=local");
+    await page.waitForFunction(() => {
+      const el = document.querySelector('[data-testid="login-submit"]');
+      return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$"));
+    });
+    const hero = page.getByTestId("signin-hero");
+    expect(await hero.getAttribute("data-state")).toBe("loading"); // typing starts before the hero has loaded
+    const id = page.getByTestId("login-identifier");
+    await id.click();
+    const from = await page.evaluate(() => performance.now());
+    await id.pressSequentially("ayse.yilmaz@uni.edu.tr", { delay: 60 });
+    const to = await page.evaluate(() => performance.now());
+    await expect(hero).toHaveAttribute("data-state", "done", { timeout: 15_000 });
+    const loaf = await page.evaluate(() => (window as unknown as { __loaf: { start: number; end: number }[] }).__loaf);
+    const typing = loaf.filter((f) => f.end > from && f.start < to).map((f) => Math.round(f.end - f.start));
+    expect(Math.max(0, ...typing), `LoAF while typing: ${typing.join(", ")}`).toBeLessThanOrEqual(50);
+    const s = await states(page);
+    expect(s.find((x) => x.state === "playing"), "the pass ran after the typing").toBeTruthy();
   });
 
   test("motion-audit case: ≤ 300 ms finite animations, decorative, one blurred surface besides chrome, forced colours", async ({ page }) => {

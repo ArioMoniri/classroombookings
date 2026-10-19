@@ -346,9 +346,12 @@ test("7. voice off: no mic on any surface", async () => {
   const admin = await ctxFor(ADMIN_EMAIL, ADMIN_PASSWORD);
   await admin.put(`${API}/ai/admin/voice`, { data: { enabled: false } });
   const { ctx, page } = await open(DESKTOP);
+  // listen before navigating: the panel asks /ai/voice/status while it mounts, so a waiter armed after the box is
+  // visible could miss it and (no action timeout in this config) wait for the whole test budget (pod e2e #125)
+  const status = page.waitForResponse((r) => r.url().includes("/ai/voice/status"), { timeout: 30_000 }).catch(() => undefined);
   await page.goto(`/runs/${runId}`);
   await expect(chatBox(page)).toBeVisible({ timeout: 90_000 });
-  await page.waitForResponse((r) => r.url().includes("/ai/voice/status")).catch(() => undefined);
+  await status;
   await page.waitForTimeout(500);
   await expect(page.getByTestId("voice-mic")).toHaveCount(0);
   await admin.put(`${API}/ai/admin/voice`, { data: { enabled: true } });
