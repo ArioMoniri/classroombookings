@@ -5396,7 +5396,7 @@
         "rollback": "Aynı istekteki önceki bir veritabanı hatası bu işlemi de durdurdu.",
         "integrity": "Kayıt çakışması: aynı kayıt zaten var ya da bağlı bir kayıt eksik.",
         "timeout": "İşlem zaman aşımına uğradı.",
-        "connection": "Bir servise bağlanılamadı."
+        "connection": "Bir servise bağlanılamadı.", "server": "Sunucu bir hata yanıtı döndürdü (5xx)."
       },
       "plainOther": "Beklenmeyen bir hata. Teknik metin Ayrıntı içinde.",
       "hide": "Ayrıntıyı gizle",
