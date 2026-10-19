@@ -142,7 +142,7 @@ test("1. My bookings: the consent step before the first link; a 409 consent_requ
   // withdrawn in another tab (the API here) while this page still believes it is given: the reset is refused
   await api("DELETE", "/me/consents/calendar_sync", undefined, ctx.teacherToken);
   await panel.getByTestId("sync-reset").click();
-  await page.getByRole("dialog", { name: /sıfırlansın mı/ }).getByRole("button", { name: /sıfırla/i }).click();
+  await page.getByRole("alertdialog", { name: /sıfırlansın mı/ }).getByRole("button", { name: /sıfırla/i }).click();
   const refused = panel.getByTestId("calendar-consent-refused");
   await expect(refused).toContainText('Bunun için "Takvimimle eşitleme (Google / Microsoft)" rızanız gerekir.');
   const link = refused.getByTestId("calendar-consent-link");
@@ -161,6 +161,8 @@ test("2. Profil › Takvim aktarımı: Connect asks for the consent, then goes t
   await signInAs(page, TEACHER.username, TEACHER.password);
   await page.goto("/profile");
   const section = page.getByTestId("calendar-connections");
+  // the provider connections are the older path, folded under "Gelişmiş" (calendar export: "Takvimime ekle" leads)
+  await section.getByTestId("calendar-connections-advanced-toggle").click();
   await expect(section.getByTestId("calendar-connections-consent")).toContainText("Bağlanırken önce takvim eşitleme rızanız istenir");
   await section.getByTestId("calendar-connect-google").click();
   const step = section.getByTestId("calendar-consent-google");

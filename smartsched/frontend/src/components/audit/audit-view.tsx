@@ -7,7 +7,7 @@
  * taken now, too old) in the backend's words, with the free alternatives when the slot was taken.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Download, Filter, RotateCcw, SlidersHorizontal, Undo2 } from "lucide-react";
+import { BarChart3, ChevronDown, Download, Filter, RotateCcw, SlidersHorizontal, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,8 @@ export function AuditView() {
   const [undoing, setUndoing] = useState<AuditEvent | null>(null);
   const phone = useIsPhone();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // phones: the daily chart (CH-10) is folded; its toggle sits with the title actions, so the list still starts high
+  const [dailyOpen, setDailyOpen] = useState(false);
 
   // phones: the six filters live in a bottom sheet behind one "Filtreler · n" trigger (MOBILE.md M-04)
   const filterForm = (
@@ -136,6 +138,11 @@ export function AuditView() {
         subtitle={t("wave1.audit.lead")}
         actions={
           <>
+            {can("audit.view") ? (
+              <Button variant="outline" className="sm:hidden" aria-expanded={dailyOpen} aria-controls="audit-daily-card" aria-label={dailyOpen ? t("charts.audit.hide") : t("charts.audit.show")} onClick={() => setDailyOpen((v) => !v)} data-testid="audit-daily-toggle">
+                <BarChart3 aria-hidden />
+              </Button>
+            ) : null}
             <Button variant="outline" className="sm:hidden" onClick={() => setFiltersOpen(true)} aria-haspopup="dialog" aria-label={activeFilters ? t("reserve.filters.openCount", { n: activeFilters }) : t("reserve.filters.open")} data-testid="audit-filters-open">
               <SlidersHorizontal aria-hidden />
               {activeFilters ? String(activeFilters) : null}
@@ -176,6 +183,7 @@ export function AuditView() {
       {/* CH-10: events per day (30 g); a column click filters the list to that day (audit.view only: the counts are everyone's) */}
       {can("audit.view") ? (
         <AuditDaily
+          open={dailyOpen}
           onDay={(day) => {
             const next = filterToDay(applied, day);
             setDraft(next);

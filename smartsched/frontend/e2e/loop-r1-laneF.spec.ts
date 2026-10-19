@@ -21,7 +21,7 @@
  *   E2E_REAL=1 NEXT_PUBLIC_API_URL=http://127.0.0.1:<api> PW_PORT=<web> npx playwright test loop-r1-laneF
  */
 import { expect, test, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON, api, login } from "./helpers";
+import { REAL, SKIP_REASON, api, login, pinTerm } from "./helpers";
 
 test.skip(!REAL, SKIP_REASON);
 
@@ -71,12 +71,7 @@ async function useTerm(page: Page, code: string): Promise<TermRow> {
   // planning list, e2e-seed-analytics.py publishes its board); the skip stays as the fallback for a Bahar-only backend
   test.skip(!term, `term ${code} is not on this backend (stack.sh up and e2e-backend-entry.sh import it)`);
   if (!term) throw new Error(`term ${code} is not on this backend`);
-  await page.evaluate((id) => {
-    const raw = localStorage.getItem("smartsched.ui");
-    const cur = raw ? (JSON.parse(raw) as { state?: Record<string, unknown>; version?: number }) : {};
-    localStorage.setItem("smartsched.ui", JSON.stringify({ ...cur, state: { ...(cur.state ?? {}), termId: id } }));
-    localStorage.removeItem("smartsched.workspace");
-  }, term.id);
+  await pinTerm(page, term.id, { forget: true });
   return term;
 }
 

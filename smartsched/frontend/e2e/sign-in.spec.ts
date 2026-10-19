@@ -212,11 +212,12 @@ test.describe("door 2", () => {
   });
 
   test("#14 429 shows the minutes and disables submit; offline shows the offline string", async ({ page }) => {
-    await page.route("**/api/v1/auth/login", (r) => r.fulfill({ status: 429, headers: { "retry-after": "180", "content-type": "application/json" }, body: "{}" }));
+    // the form posts through the sign-in route handler (/api/auth/mfa/login, AU-B), which passes a 429 through
+    await page.route("**/api/auth/mfa/login", (r) => r.fulfill({ status: 429, headers: { "retry-after": "180", "content-type": "application/json" }, body: "{}" }));
     expect(await failLogin(page, "e2e-rate", "x")).toContain("3 dakika sonra");
     await expect(page.getByTestId("login-submit")).toBeDisabled();
-    await page.unroute("**/api/v1/auth/login");
-    await page.route("**/api/v1/auth/login", (r) => r.abort("internetdisconnected"));
+    await page.unroute("**/api/auth/mfa/login");
+    await page.route("**/api/auth/mfa/login", (r) => r.abort("internetdisconnected"));
     expect(await failLogin(page, "e2e-offline", "x")).toContain("Sunucuya ulaşılamıyor.");
   });
 });

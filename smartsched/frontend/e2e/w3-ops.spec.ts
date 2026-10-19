@@ -59,15 +59,17 @@ async function mockReachability(page: Page): Promise<void> {
   await page.route("**/grafana/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>grafana</title>" }));
 }
 
+/** one error group per run: the group key is the in-app frames (app.core.observability.fingerprint), so the frame
+ *  carries the run's stamp (a retry or a second run on the same database is a new group, not the old one's count) */
 async function report(page: Page, message: string): Promise<number> {
-  return page.evaluate(async (message) => {
+  return page.evaluate(async ([message, fn]) => {
     const r = await fetch("/api/v1/ops/errors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, kind: "TypeError", stack: `TypeError: ${message}\n    at OpsE2E (https://x/_next/static/chunks/app/page-1a2b3c4d.js:1:2)`, url: `${location.origin}/rooms/12?q=Ahmet`, origin: "window.onerror" }),
+      body: JSON.stringify({ message, kind: "TypeError", stack: `TypeError: ${message}\n    at ${fn} (https://x/_next/static/chunks/app/page-1a2b3c4d.js:1:2)`, url: `${location.origin}/rooms/12?q=Ahmet`, origin: "window.onerror" }),
     });
     return r.status;
-  }, message);
+  }, [message, `OpsE2E_${STAMP}`] as const);
 }
 
 test("1. admin desktop: cards, mocked Grafana, a scrubbed browser error group resolved with the focus kept", async ({ page }) => {
@@ -89,9 +91,16 @@ test("1. admin desktop: cards, mocked Grafana, a scrubbed browser error group re
   await expect(page.getByTestId("ops-dash-smartsched-health")).not.toHaveAttribute("aria-disabled", "true");
   await expect(page.getByTestId("ops-chart-summary")).toContainText("istek");
 
-  const row = page.locator('[data-testid^="ops-error-"][data-status]').filter({ hasText: marker });
+  // CH12-F04 / E2EA-F09: a group reads as one plain line; its class, message and stack wait behind "Ayrıntı", so the
+  // group is found by its id (the API's own list) and opened
+  const groupsOf = () => page.evaluate(async (m) => ((await (await fetch("/api/v1/ops/errors")).json()) as { items: { id: number | string; message: string }[] }).items.filter((g) => g.message.includes(m)), marker);
+  await expect.poll(async () => (await groupsOf()).length).toBe(1);
+  const group = await groupsOf();
+  const row = page.getByTestId(`ops-error-${group[0]!.id}`);
   await expect(row).toHaveCount(1);
   await expect(row).toContainText("2 kez");
+  await row.getByTestId(`ops-error-toggle-${group[0]!.id}`).click();
+  await expect(row.getByTestId(`ops-error-stack-${group[0]!.id}`)).toContainText(marker);
   await expect(row).toContainText("[email]");
   await expect(row).not.toContainText("ayse.yilmaz");
   await expect(row).toContainText("/rooms/:id");

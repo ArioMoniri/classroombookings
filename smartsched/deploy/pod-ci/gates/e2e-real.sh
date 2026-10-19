@@ -1,39 +1,80 @@
 #!/usr/bin/env bash
-# Gate: every Playwright spec (smoke, real-backend, bookings, calendar, motion-audit, ...) against the REAL
-# FastAPI backend loaded with the real Bahar fixture workbooks (docs/testing/2026-10-08-real-backend-e2e.md), on
-# a private per-run docker network. The backend (e2e-backend-entry.sh) also solves the full term and pins the
-# booking clock inside Bahar 2026. There is no mock API. Afterwards the production build Playwright served
-# (.next/standalone) is checked for mock/demo code.
+# Gate: one shard of the Playwright specs (`e2e-real.sh 1/3`: `npx playwright test --shard=1/3`) against the REAL
+# FastAPI backend loaded with the real Bahar fixture workbooks (docs/testing/2026-10-08-real-backend-e2e.md), on a
+# private per-shard docker network. The backend (e2e-backend-entry.sh) also solves the full term and pins the booking
+# clock inside Bahar 2026. There is no mock API. Playwright shards are contiguous slices of the ordered test files, so
+# the last shard ends with the `integrity` and `intake` projects, as the unsharded run did. The production build is
+# the one the e2e-build gate made (and checked for mock/demo code); this gate only `next start`s a private copy.
 #
-# Containers on the network (aliases), all removed afterwards:
-#   backend        seeded backend (Bahar fixtures, admin, full-term run, booking clock 2026-02-16 08:00)
+# Every shard has its own stack (container names podci-<run>-e2e<i>-*, network podci-<run>-e2e<i>, files under
+# /w/e2e-shard-<i>), so the shards run at the same time without sharing state. Containers (aliases), all removed:
+#   backend        seeded backend (Bahar fixtures, admin, full-term run, booking clock 2026-02-16 08:00);
+#                  DB /w/e2e-shard-<i>/e2e.db, uploads beside it, the backend venv /w/venv (backend-deps gate)
 #   smtp           SMTP sink (smtp-sink.py): SMTP 1025, JSON API 8025; nothing is delivered (S-23, X-02)
 #   backend-empty  second backend on an EMPTY database (no users): the first-run installer (B-SETUP-02);
-#                  started once `backend` is healthy because it reuses its venv (/w/venv)
-# Playwright gets E2E_SMTP_HOST/E2E_SMTP_PORT/E2E_SMTP_API and E2E_EMPTY_API_URL for the specs that use them, and
-# E2E_DB (the seeded backend's SQLite file on the shared /w mount: consent.spec.ts 4 seeds an unreadable grant there
-# with python3 -I + sqlite3).
-# Before the specs, contract-record.py records the contract-test payloads from the seeded backend and reports
-# their schema drift against src/lib/api/__fixtures__/real (/w/contract/contract-drift.json; never fails).
-# The booking clock is checked before any spec runs: a clock outside Bahar 2026 fails the gate (the booking
-# specs would otherwise skip and the gate would look green).
+#                  started once `backend` is healthy (/w/e2e-shard-<i>/empty)
+#   idp            mock OpenID Connect issuer in the backend's network namespace (w3-idp.spec.ts)
+# Playwright joins the backend's namespace and gets E2E_SMTP_HOST/E2E_SMTP_PORT/E2E_SMTP_API, E2E_EMPTY_API_URL and
+# E2E_DB (this shard's SQLite file: consent.spec.ts 4 seeds an unreadable grant there with python3 -I + sqlite3).
+# Its .next and test-results are per-shard bind mounts (/w/e2e-shard-<i>/next, /w/e2e-shard-<i>/test-results) over the
+# shared source tree; its JSON report is /w/playwright-report-<i>.json (the parity gate merges all shards).
+# Shard 1 also records the contract-test payloads before its specs (contract-record.py: /w/contract/contract-drift.json;
+# report only). The booking clock is checked before any spec runs: a clock outside Bahar 2026 fails the shard (the
+# booking specs would otherwise skip and the gate would look green).
+# Memory: one slot (lib.sh defaults, 8 GB pod) keeps the caps that ran there: the seeded backend GATE_MEMORY,
+# Playwright NODE_MEMORY. A multi-slot share (runner.py Slots.env, two slots: NODE_MEMORY >= 8 GiB) is split so the
+# shard's caps add up to it: 1.5 GiB side containers (empty 1g, smtp 256m, issuer 256m), of the rest 2/5 (at least
+# 3 GiB) for the seeded backend and the remainder for Playwright (next start + Chromium + runner, heap 3/4 of it).
 #   E2E_HEALTH_TRIES / E2E_HEALTH_SLEEP   backend health wait (default 450 x 2 s: imports, full-term solve, analytics seed)
+#   E2E_BACKEND_MEMORY / E2E_PLAYWRIGHT_MEMORY   override the split (docker sizes, e.g. 3g / 4096m)
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-net="podci-${RUN_TAG}"
-backend="podci-${RUN_TAG}-backend"
-smtp="podci-${RUN_TAG}-smtp"
-empty="podci-${RUN_TAG}-backend-empty"
+SHARD="${1:?usage: e2e-real.sh <index>/<count>}"
+[[ "$SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] && (( BASH_REMATCH[1] <= BASH_REMATCH[2] )) \
+  || { echo "bad shard $SHARD"; exit 2; }
+idx="${SHARD%/*}"
+tag="podci-${RUN_TAG}-e2e${idx}"
+net="$tag"
+backend="${tag}-backend"
+smtp="${tag}-smtp"
+empty="${tag}-backend-empty"
+idp="${tag}-idp"
+sdir="e2e-shard-${idx}"            # under /w (host: $WS)
+fe="$WS/src/smartsched/frontend"
 tries="${E2E_HEALTH_TRIES:-450}"
 pause="${E2E_HEALTH_SLEEP:-2}"
 clock="2026-02-16T08:00"
+mib() {  # docker memory size (512m, 3g, bytes) -> MiB
+  local v="${1,,}"
+  case "$v" in *g) echo $(( ${v%g} * 1024 )) ;; *m) echo "${v%m}" ;; *k) echo $(( ${v%k} / 1024 )) ;; *) echo $(( v / 1048576 )) ;; esac
+}
+share=$(mib "$NODE_MEMORY")
+if (( share >= 8192 )); then
+  rest=$(( share - 1536 ))
+  be=$(( rest * 2 / 5 )); (( be >= 3072 )) || be=3072
+  pw=$(( rest - be ))
+  BACKEND_MEMORY="${be}m"; PW_MEMORY="${pw}m"
+else
+  BACKEND_MEMORY="$GATE_MEMORY"; PW_MEMORY="$NODE_MEMORY"
+fi
+BACKEND_MEMORY="${E2E_BACKEND_MEMORY:-$BACKEND_MEMORY}"
+PW_MEMORY="${E2E_PLAYWRIGHT_MEMORY:-$PW_MEMORY}"
+if [ "$PW_MEMORY" != "$NODE_MEMORY" ]; then NODE_HEAP_MB=$(( $(mib "$PW_MEMORY") * 3 / 4 )); fi
+NODE_MEMORY="$PW_MEMORY"            # in_playwright (lib.sh) caps the Playwright container with these
+echo "shard ${SHARD}: seeded backend --memory ${BACKEND_MEMORY}, playwright --memory ${NODE_MEMORY} (heap ${NODE_HEAP_MB} MB), --cpus ${GATE_CPUS} each"
+[ -f "$fe/.next/BUILD_ID" ] || { echo "no next build in $fe/.next: the e2e-build gate builds it"; exit 1; }
 cleanup() {
-  for c in "$backend" "$empty" "$smtp"; do
+  for c in "$backend" "$empty" "$smtp" "$idp"; do
     echo "==== ${c##*-${RUN_TAG}-} log (tail)"; docker logs --tail 200 "$c" 2>&1 || true
   done
-  docker rm -f "$backend" "$empty" "$smtp" >/dev/null 2>&1 || true
+  docker rm -f "$idp" "$backend" "$empty" "$smtp" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
+  rm -rf "${WS:?}/$sdir/next"  # the build copy; test-results (traces, screenshots) stay with the workspace
 }
 trap cleanup EXIT
+section "shard ${SHARD}: private copy of the e2e-build gate's .next (no cache/, no standalone/)"
+rm -rf "${WS:?}/$sdir"
+mkdir -p "$WS/$sdir/next" "$WS/$sdir/test-results" "$WS/$sdir/empty" "$fe/test-results"
+tar -C "$fe/.next" --exclude=./cache --exclude=./standalone -cf - . | tar -C "$WS/$sdir/next" -xf -
 # health of a backend container, from inside it (no published ports on the pod)
 healthy() {
   docker exec "$1" python -c 'import sys, urllib.request
@@ -44,8 +85,9 @@ except Exception:
 }
 docker network create --label "smartsched-ci.run=${RUN_TAG}" "$net" >/dev/null
 section "backend with the Bahar fixtures"
-docker run -d "${docker_common[@]}" --name "$backend" --network "$net" --network-alias backend \
-  -e E2E_BOOKING_CLOCK="$clock" \
+docker run -d "${docker_common[@]}" --memory "$BACKEND_MEMORY" --memory-swap "$BACKEND_MEMORY" \
+  --name "$backend" --network "$net" --network-alias backend \
+  -e E2E_WORKDIR="/w/$sdir" -e E2E_VENV=/w/venv -e E2E_BOOKING_CLOCK="$clock" \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
 section "smtp sink"
 docker run -d "${docker_common[@]}" --memory 256m --memory-swap 256m --name "$smtp" --network "$net" --network-alias smtp \
@@ -57,22 +99,36 @@ for _ in $(seq 1 "$tries"); do
   sleep "$pause"
 done
 if [ "$ok" != 1 ]; then echo "backend not healthy after $((tries * pause)) s"; exit 1; fi
-section "contract fixtures: record + shape diff (report only; copy /w/contract/*.json to re-record)"
-docker exec "$backend" python /ci/contract-record.py --api http://127.0.0.1:8000 --out /w/contract \
-  --compare /w/src/smartsched/frontend/src/lib/api/__fixtures__/real || echo "contract recording failed (report only)"
+if [ "$idx" = 1 ]; then  # one recording per run (every shard's backend is seeded alike); /w/contract is shared
+  section "contract fixtures: record + shape diff (report only; copy /w/contract/*.json to re-record)"
+  docker exec "$backend" python /ci/contract-record.py --api http://127.0.0.1:8000 --out /w/contract \
+    --compare /w/src/smartsched/frontend/src/lib/api/__fixtures__/real || echo "contract recording failed (report only)"
+fi
 section "empty backend (installer)"
-# migrations only, no imports or solves: 1 GB is plenty and keeps the stack inside the 8 GB pod next to the app
+# migrations only, no imports or solves: 1 GB is plenty (part of the shard's 1.5 GiB side-container budget)
 docker run -d "${docker_common[@]}" --memory 1g --memory-swap 1g --name "$empty" --network "$net" \
   --network-alias backend-empty \
-  -e E2E_EMPTY=1 -e E2E_VENV=/w/venv -e E2E_WORKDIR=/w/e2e-empty -e E2E_BOOKING_CLOCK="$clock" \
+  -e E2E_EMPTY=1 -e E2E_VENV=/w/venv -e E2E_WORKDIR="/w/$sdir/empty" -e E2E_BOOKING_CLOCK="$clock" \
   -w /w/src/smartsched/backend "$PY_IMAGE" bash /ci/e2e-backend-entry.sh >/dev/null
-section "playwright (E2E_REAL=1, all specs)"
-# list for the log; json for the parity gate (gates/parity.sh maps UI rows to these test results)
-in_playwright --network "$net" -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 \
+section "mock OpenID Connect issuer (w3-idp.spec.ts) inside the backend's network namespace"
+# The issuer URL is http://localhost:19712: the backend (discovery, JWKS, token) and the browser (authorize) must both
+# reach it, and the panel's public URL (127.0.0.1:3100) must be the browser's too. So the issuer runs next to the
+# backend and Playwright joins the backend's namespace: localhost is the same for all three. It needs the backend venv
+# (joserfc), which the Playwright image does not have.
+docker run -d "${docker_common[@]}" --memory 256m --memory-swap 256m --name "$idp" --network "container:$backend" \
+  "$PY_IMAGE" /w/venv/bin/python -I /w/src/smartsched/frontend/e2e/w3-idp-mock-issuer.py 19712 >/dev/null
+section "playwright (E2E_REAL=1, shard ${SHARD})"
+# list for the log; json for the parity gate (gates/parity.sh merges every shard's report and maps UI rows to it).
+# .next and test-results are this shard's own directories mounted over the shared source tree
+rm -f "$WS/playwright-report-${idx}.json"
+in_playwright --network "container:$backend" -e W3_IDP_EXTERNAL=1 -e E2E_REAL=1 -e NEXT_PUBLIC_API_URL=http://backend:8000 \
+  -v "$WS/$sdir/next:/w/src/smartsched/frontend/.next" \
+  -v "$WS/$sdir/test-results:/w/src/smartsched/frontend/test-results" \
+  -e NEXT_TELEMETRY_DISABLED=1 -e E2E_SHARD="$SHARD" \
   -e E2E_SMTP_HOST=smtp -e E2E_SMTP_PORT=1025 -e E2E_SMTP_API=http://smtp:8025 \
   -e E2E_EMPTY_API_URL=http://backend-empty:8000 \
-  -e E2E_DB=/w/e2e.db \
-  -e PLAYWRIGHT_JSON_OUTPUT_NAME=/w/playwright-report.json -- '
+  -e E2E_DB="/w/$sdir/e2e.db" \
+  -e PLAYWRIGHT_JSON_OUTPUT_NAME="/w/playwright-report-${idx}.json" -- '
 up() { node -e "fetch(process.argv[1]).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" "$1"; }
 for url in http://backend:8000/api/v1/health http://backend-empty:8000/api/v1/health http://smtp:8025/health; do
   for i in $(seq 1 150); do
@@ -95,11 +151,8 @@ const api = \"http://backend:8000/api/v1\";
   process.exit(today >= \"2026-02-02\" && today <= \"2026-06-28\" ? 0 : 1);
 })().catch((e) => { console.log(String(e)); process.exit(1); });
 "
-echo "==== next build (warms .next/cache: the playwright webServer builds again and must start within 300 s)"
-start=$(date +%s); npx next build >/w/next-build.log 2>&1 || { tail -n 60 /w/next-build.log; exit 1; }
-echo "next build: $(( $(date +%s) - start )) s"
-# one worker (also playwright.config.ts): the specs share one seeded backend and the pod has 2 vCPUs
-npx playwright test --workers=1 --reporter=list,json
-echo "==== no mock/demo code in the production build"
-bash ../deploy/validate.sh --no-mock-build .next/standalone
+[ -f .next/BUILD_ID ] || { echo "no .next/BUILD_ID: the e2e-build gate builds it"; exit 1; }
+# the e2e-build gate built and checked .next; the webServer only starts it (E2E_PREBUILT=1). One worker (also
+# playwright.config.ts): the specs of a shard share its one seeded backend
+E2E_PREBUILT=1 npx playwright test --shard="${E2E_SHARD}" --workers=1 --reporter=list,json
 '

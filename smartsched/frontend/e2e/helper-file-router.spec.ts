@@ -18,7 +18,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, FIXTURES, REAL, SKIP_REASON, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, FIXTURES, REAL, SKIP_REASON, login, pinTerm } from "./helpers";
 
 test.skip(!REAL, SKIP_REASON);
 
@@ -61,12 +61,7 @@ async function chooseTerm(page: Page, name: RegExp) {
   const terms = await page.evaluate(async () => (await (await fetch("/api/v1/terms")).json()) as { id: number; name: string }[]);
   const guz = terms.find((t) => name.test(t.name));
   test.skip(!guz, "no Güz term on this stack");
-  await page.evaluate((id) => {
-    const raw = localStorage.getItem("smartsched.ui");
-    const v = raw ? JSON.parse(raw) : { state: {} };
-    v.state = { ...(v.state ?? {}), termId: id };
-    localStorage.setItem("smartsched.ui", JSON.stringify(v));
-  }, guz!.id);
+  await pinTerm(page, guz!.id);
   await page.reload();
 }
 

@@ -33,7 +33,7 @@
  *     npx playwright test e2e/followups-ui.spec.ts
  */
 import { expect, request as pwRequest, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, TERM_CODE, login, pinTermCode } from "./helpers";
 import { pinLanguage } from "./language";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
@@ -245,6 +245,7 @@ test("2 · academician: withdraw a pending wish after a confirmation", async ({ 
 
 test("3 · coordinator: person badge, accept the room wish (soft rule after the department's room), reject the building wish with a reason", async ({ page }) => {
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/moderation?tab=people");
   // Kişiler searches names (a course code finds nobody there: F-05 S06)
   await page.getByTestId("moderation-search").fill(ctx.instructorName);
@@ -334,6 +335,7 @@ test("5 · phone 390: the sheet is a bottom sheet with 44 px targets, the reject
   // the coordinator on a phone: a pending wish, the reject dialog is a bottom sheet
   await api("POST", "/moderation/me/preferences", { kind: "room_preference", request_ids: [ctx.ptl102.request_id], rooms: ["C 302"] }, ctx.teacherToken);
   const a = await phone(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await pinTermCode(a, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await a.goto("/moderation?tab=preferences&view=teacher");
   const card = a.getByTestId("wish-card").filter({ hasText: "C 302" });
   await expect(card).toBeVisible();
@@ -350,6 +352,7 @@ test("5 · phone 390: the sheet is a bottom sheet with 44 px targets, the reject
 
 test("6 · users admin: identity chips and the method select filter on the server with its total", async ({ page }) => {
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/admin/users");
   await expect(page.getByTestId("identity-filters")).toBeVisible();
   const asked = (pred: (u: URL) => boolean) => page.waitForRequest((r) => r.url().includes("/api/v1/users/search") && pred(new URL(r.url())));
@@ -407,6 +410,7 @@ test("7 · program wizard: archived namesake → 'Bu kişiyi kullan', 422 pre-ch
 
   try {
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
     await page.goto(`/programs/new/${second.id}?step=instructors`);
     const slot = page.locator('[data-path="courses.c1.sections.s1.instructors.0"]');
     await expect(slot.getByTestId("field-issues")).toContainText("arşivlenmiş bir öğretim elemanı var (Biyoteknoloji Tezli Yüksek Lisans)");

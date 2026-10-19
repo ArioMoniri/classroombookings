@@ -24,11 +24,14 @@ import { auditDailySummary, dailyRows, type DayRow } from "./audit-daily-model";
 
 const DAYS = 30;
 
-export function AuditDaily({ onDay, userId }: { onDay: (day: string) => void; userId?: number | null }) {
+/** `open` given: the phone toggle lives with the page's title actions (audit-view.tsx), so the first event still starts
+ *  high on a phone (T-R1-32); otherwise the chart brings its own toggle. */
+export function AuditDaily({ onDay, userId, open: openProp }: { onDay: (day: string) => void; userId?: number | null; open?: boolean }) {
   const { t, locale } = useI18n();
   const f = useChartFormat();
   const q = useDailyAuditStats(DAYS);
-  const [open, setOpen] = useState(false);
+  const [openSelf, setOpen] = useState(false);
+  const open = openProp ?? openSelf;
   const [live, setLive] = useState("");
   const missing = q.isError && isMissingRoute(q.error);
   const rows = useMemo(() => (q.data ? dailyRows(q.data) : []), [q.data]);
@@ -42,11 +45,13 @@ export function AuditDaily({ onDay, userId }: { onDay: (day: string) => void; us
   ];
 
   return (
-    <div className="flex flex-col gap-2" data-testid="audit-daily">
-      <Button variant="outline" className="self-start sm:hidden pointer-coarse:h-11" aria-expanded={open} aria-controls="audit-daily-card" onClick={() => setOpen((v) => !v)} data-testid="audit-daily-toggle">
-        <BarChart3 aria-hidden />
-        {open ? t("charts.audit.hide") : t("charts.audit.show")}
-      </Button>
+    <div className={cn("flex flex-col gap-2", openProp !== undefined && !open && "max-sm:hidden")} data-testid="audit-daily">
+      {openProp === undefined ? (
+        <Button variant="outline" className="self-start sm:hidden pointer-coarse:h-11" aria-expanded={open} aria-controls="audit-daily-card" onClick={() => setOpen((v) => !v)} data-testid="audit-daily-toggle">
+          <BarChart3 aria-hidden />
+          {open ? t("charts.audit.hide") : t("charts.audit.show")}
+        </Button>
+      ) : null}
       <Card id="audit-daily-card" className={cn("px-4 py-4", !open && "max-sm:hidden")}>
         <ChartCard<DayRow>
           id="audit-daily"

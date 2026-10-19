@@ -18,7 +18,7 @@
  */
 import { randomInt } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { REAL, SKIP_REASON, TERM_CODE, login, pinTermCode } from "./helpers";
 import { pinLanguage } from "./language";
 
 test.skip(!REAL, SKIP_REASON);
@@ -119,6 +119,7 @@ async function edit(page: Page, act: () => Promise<void>): Promise<void> {
 test("program wizard: a server draft from scratch, resume, validate, paste, cohorts, rooms, pre-check, create, undo", async ({ page }) => {
   test.setTimeout(300_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const term = await emptyTerm(page);
   await page.goto("/programs/new");
   const landing = page.getByTestId("wizard-landing");
@@ -249,6 +250,7 @@ test("program wizard: a server draft from scratch, resume, validate, paste, coho
 test("joint teaching on the real Bahar term: MBG 534 with MBG 014, the joint total sizes the room, commit minimal → moderation preview", async ({ page }) => {
   test.setTimeout(420_000 + RESOLVE_WAIT);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const { term } = await ensurePublished(page);
   await page.goto("/programs/new");
   await page.getByTestId("wizard-term").selectOption(String(term.id));
@@ -323,6 +325,7 @@ let person: { id: number; name: string; label: string } | null = null;
 test("moderation: person priority with its source badge, server changes list, re-solve preview with baseline + chain, publish with Akademisyenlere bildir", async ({ page }) => {
   test.setTimeout(480_000 + RESOLVE_WAIT);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const { term } = await ensurePublished(page);
   // the academician of the flow: the first person in the published plan with a default-priority request
   const m = await call<{ items: MatchingRow[] }>(page, "GET", `/terms/${term.id}/moderation/matchings?check=false&limit=5000`);
@@ -412,13 +415,15 @@ test("Taleplerim: the teacher's nav entry opens /moderation/me with their own re
   const p2 = await ctx2.newPage();
   await login(p2, UNLINKED.email, UNLINKED.password);
   await p2.goto("/moderation/me");
-  await expect(p2.getByTestId("mine-unlinked")).toContainText("Hesabınız bir öğretim elemanına bağlı değil");
+  // PER-F02: no dead end for an unlinked account; Taleplerim says where its planning requests will appear
+  await expect(p2.getByTestId(/^mine-unlinked/).first()).toContainText("Ders planlama talepleriniz, hesabınız bir öğretim elemanı kaydına bağlanınca burada görünür.");
   await ctx2.close();
 });
 
 test("learned suggestions: accept → Geri al restores; dismiss → Geçmiş → Geri al; persistent accept asks first", async ({ page }) => {
   test.setTimeout(180_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const { term } = await ensurePublished(page);
   // suggestions are priors over the extracted evidence: run the extraction for the term first (idempotent; the same
   // as `python -m app.cli learning-refresh`, which the gate's backend does not run)
@@ -470,6 +475,7 @@ test("phone 390 × 844: the wizard's compact stepper and floating footer, modera
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "tr-TR", timezoneId: "Europe/Istanbul" });
   const page = await ctx.newPage();
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const term = await emptyTerm(page);
   const d = await call<{ id: number }>(page, "POST", "/program-drafts", { term_id: term.id, payload: { program: { name: "Mobil kontrol (E2E)", faculty_name: "Fen Bilimleri Enstitüsü", prefix: "MBG" } }, step: "program" });
   expect(d.status).toBe(201);

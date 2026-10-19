@@ -1116,6 +1116,18 @@ POD_DIAG = (
     "systemctl list-timers 'smartsched-*' --no-pager 2>&1 | head -8; "
     "systemctl is-active smartsched-ci-web.service 2>&1; "
     "docker ps --format '{{.Names}} {{.Status}}' 2>&1; "
+    # the app stack itself (why the site is down even when CI is idle): boot unit, last good deploy, checkout,
+    # .env present, stopped app containers, app images, disk, and the first-boot deploy's own lines
+    "echo '==== app stack'; systemctl is-active smartsched-stack.service 2>&1; "
+    "journalctl -u smartsched-stack.service -b -n 15 --no-pager -o cat 2>&1 | tail -15; "
+    "echo \"deployed-sha: $(cat /var/lib/smartsched-ci/deployed-sha 2>&1)\"; "
+    "echo \"checkout: $(git -C /opt/smartsched/src rev-parse --short HEAD 2>&1)\"; "
+    "test -f /opt/smartsched/src/smartsched/deploy/.env && echo '.env: present' || echo '.env: MISSING'; "
+    "docker ps -a --filter status=exited --filter status=created --format '{{.Names}} {{.Status}}' 2>&1 "
+    "| grep -v -e podci- -e smartsched-ci- | head -15; "
+    "docker images --format '{{.Repository}}:{{.Tag}} {{.CreatedSince}}' 2>&1 | grep -i smartsched | head -10; "
+    "df -h / /var/lib/docker 2>&1 | tail -2; "
+    "grep -a -e '\\[pod-bootstrap\\]' -e 'deploy.sh' /var/log/cloud-init-output.log 2>&1 | tail -12; "
     "journalctl -u 'smartsched-ci-*' -n 400 --no-pager -o short-iso 2>&1 | grep '\\[pod-ci\\]' | tail -25; "
     f"python3 - /var/lib/smartsched-ci {FAILED_GATE_TAIL} <<'PODCI_PY' 2>&1\n"
     + POD_FAILED_GATES_PY.lstrip("\n") + "PODCI_PY\n"
@@ -1198,6 +1210,86 @@ def cmd_start(aws: Aws, sleep: Callable[[float], None] = time.sleep) -> list[str
         if addrs and addrs[0].get("InstanceId") != inst["InstanceId"]:
             associate_eip(aws, addrs[0]["AllocationId"], inst["InstanceId"])
     return ids
+
+
+def cmd_resize(aws: Aws, s: Settings, account: str, set_budget: bool = False,
+               sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+    """Change the pod's instance type in place: stop, modify, start (the root volume, the EIP and the pod's data
+    stay). With ``set_budget`` the budget becomes ``s.budget_usd`` too (a bigger type must not trip the budget
+    action); without it the budget is left alone (the --budget-usd default would otherwise lower it)."""
+    insts = find_instances(aws)
+    if len(insts) != 1:
+        raise BootstrapError(f"resize needs exactly one pod instance, found {len(insts)}")
+    inst = insts[0]
+    iid, before = inst["InstanceId"], inst["InstanceType"]
+    ec2 = aws.client("ec2")
+    if before != s.instance_type:
+        if inst["State"]["Name"] in ("pending", "running"):
+            ec2.stop_instances(InstanceIds=[iid])
+        wait_for(lambda: instance_state(aws, iid) == "stopped", f"{iid} stopped", sleep=sleep)
+        ec2.modify_instance_attribute(InstanceId=iid, InstanceType={"Value": s.instance_type})
+        log(f"{iid}: {before} -> {s.instance_type}")
+    else:
+        log(f"{iid} is already {s.instance_type}")
+    cmd_start(aws, sleep=sleep)
+    if set_budget:
+        ensure_budget(aws, account, s)
+    try:  # the pod is already resized: a missing price only drops the estimate
+        hourly, _ = ec2_hourly_price(aws, s.region, s.instance_type)
+        gp3, _ = gp3_price(aws, s.region)
+        estimate: dict[str, Any] | None = estimate_monthly(hourly, gp3, s.volume_gb)
+    except BootstrapError as exc:
+        log(f"no cost estimate: {exc}")
+        estimate = None
+    return {"instance_id": iid, "from": before, "to": s.instance_type,
+            "budget_usd": s.budget_usd if set_budget else None, "estimate": estimate}
+
+
+def pod_ci_upgrade_script(s: Settings) -> str:
+    """The owner's manual refresh (docs/HANDOFF.md) as one SSM script: pod CI reinstalled from the deploy branch, the
+    self-update watcher stopped first (install.sh re-enables it), and the worker restarted so the next gate runs the
+    new code (a run in progress is interrupted and requeued by the worker's recovery)."""
+    return "\n".join([
+        "set -euo pipefail",
+        "systemctl stop smartsched-ci-update.path smartsched-ci-update.service || true",
+        "rm -rf /tmp/podci-new",
+        f"git clone --quiet --depth 1 --branch {shlex.quote(s.deploy_branch)} "
+        f"{shlex.quote(f'https://github.com/{s.repo}.git')} /tmp/podci-new",
+        "git -C /tmp/podci-new log -1 --format='pod CI from %h %s'",
+        "bash /tmp/podci-new/smartsched/deploy/pod-ci/install.sh --upgrade",
+        "systemctl stop smartsched-ci-worker.service || true",
+        "systemctl start --no-block smartsched-ci-worker.service",
+        "systemctl list-timers 'smartsched-*' --no-pager | head -8",
+    ])
+
+
+def cmd_ci_upgrade(aws: Aws, s: Settings, sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+    insts = [i for i in find_instances(aws) if i["State"]["Name"] == "running"]
+    if not insts:
+        raise BootstrapError("no running pod instance (start it first)")
+    iid = insts[0]["InstanceId"]
+    ssm = aws.client("ssm")
+    cmd = ssm.send_command(InstanceIds=[iid], DocumentName="AWS-RunShellScript", TimeoutSeconds=60,
+                           Parameters={"commands": [pod_ci_upgrade_script(s)], "executionTimeout": ["600"]},
+                           Comment="smartsched pod-ci upgrade")
+    command_id = cmd["Command"]["CommandId"]
+    for _ in range(100):
+        sleep(5)
+        try:
+            inv = ssm.get_command_invocation(CommandId=command_id, InstanceId=iid)
+        except Exception as exc:  # InvocationDoesNotExist right after send_command
+            if error_code(exc) == "InvocationDoesNotExist":
+                continue
+            raise
+        if inv["Status"] in ("Pending", "InProgress", "Delayed"):
+            continue
+        text = (inv.get("StandardOutputContent") or "") + (inv.get("StandardErrorContent") or "")
+        lines = [LOG_REDACT.sub(lambda m: (m.group(1) + " [redacted]") if m.group(1) else "[redacted]", line)
+                 for line in text.splitlines()][-60:]
+        if inv["Status"] != "Success":
+            raise BootstrapError(f"pod CI upgrade {inv['Status']}:\n" + "\n".join(lines))
+        return {"instance_id": iid, "branch": s.deploy_branch, "status": inv["Status"], "output": lines}
+    raise BootstrapError("pod CI upgrade still running after 500 s; read `logs`")
 
 
 def _delete_role(iam: Any, name: str, profile: str | None = None) -> None:
@@ -1374,7 +1466,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="smartsched_aws.py", description=__doc__.split("\n\n")[0],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["up", "status", "logs", "stop", "start", "down", "cost", "plan", "preflight",
-                                       "put-github-token", "render-user-data"])
+                                       "put-github-token", "render-user-data", "resize", "ci-upgrade"])
     p.add_argument("--region", default=None,
                    help=f"AWS region, or 'auto' = cheaper of {'/'.join(NEAR_TURKIYE)} (default: $AWS_REGION, "
                         f"$AWS_DEFAULT_REGION, else {DEFAULT_REGION})")
@@ -1489,6 +1581,12 @@ def main(argv: list[str] | None = None) -> int:
             emit(cmd_cost(aws, s, ident["account"]), a)
         elif a.command == "logs":
             emit(cmd_logs(aws), a)
+        elif a.command == "resize":
+            words = argv if argv is not None else sys.argv[1:]
+            given = any(x == "--budget-usd" or x.startswith("--budget-usd=") for x in words)
+            emit(cmd_resize(aws, s, ident["account"], set_budget=given), a)
+        elif a.command == "ci-upgrade":
+            emit(cmd_ci_upgrade(aws, s), a)
         elif a.command == "stop":
             emit({"stopped": cmd_stop(aws)}, a)
         elif a.command == "start":

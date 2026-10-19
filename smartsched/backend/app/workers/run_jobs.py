@@ -67,9 +67,26 @@ async def start_run(session: Any, run: Any) -> bool:
     """Mark ``run`` RUNNING unless it was cancelled while queued (then False: the job ends)."""
     if run.status == "CANCELLED" or cancel.is_cancelled(run.id):
         return False
-    run.status = "RUNNING"
-    run.started_at = _now()
-    run.heartbeat_at = _now()
+    from sqlalchemy import update
+    from sqlalchemy.orm.attributes import set_committed_value
+
+    from app.models import ScheduleRun
+
+    # One conditional UPDATE, committed at once: ``run`` was loaded before a cancel may have landed, and a plain
+    # ``run.status = "RUNNING"`` flushed with the caller's next commit overwrote that CANCELLED; the cancelled run
+    # came back RUNNING and still counted against the user's active-run limit (pod run #113, test_m13 429).
+    now = _now()
+    res = await session.execute(
+        update(ScheduleRun)
+        .where(ScheduleRun.id == int(run.id), ScheduleRun.status != "CANCELLED")
+        .values(status="RUNNING", started_at=now, heartbeat_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    await session.commit()
+    if not res.rowcount:
+        return False
+    for key, value in (("status", "RUNNING"), ("started_at", now), ("heartbeat_at", now)):
+        set_committed_value(run, key, value)
     return True
 
 

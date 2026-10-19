@@ -4512,6 +4512,30 @@
       "status": "finished",
       "finished_at": "2026-10-18 23:48",
       "left_off": "<analysis> The conversation continued from an earlier summary. This period: the orchestrator ran many fix lanes (FIX-D…K, README-X, ARCH-D, HB-23 a–d, KVKK reviews, KVKK-MASK) and child cloud sessions (CI repro, video fix, tester, HB-23d). It fixed pod CI repeatedly. The owner ran an SSM refresh, then resized the pod to c7g.2xlarge with a $250 budget, then ran a second refresh. Parallel gates land…"
+    },
+    {
+      "id": "ace2f7fb60fc9ddce",
+      "description": "Fix failing pod e2e specs",
+      "subagent_type": "general-purpose",
+      "isolation": null,
+      "started_at": "2026-10-19 02:53",
+      "scope": "",
+      "goal": "reproduce these locally as close to the gate as you can (read e2e-real.sh, e2e-backend-entry.sh, e2e-backend-serve.py, e2e-seed-analytics.py and stack-up.sh to replicate: real backend with the seeded fixtures, Next production build or dev server, Playwright with Chromium at /opt/pw-browsers — do NOT run `playwright install`). A local PostgreSQL may run at 127.0.0.1:55432 but the e2e backend uses S…",
+      "ledger": "Fix failing pod e2e specs",
+      "resumed": false,
+      "status": "running"
+    },
+    {
+      "id": "a07de39eaaebcdd29",
+      "description": "Shard pod e2e-real gate",
+      "subagent_type": "devops-engineer",
+      "isolation": null,
+      "started_at": "2026-10-19 10:51",
+      "scope": "",
+      "goal": "make the pod CI browser gate fast. Today gate `e2e-real` (podci/gates.py; gates/e2e-real.sh) runs all ~436 Playwright specs with --workers=1 against ONE seeded backend (gates/e2e-backend-entry.sh: real Bahar/Güz/Final fixture imports + full-term solve + analytics seed, booking clock pinned 2026-02-16T08:00), plus an smtp sink, an empty backend (installer specs) and a mock OIDC issuer sidecar (cont…",
+      "ledger": "Shard pod e2e-real gate",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }

@@ -107,3 +107,21 @@ def test_up_step_gets_the_optional_secrets_as_env_and_never_echoes_them() -> Non
         assert f"${key}" not in step["run"] and f"${{{key}}}" not in step["run"]
     assert "pod-flags" in step["run"]
     assert set(wf[True]) == {"push", "workflow_dispatch"} and wf[True]["push"]["paths"] == ["infra/aws/POD_ACTION"]
+
+
+def test_resize_takes_only_the_type_and_the_budget(tmp_path: Path) -> None:
+    code, vals, log = resolve(tmp_path, "resize type=c7g.4xlarge budget=450 org=X 2026-10-19T12:00Z")
+    assert code == 0, log
+    assert vals["command"] == "resize"
+    assert flags(tmp_path) == ["--instance-type", "c7g.4xlarge", "--budget-usd", "450"]
+
+
+def test_resize_without_a_type_fails(tmp_path: Path) -> None:
+    code, _, log = resolve(tmp_path, "resize budget=450")
+    assert code == 1 and "resize needs type=" in log, log
+
+
+def test_ci_upgrade_is_a_known_command_without_flags(tmp_path: Path) -> None:
+    code, vals, log = resolve(tmp_path, "ci-upgrade pod=gracious 2026-10-19T12:00Z")
+    assert code == 0, log
+    assert vals["command"] == "ci-upgrade" and flags(tmp_path) == []

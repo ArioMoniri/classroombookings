@@ -190,3 +190,21 @@ def test_systemd_units_reference_real_commands() -> None:
     for unit in ("smartsched-ci-web.service", "smartsched-ci-poll.timer", "smartsched-ci-worker.path",
                  "smartsched-ci-update.path", "smartsched-ci-worker.timer"):
         assert unit in installed and unit in units
+
+
+def test_a_pod_serving_the_site_never_stops_itself_and_keeps_the_alarm_disarmed(
+        cfg: Config, store: Store, clock: Clock) -> None:
+    cfg.state_dir.mkdir(parents=True, exist_ok=True)
+    (cfg.state_dir / runner.DEPLOYED_SHA).write_text("a" * 40 + "\n")
+    cloud = NoCloud()
+    t0 = clock.t
+    busy = total = 0.0
+    out = {}
+    for minute in range(0, 130, 2):  # 2 % CPU for two hours: a quiet website
+        busy += 2.4
+        total += 120.0
+        out = runner.heartbeat(cfg, store, cloud, t0 + minute * 60, uptime=99999, sample=(busy, total),
+                               log=lambda _: None)
+    assert out["serving"] is True and out["stop"] is False
+    assert not any(e[0] == "stop" for e in cloud.events)
+    assert ("alarm_actions", False) in cloud.events

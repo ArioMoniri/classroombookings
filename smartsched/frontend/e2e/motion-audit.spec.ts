@@ -618,7 +618,7 @@ test.describe("motion audit: welcome", () => {
     linked.push(ayse);
     const context = await browser.newContext({ ...PHONE, reducedMotion: "reduce" });
     const page = await context.newPage();
-    await signIn(page, ayse.username, ayse.password);
+    await signIn(page, ayse.username, ayse.password, { welcome: true });
     await page.goto("/my-bookings", { waitUntil: "domcontentloaded" });
     await page.getByTestId("welcome-sheet").waitFor({ timeout: 20_000 });
     const moving = () =>

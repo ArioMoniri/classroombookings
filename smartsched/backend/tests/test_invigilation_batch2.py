@@ -14,6 +14,7 @@ published, the Final exam run solved like ``POST /runs``, one invigilation plan 
 from __future__ import annotations
 
 import asyncio
+import gc
 import time
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -157,15 +158,36 @@ async def test_candidates_does_not_block_the_event_loop(real):
         assert r.status_code == 200
         return time.perf_counter()
 
-    t0 = time.perf_counter()
-    tick = asyncio.create_task(ticker())
-    t_heavy, t_cheap = await asyncio.gather(heavy(), cheap())
-    await tick
+    # the host's own stalls with nothing heavy running (CPU quota throttling on a shared pod-CI host, run #113: a
+    # 0.72 s gap) are measured first, so only a stall the candidates call adds counts against it
+    base: list[float] = []
+    last = time.perf_counter()
+    while time.perf_counter() - last < 1.0 and len(base) < 400:
+        before = time.perf_counter()
+        await asyncio.sleep(0.005)
+        base.append(time.perf_counter() - before)
+    host_stall = max(base)
+
+    # a full collection of what earlier tests left (the real Final fixtures) paused the loop 0.66 s when this test ran
+    # after the run tests; that is the interpreter, not the endpoint, so the heap is collected first and the
+    # collector is off while the loop is timed
+    gc.collect()
+    gc.disable()
+    try:
+        t0 = time.perf_counter()
+        tick = asyncio.create_task(ticker())
+        t_heavy, t_cheap = await asyncio.gather(heavy(), cheap())
+        await tick
+    finally:
+        gc.enable()
     assert t_cheap < t_heavy, "the cheap request waited for candidates"
     # A blocked loop shows one gap as long as the whole candidates call; on a CPU-shared CI host (parallel pod-CI
     # gates, run #97) single GIL hand-offs can take longer than 0.5 s, so the bound scales with that call's length.
-    bound = max(0.5, 0.5 * (t_heavy - t0))
-    assert gaps and max(gaps) < bound, f"the event loop stalled for {max(gaps):.2f} s (bound {bound:.2f} s)"
+    bound = max(0.5, 0.5 * (t_heavy - t0)) + host_stall
+    assert gaps and max(gaps) < bound, (
+        f"the event loop stalled for {max(gaps):.2f} s (bound {bound:.2f} s; candidates call {t_heavy - t0:.2f} s, "
+        f"host stall alone {host_stall:.2f} s)"
+    )
 
 
 # ------------------------------------------------------------------------------------------- 2. fill a post by hand

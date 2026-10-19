@@ -87,7 +87,7 @@ test.beforeAll(async () => {
   const terms = await api<{ id: number; code: string }[]>("GET", "/terms");
   ctx.termId = terms.find((x) => x.code === TERM_CODE)!.id;
   const runs = await api<{ id: number; kind: string; term_id: number; label: string; is_active: boolean }[]>("GET", "/runs");
-  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.label.startsWith("Grid import"));
+  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && (r.label ?? "").startsWith("Grid import"));
   if (board && !board.is_active) await api("POST", `/runs/${board.id}/activate`);
   // the university's 18 periods, a bookable session, room groups, the 23 Nisan holiday
   let schedules = await api<{ id: number; name: string; periods: { id: number; name: string }[] }[]>("GET", "/booking-admin/schedules");
@@ -341,7 +341,8 @@ test("12. one-time reset code (shown once) and the reset-password page; setup is
   await page.getByTestId("users-search").fill(TEACHER.username);
   const row = page.locator(`[data-username="${TEACHER.username}"]`);
   await row.getByRole("button", { name: new RegExp(TEACHER.username) }).click();
-  await page.getByRole("menuitem", { name: "Tek kullanımlık sıfırlama kodu" }).click();
+  // the account menu's Giriş group (AUX §16.7, users-security.tsx): "Sıfırlama kodunu ekranda göster" opens the one-time code
+  await page.getByRole("menuitem", { name: "Sıfırlama kodunu ekranda göster" }).click();
   const code = await page.getByTestId("reset-token").inputValue();
   expect(code.length).toBeGreaterThan(8);
   await page.keyboard.press("Escape");

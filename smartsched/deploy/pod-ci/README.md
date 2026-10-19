@@ -9,7 +9,7 @@ GitHub Actions minutes are not used for CI. The pod polls GitHub, runs the same 
 systemd timer (2 min) -> podci poll -> git ls-remote (token from SSM) -> new head? -> SQLite queue
                                      -> heartbeat metrics + idle check
 path unit (queue-signal) -> podci work (flock, one job at a time)
-    prepare -> validate -> backend-deps -> backend -> backend-unit-1 -> backend-unit-2 -> backend-unit-3 -> infra -> frontend -> frontend-unit-1 -> frontend-unit-2 -> e2e-real -> parity -> planner -> images -> watchdog
+    prepare -> validate -> backend-deps -> backend -> backend-unit-1 -> backend-unit-2 -> backend-unit-3 -> infra -> frontend -> frontend-unit-1 -> frontend-unit-2 -> e2e-build -> e2e-real-1 -> e2e-real-2 -> e2e-real-3 -> parity -> planner -> images -> watchdog
     -> deploy (deploy branch only, all blocking gates green, commit still the branch head)
     -> POST /repos/{owner}/{repo}/statuses/{sha} per gate + overall ("pod-ci", "pod-ci/<gate>")
 nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
@@ -30,8 +30,11 @@ nginx /ci/ -> 172.17.0.1:8095 -> podci web (admin JWT cookie or basic auth)
 | `frontend` | Playwright container | `npm ci`, then the static checks of `npm run check`: tsc, eslint, `scripts/check-design.mjs` (each step prints its duration) | yes |
 | `frontend-unit-1` | Playwright container | `vitest run --shard=1/2` on the node_modules `frontend` installed (`gates/frontend-unit.sh 1/2`); needs `frontend` | yes |
 | `frontend-unit-2` | Playwright container | `vitest run --shard=2/2`: with shard 1 every vitest file of `npm run check` runs. One gate for all of `npm run check` ran past 1800 s on the pod (runs #70, #81) | yes |
-| `e2e-real` | backend + Playwright containers on a per-run network | backend imports the real Bahar, Güz 2026-27 and Final fixtures (`tests/fixtures/*.xlsx`) and the room master, seeds the admin, publishes the Bahar and Güz imported boards and seeds the analytics runs (`gates/e2e-seed-analytics.py`), solves the full Bahar term, serves with the booking clock pinned inside Bahar 2026 (`gates/e2e-backend-entry.sh`); `E2E_REAL=1 npx playwright test` runs every spec (smoke, real-backend, bookings, calendar, motion-audit), then the standalone build is checked for mock/demo code (`validate.sh --no-mock-build`). There is no mock-API gate. Also on the network: `smtp` (`gates/smtp-sink.py`: SMTP 1025, JSON API 8025, nothing delivered) and `backend-empty` (an empty database, no users: the first-run installer). Playwright gets `E2E_SMTP_HOST/PORT/API` and `E2E_EMPTY_API_URL`. A booking clock outside Bahar 2026 fails the gate before any spec runs. | yes |
-| `parity` | python CI container | `scripts/parity_check.py` (CRBS superset): API rows run here, UI rows are judged by this run's `/w/playwright-report.json` (skipped / failed / not run = FAIL; no report = gate fails) | yes |
+| `e2e-build` | Playwright container | `next build` once per run in the run's source tree (`NEXT_PUBLIC_API_URL=http://backend:8000`: the alias of every shard's backend, so one build serves all shards), then the standalone build is checked for mock/demo code (`validate.sh --no-mock-build`); after the vitest shards, two slots (the build's heap) | yes |
+| `e2e-real-1` | backend + Playwright containers on a per-shard network | `E2E_REAL=1 npx playwright test --shard=1/3 --workers=1` (`gates/e2e-real.sh 1/3`) against its own seeded backend: imports the real Bahar, Güz 2026-27 and Final fixtures (`tests/fixtures/*.xlsx`) and the room master, seeds the admin, publishes the Bahar and Güz imported boards and seeds the analytics runs (`gates/e2e-seed-analytics.py`), solves the full Bahar term, serves with the booking clock pinned inside Bahar 2026 (`gates/e2e-backend-entry.sh`). There is no mock-API gate. Also on the shard's network: `smtp` (`gates/smtp-sink.py`: SMTP 1025, JSON API 8025, nothing delivered), `backend-empty` (an empty database, no users: the first-run installer) and the mock OIDC issuer in the backend's network namespace (Playwright joins it, `W3_IDP_EXTERNAL=1`). Playwright gets `E2E_SMTP_HOST/PORT/API`, `E2E_EMPTY_API_URL` and `E2E_DB`, `next start`s a private copy of the `e2e-build` output (`.next` and `test-results` are per-shard mounts) and writes `/w/playwright-report-1.json`. Container names `podci-<run>-e2e1-*`, files under `/w/e2e-shard-1`. A booking clock outside Bahar 2026 fails the shard before any spec runs. Shard 1 also records the contract payloads (report only) | yes |
+| `e2e-real-2` | the same, own stack | Playwright shard 2/3 | yes |
+| `e2e-real-3` | the same, own stack | Playwright shard 3/3: shards are contiguous slices of the ordered spec files, so this one ends with the `integrity` and `intake` projects like the unsharded run. The three shards run every spec; one gate with all 436 specs took ~100-150 min (one worker, one backend) | yes |
+| `parity` | python CI container | `scripts/parity_check.py` (CRBS superset): API rows run here, UI rows are judged by this run's shard reports `/w/playwright-report-<i>.json`, merged (`gates/parity.sh 3`; skipped / failed / not run = FAIL; a missing shard report = gate fails); runs after all `e2e-real-*` shards finished, whatever their result | yes |
 | `planner` | python CI container | `tools/validate_planner.py` on the real workbooks (4 solves) | yes |
 | `images` | host | `docker build` backend, frontend, legacy CRBS (no push; tags removed, cache kept); the backend image must import the intake parsers | yes |
 | `watchdog` | python CI container | `scripts/watchdog.py` report | no |
@@ -41,11 +44,17 @@ Containers run as the `smartsched-ci` uid with `--cpus 2 --memory 3g`, `no-new-p
 removed afterwards. Gates whose `needs` succeeded (and whose `after` gates finished) run
 concurrently, at most `PODCI_PARALLEL` slots at once (0 = half the CPUs), capped by memory: (MemTotal - 3 GB for
 the app stack) / 4 GB per slot. On the 2 vCPU / 8 GB arm64 t4g.large that also serves the app (~2 GB) that is one
-slot: one gate at a time, as before. On a 16 GB c7g.2xlarge it is three slots of 2 vCPU / ~4.1 GB; each gate then
-gets `GATE_CPUS` / `GATE_MEMORY` / `NODE_MEMORY` / `NODE_HEAP_MB` for its slot (`e2e-real` and `images` take two). Node containers (`frontend`, `frontend-unit-*`, the Playwright container of `e2e-real`)
+slot: one gate at a time, as before. On a 16 GB c7g.2xlarge it is three slots of 2 vCPU / ~4.1 GB. On the
+16 vCPU / 32 GiB c7g.4xlarge (MemTotal ~31 GiB) it is six slots of 2 vCPU / ~4.6 GiB (8 wanted, 6 fit the memory);
+the three `e2e-real-*` shards take two each, so they run at the same time once the backend and vitest gates are
+green (`planner` then waits for the first shard to finish). Each gate gets `GATE_CPUS` / `GATE_MEMORY` /
+`NODE_MEMORY` / `NODE_HEAP_MB` for its slots (`e2e-build`, `e2e-real-*` and `images` take two). An `e2e-real` shard
+splits its two-slot share (~9.3 GiB) so its caps add up to it: 1.5 GiB for the side containers, 2/5 of the rest
+(at least 3 GiB) for the seeded backend, the remainder for Playwright (next start + Chromium; heap 3/4 of it); with
+one slot it keeps `GATE_MEMORY` / `NODE_MEMORY`. Node containers (`frontend`, `frontend-unit-*`, `e2e-build`, the Playwright container of `e2e-real-*`)
 get `NODE_MEMORY` (4g) and `NODE_OPTIONS=--max-old-space-size=$NODE_HEAP_MB` (3072): V8's default heap ran out
 in run #51 ("Ineffective mark-compacts near heap limit"). Under `CI=1` `vitest.config.mts` uses at most 2 forks
-with a 1536 MB heap each and a 30 s test timeout; Playwright runs `--workers=1`; in `e2e-real` the SMTP sink is
+with a 1536 MB heap each and a 30 s test timeout; Playwright runs `--workers=1`; in each `e2e-real-*` shard the SMTP sink and the OIDC issuer are
 capped at 256m and the empty backend at 1g. The frontend image build sets the `next build` heap
 (`NODE_BUILD_HEAP_MB`, 3072). No test is skipped to save memory. A gate whose `needs` failed is skipped (reported as `error`, never green).
 The stack smoke test of the Actions workflow is replaced by the real deploy plus its health check.

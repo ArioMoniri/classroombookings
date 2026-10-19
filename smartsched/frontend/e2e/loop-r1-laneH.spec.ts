@@ -40,6 +40,7 @@ interface Run {
   is_active: boolean;
   horizon_params: { weeks: number[] };
   stats: Record<string, unknown>;
+  params?: { source?: string } | null;
 }
 const ctx = {} as { api: APIRequestContext; admin: string; bahar: { id: number; code: string }; guz: { id: number; code: string }; hasGuz: boolean; weekRun: Run | null; termRun: Run | null; cancelled: number | null };
 
@@ -66,6 +67,13 @@ function trackErrors(page: Page): string[] {
   return errors;
 }
 
+/** the run report's figures live in the folded "Ayrıntılar" (FIX-H simpler run hero): open it */
+async function openRunDetails(page: Page) {
+  const details = page.getByTestId("run-details");
+  await details.waitFor();
+  if (!(await details.evaluate((el) => (el as HTMLDetailsElement).open))) await details.locator("summary").click();
+}
+
 test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   const res = await ctx.api.post(`${API}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
@@ -77,7 +85,8 @@ test.beforeAll(async () => {
   const runs = await api<Run[]>("GET", `/runs?term_id=${ctx.bahar.id}`);
   const finished = runs.filter((r) => ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL"].includes(r.status) && r.kind === "COURSE");
   ctx.weekRun = finished.filter((r) => r.horizon === "WEEK").sort((a, b) => b.id - a.id)[0] ?? null;
-  ctx.termRun = finished.filter((r) => r.horizon === "TERM").sort((a, b) => Number(b.is_active) - Number(a.is_active) || b.id - a.id)[0] ?? null;
+  // a solver run: an imported board (the e2e gate publishes Bahar's) shows no solver figures (HX12B-F07)
+  ctx.termRun = finished.filter((r) => r.horizon === "TERM" && r.params?.source !== "GRID_IMPORT").sort((a, b) => Number(b.is_active) - Number(a.is_active) || b.id - a.id)[0] ?? null;
   ctx.cancelled = null;
 });
 
@@ -179,6 +188,7 @@ test("T-R1-48 · the Sorun KPI is one server-side number at 1440 and 390; no odo
   const r = ctx.weekRun!;
   await login(page);
   await page.goto(`/runs/${r.id}`);
+  await openRunDetails(page);
   const kpi = page.locator('[data-testid^="kpi-Sorun"]');
   await expect(kpi).toBeVisible();
   // the number settles once the summary is in
@@ -199,6 +209,7 @@ test("T-R1-48 · the Sorun KPI is one server-side number at 1440 and 390; no odo
   const phone = await phoneCtx.newPage();
   await login(phone);
   await phone.goto(`/runs/${r.id}`);
+  await openRunDetails(phone);
   const kpiPhone = phone.locator('[data-testid^="kpi-Sorun"]');
   await expect(kpiPhone).toBeVisible();
   await phone.waitForTimeout(1500);
