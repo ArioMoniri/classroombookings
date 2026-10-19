@@ -315,7 +315,8 @@ test("T-R2-08 a teacher's /moderation/me crumb has no 'Moderasyon'; the admin's 
     await tp.goto("/moderation/me");
     const crumbs = tp.locator('nav[aria-label="Konum"]');
     await expect(crumbs.first()).toContainText("Taleplerim");
-    expect((await crumbs.allInnerTexts()).join(" ")).not.toContain("Moderasyon");
+    // until the permissions are known the shell draws the planners' trail (top-bar.tsx useBreadcrumbs): the settled one
+    await expect.poll(async () => (await crumbs.allInnerTexts()).join(" ")).not.toContain("Moderasyon");
     await tp.context().close();
   }
   const ap = await newPage(browser, DESKTOP, ADMIN_EMAIL, ADMIN_PASSWORD);
