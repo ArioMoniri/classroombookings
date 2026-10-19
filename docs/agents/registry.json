@@ -4592,7 +4592,7 @@
       "ledger": "Implement pod CI speed fixes",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-19 21:48",
+      "finished_at": "2026-10-19 22:38",
       "left_off": "The test was too strict. The runner has no race. **Cause:** `ConcurrentExecute` writes its `(\"end\", gate)` event while the gate's thread is still running, so the future is not done yet. If another gate's future finishes in that gap, the worker has not seen the failure and correctly starts the next ready gate. The test treated that start as a fail-fast violation. Once the worker processes a failed …"
     },
     {
@@ -4624,6 +4624,14 @@
       "status": "finished",
       "finished_at": "2026-10-19 22:10",
       "left_off": "is the site up yet"
+    },
+    {
+      "id": "a63507066ec991b5e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-19 22:31",
+      "left_off": "when will site be up"
     }
   ]
 }
