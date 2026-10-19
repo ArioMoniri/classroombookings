@@ -40,19 +40,78 @@ export async function ackPrivacyNotice(page: Page): Promise<boolean> {
   return acked;
 }
 
+/**
+ * Make `termId` the working term of the signed-in user (the current page is reloaded to pick it up).
+ * The shell's term is the user's workspace memory (`smartsched.workspace`, keyed by user id; AppShell copies it into
+ * `smartsched.ui` once /auth/me answers, and falls back to the current term by date when there is none), so writing
+ * `smartsched.ui` alone is overwritten on load. `forget` also drops the user's remembered runs and weeks.
+ */
+export async function pinTerm(page: Page, termId: number, { forget = false }: { forget?: boolean } = {}): Promise<void> {
+  await page.evaluate(
+    async ({ id, forget }) => {
+      const me = (await (await fetch("/api/v1/auth/me", { headers: { Accept: "application/json" } })).json()) as { id: number };
+      const ui = JSON.parse(localStorage.getItem("smartsched.ui") ?? "{}") as { state?: Record<string, unknown> };
+      localStorage.setItem("smartsched.ui", JSON.stringify({ ...ui, state: { ...(ui.state ?? {}), termId: id } }));
+      const ws = JSON.parse(localStorage.getItem("smartsched.workspace") ?? "{}") as { state?: { users?: Record<string, Record<string, unknown>> }; version?: number };
+      const users = { ...(ws.state?.users ?? {}) };
+      users[String(me.id)] = { ...(forget ? {} : (users[String(me.id)] ?? {})), termId: id };
+      localStorage.setItem("smartsched.workspace", JSON.stringify({ ...ws, state: { ...(ws.state ?? {}), users }, version: ws.version ?? 1 }));
+    },
+    { id: termId, forget },
+  );
+  // the running shell keeps its term in memory: load the page again so it reads the pinned one
+  await page.reload();
+}
+
+/** `pinTerm` by term code (GET /terms through the proxy); returns the term id. */
+export async function pinTermCode(page: Page, code: string, opts: { forget?: boolean } = {}): Promise<number> {
+  const terms = await api<{ id: number; code: string }[]>(page, "/terms");
+  const term = terms.find((t) => t.code === code);
+  expect(term, `term ${code} is on this backend`).toBeTruthy();
+  await pinTerm(page, term!.id, opts);
+  return term!.id;
+}
+
+/**
+ * A new account meets the first-sign-in welcome sheet (a modal, welcome-guide.md) on its first home or /admin/* page,
+ * opened a moment after the page settles, so it races whatever the spec clicks next. Specs that are not about the
+ * guide close it for good through the API, the event the sheet's own "never" action sends, and reload so the shell
+ * reads that; the welcome-guide specs keep it (`login(..., { welcome: true })`). Returns whether it was due.
+ */
+export async function dismissWelcomeSheet(page: Page): Promise<boolean> {
+  const due = await page.evaluate(async () => {
+    const r = await fetch(`/api/v1/welcome?first_route=${encodeURIComponent(location.pathname)}`, { headers: { Accept: "application/json" } });
+    if (!r.ok) return false;
+    const w = (await r.json()) as { show?: { kind?: string } | null };
+    if (w.show?.kind !== "sheet" && w.show?.kind !== "delta") return false;
+    const e = await fetch("/api/v1/welcome/events", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ guide_key: "sheet", event: "dismissed" }) });
+    return e.ok;
+  });
+  if (due) await page.reload();
+  return due;
+}
+
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
  *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. A privacy notice an earlier spec
- *  published is acknowledged unless `ackNotice: false` (the notice gate's own test). */
-export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD, { ackNotice = true }: { ackNotice?: boolean } = {}): Promise<void> {
+ *  published is acknowledged unless `ackNotice: false` (the notice gate's own test); the first-sign-in welcome sheet
+ *  is closed for good unless `welcome: true` (the welcome-guide specs). */
+export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD, { ackNotice = true, welcome = false }: { ackNotice?: boolean; welcome?: boolean } = {}): Promise<void> {
   // A page still showing the app after its cookies were cleared answers its next poll with 401 and redirects
   // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
   if (page.url() !== "about:blank") await page.goto("about:blank");
   await page.goto("/login?method=local");
+  // the fields are controlled inputs: text typed into the server-rendered form before React hydrated it is dropped
+  // on a slow host (the form then answers "identifier required"), so wait until React owns the form
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="login-submit"]');
+    return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$"));
+  }, undefined, { timeout: 30_000 });
   await page.getByTestId("login-identifier").fill(identifier);
   await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
   if (ackNotice) await ackPrivacyNotice(page);
+  if (!welcome) await dismissWelcomeSheet(page);
 }
 
 /** Same-origin GET through the Next proxy (the httpOnly cookie carries the JWT). */

@@ -14,7 +14,7 @@
  *     npx playwright test e2e/phase19.spec.ts
  */
 import { expect, test, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON, TERM_CODE, login } from "./helpers";
+import { REAL, SKIP_REASON, TERM_CODE, login, pinTermCode } from "./helpers";
 import { pinLanguage } from "./language";
 
 test.skip(!REAL, SKIP_REASON);
@@ -53,6 +53,7 @@ async function ensurePublished(page: Page): Promise<{ term: Term; run: Run }> {
 test("moderation: people → profile → raise a priority → re-solve preview diff → publish per the guard", async ({ page }) => {
   test.setTimeout(420_000 + RESOLVE_WAIT);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const { term } = await ensurePublished(page);
   // edits since publishing that earlier specs left (accepted wishes, priorities): this test adds exactly one
   const staged0 = (await call<{ total: number }>(page, "GET", `/terms/${term.id}/changes-since-publish`)).body.total;
@@ -94,6 +95,9 @@ test("moderation: people → profile → raise a priority → re-solve preview d
   await page.getByTestId("recreate-open").click();
   const sheet = page.getByTestId("recreate-sheet");
   await expect(sheet.getByRole("radio", { name: /En az değişiklik/ })).toBeChecked();
+  // the shortest time budget (as loop-r2-laneD): the flow under test is the preview diff and the publish guard, and the
+  // default budget's full-term re-solve took 3-10 min per run on one CPU-shared host (pod CI)
+  await sheet.getByRole("radio", { name: /60 sn/ }).or(sheet.getByText("60 sn")).first().click();
   await sheet.getByTestId("recreate-start").click();
   await expect(page).toHaveURL(/\/moderation\/recreate\/\d+/);
 
@@ -138,6 +142,7 @@ test("moderation: people → profile → raise a priority → re-solve preview d
 
 test("a teacher without a linked instructor sees the 'not linked' empty state on /moderation", async ({ page }) => {
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   const email = `p19-teacher-${Date.now()}@uni.edu.tr`;
   const made = await call(page, "POST", "/users", { email, full_name: "P19 Öğretmen", role: "TEACHER", password: "Teacher-2026!" });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
@@ -145,13 +150,15 @@ test("a teacher without a linked instructor sees the 'not linked' empty state on
   await login(page, email, "Teacher-2026!");
   await page.goto("/moderation");
   await expect(page.getByTestId("my-requests")).toBeVisible();
-  await expect(page.getByTestId("mine-unlinked")).toContainText("Hesabınız bir öğretim elemanına bağlı değil");
+  // PER-F02: no dead end for an unlinked account; Taleplerim says where its planning requests will appear
+  await expect(page.getByTestId(/^mine-unlinked/).first()).toContainText("Ders planlama talepleriniz, hesabınız bir öğretim elemanı kaydına bağlanınca burada görünür.");
   await expect(page.getByText("Yüklenemedi")).toHaveCount(0);
 });
 
 test("learned suggestions: accept one (soft, undoable) and dismiss one with a reason", async ({ page }) => {
   test.setTimeout(240_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/moderation?tab=preferences");
   await page.getByRole("tab", { name: "Öneriler" }).or(page.getByRole("radio", { name: "Öneriler" })).first().click();
   const list = page.getByTestId("suggestions-moderation");
@@ -187,6 +194,7 @@ test("learned suggestions: accept one (soft, undoable) and dismiss one with a re
 test("admin memory: reset everything with the typed word, then undo it", async ({ page }) => {
   test.setTimeout(180_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/moderation/learning");
   const panel = page.getByTestId("learning-memory");
   await expect(panel.getByTestId("memory-summary")).toBeVisible({ timeout: 60_000 });
@@ -228,6 +236,7 @@ const MBG_ENROLMENT = [120, 80, 15, 15, 12, 15, 15];
 test("the program wizard creates the MBG Tezli YL program and runs the pre-check", async ({ page }) => {
   test.setTimeout(420_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await page.goto("/programs/new");
   // 1 term (on the landing), then the draft opens on the program step
   const landing = page.getByTestId("wizard-landing");

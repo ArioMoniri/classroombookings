@@ -1,1 +1,1 @@
-resize pod=gracious type=c7g.4xlarge budget=450 2026-10-19T10:54Z
+ci-upgrade pod=gracious 2026-10-19T11:05Z

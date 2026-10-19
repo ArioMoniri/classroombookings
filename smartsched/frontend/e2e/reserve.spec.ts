@@ -106,7 +106,7 @@ test.beforeAll(async () => {
   const terms = await api<{ id: number; code: string }[]>("GET", "/terms");
   ctx.termId = terms.find((x) => x.code === TERM_CODE)!.id;
   const runs = await api<{ id: number; kind: string; term_id: number; label: string; is_active: boolean }[]>("GET", "/runs");
-  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.label.startsWith("Grid import"));
+  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && (r.label ?? "").startsWith("Grid import"));
   if (board && !board.is_active) await api("POST", `/runs/${board.id}/activate`);
   let schedules = await api<{ id: number; periods: { id: number; name: string }[] }[]>("GET", "/booking-admin/schedules");
   let schedule = schedules.find((s) => s.periods.length >= 18);
@@ -308,7 +308,7 @@ test("7. calendar sync: private links for me, a room and a department, copy, Goo
   for (const c of sync.connectors) await expect(panel.getByTestId(`sync-connect-${c.provider}`)).toHaveCount(c.configured ? 1 : 0);
   // reset: a new link, the old one stops working
   await panel.getByTestId("sync-reset").click();
-  await page.getByRole("dialog", { name: /sıfırlansın mı|Reset the private link/ }).getByRole("button", { name: /sıfırla|reset/i }).click();
+  await page.getByRole("alertdialog", { name: /sıfırlansın mı|Reset the private link/ }).getByRole("button", { name: /sıfırla|reset/i }).click();
   await expect(url).not.toHaveValue(mineUrl);
   const old = await ctx.api.get(mineUrl.replace(/^https?:\/\/[^/]+/, API.replace(/\/api\/v1$/, "")));
   expect(old.status()).toBe(404);
@@ -368,7 +368,7 @@ test("10. administrators bulk-cancel other people's bookings from the grid (CRBS
   await cell(page, slot!).click();
   await expect(cell(page, slot!)).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("multi-cancel").click();
-  await page.getByRole("dialog", { name: /iptal edilsin mi|Cancel \d+ bookings/ }).getByRole("button", { name: /^(İptal et|Cancel booking)$/ }).click();
+  await page.getByRole("alertdialog", { name: /iptal edilsin mi|Cancel \d+ bookings/ }).getByRole("button", { name: /^(İptal et|Cancel booking)$/ }).click();
   await expect(cell(page, slot!)).toHaveAttribute("data-tone", "available");
   const mine = await api<{ id: number }[]>("GET", "/bookings/mine?status=CANCELLED", undefined, ctx.teacherToken);
   expect(mine.some((x) => x.id === b.id)).toBe(true);
@@ -450,7 +450,7 @@ test("13. room owner under the room name, group tabs with counts, grouped picker
 
 test("14. a published SOLVER run names its classes by course and section, never a hard-coded Turkish word", async ({ page, context }) => {
   const runs = await api<{ id: number; kind: string; term_id: number; label: string; is_active: boolean; status: string }[]>("GET", "/runs");
-  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.label.startsWith("Grid import"));
+  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && (r.label ?? "").startsWith("Grid import"));
   const solver = runs.find((r) => r.id === solverRun() && r.term_id === ctx.termId && r.kind === "COURSE");
   test.skip(!solver || solver.id === board?.id, "needs the full-term solver run of e2e-backend-entry.sh");
   await api("POST", `/runs/${solver!.id}/activate`);

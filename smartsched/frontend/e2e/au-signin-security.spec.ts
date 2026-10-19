@@ -56,13 +56,18 @@ async function unusedCode(secret: string): Promise<string> {
   return totp(secret, 0, want * 30_000 + 1);
 }
 
-async function virtualAuthenticator(context: BrowserContext, page: Page): Promise<{ count: () => Promise<number> }> {
+async function virtualAuthenticator(context: BrowserContext, page: Page): Promise<{ count: () => Promise<number>; presence: (on: boolean) => Promise<void> }> {
   const cdp = await context.newCDPSession(page);
   await cdp.send("WebAuthn.enable");
   const { authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
     options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
   });
-  return { count: async () => (await cdp.send("WebAuthn.getCredentials", { authenticatorId })).credentials.length };
+  return {
+    count: async () => (await cdp.send("WebAuthn.getCredentials", { authenticatorId })).credentials.length,
+    // with presence simulated the authenticator also answers the identifier field's conditional (autofill) request at
+    // once, as if the person picked the passkey from the autofill list; off = the person ignores the suggestion
+    presence: async (on: boolean) => void (await cdp.send("WebAuthn.setAutomaticPresenceSimulation", { authenticatorId, enabled: on })),
+  };
 }
 
 /** A goto that a still-running client navigation of the previous page (router.refresh after sign-in) aborted is
@@ -198,29 +203,46 @@ test("§16.2: 'Bu cihazı 30 gün hatırla' skips the step next time; 'Diğer ci
   await expect(page.getByTestId("device-row")).toHaveCount(0);
 });
 
-test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanılmadı'; then the second step by passkey", async ({ page, context }) => {
-  const auth = await virtualAuthenticator(context, page);
-  await context.clearCookies();
-  await signInWithPassword(page);
-  await page.waitForURL("**/login/verify");
-  await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
-  await landed(page);
-  await gotoSettled(page, "/profile#security");
-  await page.getByTestId("passkey-add").click();
-  await expect(page.getByTestId("passkey-row")).toHaveCount(1);
-  await expect(page.getByTestId("passkey-meta")).toContainText("Hiç kullanılmadı");
-  expect(await auth.count()).toBe(1);
-  // rename: Enter saves, focus returns to the row's ⋯
-  await page.getByTestId("passkey-rename-input").fill("Test anahtarı");
-  await page.keyboard.press("Enter");
-  await expect(page.getByTestId("passkey-menu")).toBeFocused();
-  // next sign-in: "Başka bir yöntem › Geçiş anahtarı kullan"
-  await context.clearCookies();
-  await signInWithPassword(page);
-  await page.waitForURL("**/login/verify");
-  await page.getByRole("button", { name: /Başka bir yöntem/ }).click();
-  await page.getByRole("button", { name: /Geçiş anahtarı kullan/ }).click();
-  await landed(page);
+// A WebAuthn RP ID is a domain, never an IP address (Chromium: "This is an invalid domain"), and the profile offers
+// passkeys only once the installation has a public URL (passkeys.relying_party): this case runs on localhost with the
+// panel's public URL set to that origin, and puts the URL back afterwards
+test.describe("passkeys on localhost", () => {
+  const LOCAL = `http://localhost:${process.env.PW_PORT ?? 3100}`;
+  test.use({ baseURL: LOCAL });
+
+  test("§16.4: passkey added in Profil (virtual authenticator) → 'Hiç kullanılmadı'; then the second step by passkey", async ({ page, context }) => {
+    const before = (await admin.get<{ public_url: string | null }>("/calendar/admin/settings")).public_url;
+    const set = await admin.send("PUT", "/calendar/admin/settings", { public_url: LOCAL });
+    expect(set.status, JSON.stringify(set.body)).toBeLessThan(300);
+    try {
+      const auth = await virtualAuthenticator(context, page);
+      await context.clearCookies();
+      await signInWithPassword(page);
+      await page.waitForURL("**/login/verify");
+      await page.getByRole("textbox", { name: "Doğrulama kodu" }).pressSequentially(await unusedCode(secret));
+      await landed(page);
+      await gotoSettled(page, "/profile#security");
+      await page.getByTestId("passkey-add").click();
+      await expect(page.getByTestId("passkey-row")).toHaveCount(1);
+      await expect(page.getByTestId("passkey-meta")).toContainText("Hiç kullanılmadı");
+      expect(await auth.count()).toBe(1);
+      // rename: Enter saves, focus returns to the row's ⋯
+      await page.getByTestId("passkey-rename-input").fill("Test anahtarı");
+      await page.keyboard.press("Enter");
+      await expect(page.getByTestId("passkey-menu")).toBeFocused();
+      // next sign-in: password (the autofill suggestion ignored), then "Başka bir yöntem › Geçiş anahtarı kullan"
+      await context.clearCookies();
+      await auth.presence(false);
+      await signInWithPassword(page);
+      await page.waitForURL("**/login/verify");
+      await auth.presence(true);
+      await page.getByRole("button", { name: /Başka bir yöntem/ }).click();
+      await page.getByRole("button", { name: /Geçiş anahtarı kullan/ }).click();
+      await landed(page);
+    } finally {
+      await admin.send("PUT", "/calendar/admin/settings", { public_url: before ?? "" });
+    }
+  });
 });
 
 test("§16.3: a recovery code works once; the toast names the remaining count", async ({ page, context }) => {

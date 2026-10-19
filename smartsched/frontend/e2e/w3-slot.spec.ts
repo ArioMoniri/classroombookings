@@ -107,6 +107,10 @@ async function mobileChecks(page: Page, label: string) {
 test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   ctx.admin = await token(ADMIN_EMAIL, ADMIN_PASSWORD);
+  // the recording stack (scripts/record/stack.sh, REC_TEACHER=1) makes this teacher; the e2e gate's backend does not:
+  // the same account through the admin API when it is missing (409 = it is there already)
+  const made = await ctx.api.post(`${API}/users`, { data: { email: TEACHER.id, full_name: "Akademik Personel", role: "TEACHER", password: TEACHER.password }, headers: { Authorization: `Bearer ${ctx.admin}` } });
+  expect([201, 200, 409], await made.text()).toContain(made.status());
   ctx.teacher = await token(TEACHER.id, TEACHER.password);
   await resetDisplay();
   await cancelMine();

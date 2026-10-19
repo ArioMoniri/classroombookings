@@ -1,6 +1,6 @@
-"""Parity gate fidelity (review P19-Q2 / D18): the pod parity gate always judges the UI rows by the e2e-real
-Playwright JSON report, so a skipped, missing or not-run mapped spec fails the row, and a missing report fails
-the gate instead of silently falling back to "the title exists"."""
+"""Parity gate fidelity (review P19-Q2 / D18): the pod parity gate always judges the UI rows by the Playwright JSON
+reports of the e2e-real-<i> shards (merged), so a skipped, missing or not-run mapped spec fails the row, and a
+missing shard report fails the gate instead of silently falling back to "the title exists"."""
 
 from __future__ import annotations
 
@@ -43,9 +43,10 @@ API = "tests/parity/test_x.py::test_x"
 API_OK = {API: {"outcome": "passed"}}
 
 
-def report(tmp_path: Path, tests: dict[str, str], file: str = "bookings.spec.ts") -> Path:
+def report(tmp_path: Path, tests: dict[str, str], file: str = "bookings.spec.ts",
+           name: str = "playwright-report.json") -> Path:
     specs = [{"title": t, "tests": [{"results": [{"status": s}] if s != "none" else []}]} for t, s in tests.items()]
-    p = tmp_path / "playwright-report.json"
+    p = tmp_path / name
     p.write_text(json.dumps({"suites": [{"file": file, "specs": [], "suites": [{"title": "d", "specs": specs}]}]}))
     return p
 
@@ -80,6 +81,31 @@ def test_missing_report_fails_every_ui_row_without_crashing(tmp_path: Path,
     assert "ERROR: no Playwright report at" in capsys.readouterr().out
 
 
+def test_shard_reports_are_merged(tmp_path: Path) -> None:
+    """Each shard's report lists only its own tests: together they cover every mapped title."""
+    one = report(tmp_path, {"books a slot": "passed", "twice": "skipped"}, name="r1.json")
+    two = report(tmp_path, {"cancels": "failed", "twice": "passed"}, name="r2.json")
+    three = report(tmp_path, {"twice": "failed"}, file="calendar.spec.ts", name="r3.json")
+    pw = pc.merged_playwright_results([one, two, three])
+    assert pw == {"bookings.spec.ts::books a slot": "passed", "bookings.spec.ts::cancels": "failed",
+                  "bookings.spec.ts::twice": "passed", "calendar.spec.ts::twice": "failed"}
+    worse = report(tmp_path, {"twice": "failed"}, name="r4.json")
+    assert pc.merged_playwright_results([one, two, worse])["bookings.spec.ts::twice"] == "failed"
+    rows = (Row("B-X-03", api=(API,), ui=("bookings.spec.ts::books a slot",)),
+            Row("B-X-04", api=(API,), ui=("bookings.spec.ts::cancels",)))
+    titles = {"bookings.spec.ts": {"books a slot", "cancels"}}
+    a, b = pc.evaluate(rows, {}, {API}, titles, API_OK, pw)
+    assert a.status == "PASS" and b.status == "FAIL"
+
+
+def test_a_missing_shard_report_fails_the_gate(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    one = report(tmp_path, {"books a slot": "passed"}, name="r1.json")
+    rc = pc.main(["--dry-run", "--playwright-json", str(one), "--playwright-json", str(tmp_path / "r2.json")])
+    out = capsys.readouterr().out
+    assert rc == 1 and f"ERROR: no Playwright report at {tmp_path / 'r2.json'}" in out
+    assert str(one) not in out.split("ERROR:", 1)[1]
+
+
 FAKE_DOCKER = """#!/usr/bin/env bash
 printf '%s\\n' "$*" >> "$FAKE_LOG"
 """
@@ -96,8 +122,19 @@ def test_parity_gate_always_passes_the_e2e_report(tmp_path: Path) -> None:
     r = subprocess.run(["bash", str(POD_CI / "gates/parity.sh")], env=env, capture_output=True, text=True, timeout=30)
     assert r.returncode == 0, r.stderr
     script = (tmp_path / "docker.log").read_text()
-    assert "--playwright-json /w/playwright-report.json" in script
-    assert "[ -f /w/playwright-report.json ] &&" not in script  # no silent fallback to titles only
+    # every shard's report (gates.py: parity.sh <shard count>, the shards write /w/playwright-report-<i>.json)
+    assert "-e E2E_SHARDS=3 " in script
+    assert 'args+=(--playwright-json "/w/playwright-report-${i}.json")' in script
+    assert "[ -f /w/playwright-report" not in script  # no silent fallback to titles only
+    from podci.gates import GATES
+
+    shards = [g for g in GATES if g.script == "e2e-real.sh"]
+    parity = next(g for g in GATES if g.name == "parity")
+    assert parity.args == (str(len(shards)),) and parity.after == tuple(g.name for g in shards)
+    for i, g in enumerate(shards, 1):
+        assert g.args == (f"{i}/{len(shards)}",) and g.blocking
+    shard_script = (POD_CI / "gates/e2e-real.sh").read_text()
+    assert 'PLAYWRIGHT_JSON_OUTPUT_NAME="/w/playwright-report-${idx}.json"' in shard_script
 
 
 def test_report_names_the_tested_commit_without_a_git_checkout(monkeypatch: pytest.MonkeyPatch) -> None:

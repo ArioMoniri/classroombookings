@@ -102,6 +102,10 @@ async function openBookSheet(page: Page): Promise<void> {
 test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   ctx.admin = await token(ADMIN_EMAIL, ADMIN_PASSWORD);
+  // the recording stack (scripts/record/stack.sh, REC_TEACHER=1) makes this teacher; the e2e gate's backend does not:
+  // the same account through the admin API when it is missing (409 = it is there already)
+  const made = await ctx.api.post(`${API}/users`, { data: { email: TEACHER.id, full_name: "Akademik Personel", role: "TEACHER", password: TEACHER.password }, headers: { Authorization: `Bearer ${ctx.admin}` } });
+  expect([201, 200, 409], await made.text()).toContain(made.status());
 });
 test.afterAll(async () => {
   await ctx.api?.dispose();
@@ -246,10 +250,11 @@ test("T-R2-06 /reset-password: own hint without LDAP, '24 saat', a short code is
   await page.getByRole("button", { name: "Kod gönder" }).click();
   await expect(page.getByTestId("reset-requested")).toContainText("24 saat");
   await page.getByRole("button", { name: "Kodum var" }).click();
-  const form = page.getByLabel("Tek kullanımlık kod").locator("xpath=ancestor::form");
-  const text = await form.innerText();
+  // AUX12-F07: one set-password form (SetPasswordForm) with the policy's own length hint, no LDAP wording
+  await expect(page.getByLabel("Tek kullanımlık kod")).toBeVisible();
+  const text = await page.getByRole("main").innerText();
   expect(text).not.toMatch(/LDAP|Dizin/);
-  expect(text).toContain("En az 8 karakter.");
+  expect(text).toMatch(/En az \d+ karakter\./);
   await page.context().close();
   const r = await ctx.api.post(`${API}/auth/password-reset/confirm`, { data: { token: "12", password: "Flow-2026!pw" } });
   expect(r.status()).toBe(400);
@@ -310,7 +315,8 @@ test("T-R2-08 a teacher's /moderation/me crumb has no 'Moderasyon'; the admin's 
     await tp.goto("/moderation/me");
     const crumbs = tp.locator('nav[aria-label="Konum"]');
     await expect(crumbs.first()).toContainText("Taleplerim");
-    expect((await crumbs.allInnerTexts()).join(" ")).not.toContain("Moderasyon");
+    // until the permissions are known the shell draws the planners' trail (top-bar.tsx useBreadcrumbs): the settled one
+    await expect.poll(async () => (await crumbs.allInnerTexts()).join(" ")).not.toContain("Moderasyon");
     await tp.context().close();
   }
   const ap = await newPage(browser, DESKTOP, ADMIN_EMAIL, ADMIN_PASSWORD);

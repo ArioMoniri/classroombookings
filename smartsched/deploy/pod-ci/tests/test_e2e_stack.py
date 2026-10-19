@@ -122,43 +122,112 @@ def gate_env(tmp_path: Path) -> dict[str, str]:
     }
 
 
+def built(env: dict[str, str]) -> dict[str, str]:
+    """The e2e-build gate's output in the run's source tree (.next with BUILD_ID, cache/ and standalone/)."""
+    nxt = Path(env["WS"]) / "src/smartsched/frontend/.next"
+    for sub in ("cache", "standalone", "server/app"):
+        (nxt / sub).mkdir(parents=True, exist_ok=True)
+    (nxt / "BUILD_ID").write_text("b1")
+    (nxt / "server/app/page.js").write_text("x")
+    return env
+
+
+def e2e_real(env: dict[str, str], shard: str = "2/3") -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["bash", str(GATES / "e2e-real.sh"), shard], env=env, capture_output=True, text=True,
+                          timeout=60)
+
+
 def test_e2e_real_starts_smtp_sink_and_empty_backend_for_playwright(tmp_path: Path) -> None:
-    env = gate_env(tmp_path)
-    r = subprocess.run(["bash", str(GATES / "e2e-real.sh")], env=env, capture_output=True, text=True, timeout=60)
+    env = built(gate_env(tmp_path))
+    r = e2e_real(env, "2/3")
     assert r.returncode == 0, r.stdout + r.stderr
     calls = (tmp_path / "docker.log").read_text().splitlines()
     runs = [c for c in calls if c.startswith("run ")]
     detached = [c for c in runs if c.startswith("run -d ")]
-    assert any("--network-alias backend " in c and "e2e-backend-entry.sh" in c for c in detached)
+    seeded = next(c for c in detached if "--network-alias backend " in c and "e2e-backend-entry.sh" in c)
+    # the shard's own DB / uploads directory; the venv of the backend-deps gate
+    assert "-e E2E_WORKDIR=/w/e2e-shard-2 " in seeded and "-e E2E_VENV=/w/venv " in seeded
     smtp = next(c for c in detached if "--network-alias smtp " in c)
     assert "/ci/smtp-sink.py" in smtp and "--smtp-port 1025" in smtp and "--api-port 8025" in smtp
     empty = next(c for c in detached if "--network-alias backend-empty " in c)
-    assert "-e E2E_EMPTY=1" in empty and "-e E2E_VENV=/w/venv" in empty and "-e E2E_WORKDIR=/w/e2e-empty" in empty
+    assert "-e E2E_EMPTY=1" in empty and "-e E2E_VENV=/w/venv" in empty
+    assert "-e E2E_WORKDIR=/w/e2e-shard-2/empty" in empty
     # the empty backend shares the seeded backend's venv: it starts only once that one is healthy
     first_exec = next(i for i, c in enumerate(calls) if c.startswith("exec "))
     assert calls.index(empty) > first_exec
+    idp = next(c for c in detached if "w3-idp-mock-issuer.py" in c)
+    assert "--network container:podci-7-abc1234-e2e2-backend " in idp
     playwright = runs[-1]
-    # next build runs (and warms .next/cache) before playwright: its webServer build must fit 300 s
     log = (tmp_path / "docker.log").read_text()  # the playwright script spans several lines of the log
-    assert log.index("npx next build") < log.index("npx playwright test")
-    for flag in ("-e E2E_REAL=1", "-e E2E_SMTP_HOST=smtp", "-e E2E_SMTP_PORT=1025",
+    # the e2e-build gate built .next once: the shard never builds, it only starts its private copy
+    assert "npx next build" not in log and "--no-mock-build" not in log
+    assert 'npx playwright test --shard="${E2E_SHARD}" --workers=1 --reporter=list,json' in log
+    for flag in ("-e E2E_REAL=1", "-e W3_IDP_EXTERNAL=1", "--network container:podci-7-abc1234-e2e2-backend",
+                 "-e E2E_SHARD=2/3", "-e E2E_SMTP_HOST=smtp", "-e E2E_SMTP_PORT=1025",
                  "-e E2E_SMTP_API=http://smtp:8025", "-e E2E_EMPTY_API_URL=http://backend-empty:8000",
-                 "-e E2E_DB=/w/e2e.db"):
-        assert flag in playwright
-    assert "network rm podci-7-abc1234" in calls[-1] or any(c.startswith("network rm") for c in calls)
-    for name in ("backend", "smtp", "backend-empty"):
-        assert any(c.startswith("rm -f ") and f"podci-7-abc1234-{name}" in c for c in calls)
+                 "-e E2E_DB=/w/e2e-shard-2/e2e.db", "-e PLAYWRIGHT_JSON_OUTPUT_NAME=/w/playwright-report-2.json",
+                 f"-v {env['WS']}/e2e-shard-2/next:/w/src/smartsched/frontend/.next",
+                 f"-v {env['WS']}/e2e-shard-2/test-results:/w/src/smartsched/frontend/test-results"):
+        assert flag in playwright, flag
+    assert not any("contract-record.py" in c for c in calls)  # shard 1 records the contract payloads
+    assert any(c.startswith("network create ") and c.endswith(" podci-7-abc1234-e2e2") for c in calls)
+    assert any(c == "network rm podci-7-abc1234-e2e2" for c in calls)
+    for name in ("backend", "smtp", "backend-empty", "idp"):
+        assert any(c.startswith("rm -f ") and f"podci-7-abc1234-e2e2-{name}" in c for c in calls)
+    # the private build copy is gone afterwards (no cache/ or standalone/ was copied); test-results stay
+    ws = Path(env["WS"])
+    assert not (ws / "e2e-shard-2/next").exists() and (ws / "e2e-shard-2/test-results").is_dir()
+
+
+def test_e2e_real_copies_the_build_without_cache_and_standalone(tmp_path: Path) -> None:
+    env = built(gate_env(tmp_path))
+    fake = tmp_path / "bin/docker"
+    # snapshot the shard's copy while "playwright" runs (cleanup removes it afterwards)
+    fake.write_text(FAKE_DOCKER.replace('printf \'%s\\n\' "$*" >> "$FAKE_LOG"',
+                                        'printf \'%s\\n\' "$*" >> "$FAKE_LOG"\n'
+                                        '[[ "$*" == *E2E_SHARD=* ]] && (cd "$WS/e2e-shard-1/next" && find . | sort '
+                                        '> "$FAKE_DIR/copy.txt")'))
+    r = e2e_real(env, "1/3")
+    assert r.returncode == 0, r.stdout + r.stderr
+    copy = (tmp_path / "copy.txt").read_text().split()
+    assert "./BUILD_ID" in copy and "./server/app/page.js" in copy
+    assert not any(c.startswith(("./cache", "./standalone")) for c in copy)
+    calls = (tmp_path / "docker.log").read_text().splitlines()
+    record = [c for c in calls if "contract-record.py" in c]
+    assert len(record) == 1 and "--out /w/contract " in record[0]  # one recording per run, from shard 1
+
+
+def test_e2e_real_needs_the_e2e_build_output_and_a_valid_shard(tmp_path: Path) -> None:
+    env = gate_env(tmp_path)
+    r = e2e_real(env, "1/3")
+    assert r.returncode == 1 and "e2e-build gate builds it" in r.stdout
+    assert not (tmp_path / "docker.log").exists()  # nothing started
+    for i, bad in enumerate(("x; rm -rf /", "4/3", "0/3", "")):
+        (tmp_path / str(i)).mkdir()
+        b = e2e_real(built(gate_env(tmp_path / str(i))), bad)
+        assert b.returncode != 0 and ("bad shard" in b.stdout or "usage" in b.stderr), bad
 
 
 def test_e2e_real_fails_when_the_seeded_backend_never_gets_healthy(tmp_path: Path) -> None:
-    env = gate_env(tmp_path)
+    env = built(gate_env(tmp_path))
     (tmp_path / "unhealthy").write_text("")
-    r = subprocess.run(["bash", str(GATES / "e2e-real.sh")], env=env, capture_output=True, text=True, timeout=60)
+    r = e2e_real(env, "1/3")
     assert r.returncode != 0
     assert "not healthy" in r.stdout
     calls = (tmp_path / "docker.log").read_text().splitlines()
     assert not any("--network-alias backend-empty " in c for c in calls)  # nothing started after a dead backend
     assert any(c.startswith("logs ") for c in calls)
+
+
+def test_e2e_build_builds_once_for_every_shard_and_checks_for_mock_code(tmp_path: Path) -> None:
+    r = subprocess.run(["bash", str(GATES / "e2e-build.sh")], env=gate_env(tmp_path), capture_output=True,
+                       text=True, timeout=60)
+    assert r.returncode == 0, r.stdout + r.stderr
+    log = (tmp_path / "docker.log").read_text()
+    run = next(c for c in log.splitlines() if c.startswith("run "))
+    # the alias every shard's seeded backend has on its own network: one build serves all shards
+    assert "-e NEXT_PUBLIC_API_URL=http://backend:8000" in run and "--max-old-space-size=3072" in run
+    assert log.index("npx next build") < log.index("validate.sh --no-mock-build .next/standalone")
 
 
 # ---- e2e-backend-entry.sh modes with fake python / alembic -----------------------------------------------

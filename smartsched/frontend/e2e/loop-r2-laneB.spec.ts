@@ -148,7 +148,10 @@ test("T-R2-13 + T-R2-17 a two-period submission is one Yaklaşan row; the multi 
   expect(r.body.created.every((b) => b.status === "PENDING")).toBe(true);
   await api("PUT", "/org/settings", { approval_mode: ctx.mode });
   const dates = await api<{ today: string }>("GET", "/bookings/dates", undefined, ctx.teacher);
-  const past = await call<{ detail: { code: string; message_tr?: string } }>("POST", "/bookings", { room_id: room.id, date: addDays(dates.today, -1), period_id: periods[0]!.id, term_id: grid.term.id }, ctx.teacher);
+  // the last weekday before today: a weekend day answers closed_day first (the e2e clock is a Monday, 2026-02-16)
+  let before = addDays(dates.today, -1);
+  while ([0, 6].includes(new Date(before + "T12:00:00Z").getUTCDay())) before = addDays(before, -1);
+  const past = await call<{ detail: { code: string; message_tr?: string } }>("POST", "/bookings", { room_id: room.id, date: before, period_id: periods[0]!.id, term_id: grid.term.id }, ctx.teacher);
   expect(past.status).toBe(409);
   expect(past.body.detail.code).toBe("past");
   expect(past.body.detail.message_tr).toMatch(/geçmiş/);

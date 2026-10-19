@@ -25,7 +25,8 @@ class Gate:
     args: tuple[str, ...] = ()
     # gates that must have finished (any result) before this one starts: ordering without a success dependency
     after: tuple[str, ...] = ()
-    # concurrency slots (runner.py): a gate running two big containers at once (e2e-real) or `next build` takes 2
+    # concurrency slots (runner.py): a gate running two big containers at once (an e2e-real shard) or `next build`
+    # takes 2
     weight: int = 1
 
 
@@ -54,12 +55,28 @@ GATES: tuple[Gate, ...] = (
          args=("1/2",)),
     Gate("frontend-unit-2", "frontend-unit.sh", "vitest shard 2/2", needs=("frontend",), timeout=1800,
          args=("2/2",)),
-    Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
-         needs=("frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1", "backend-unit-2",
-                "backend-unit-3"), timeout=3600, weight=2),
-    # after e2e-real so it reads this run's /w/playwright-report.json; API rows still run if e2e failed
+    # `next build` once per run (NEXT_PUBLIC_API_URL=http://backend:8000, the alias every shard's backend has), checked
+    # for mock/demo code; the e2e-real shards copy it and only `next start` it. After vitest: nothing else writes the
+    # frontend tree then. Two slots: the build's 3 GB heap (as in images)
+    Gate("e2e-build", "e2e-build.sh", "next build for the e2e shards + no-mock-build check",
+         needs=("frontend", "frontend-unit-1", "frontend-unit-2"), timeout=1800, weight=2),
+    # 436 specs at ~14 s each on one worker (~100 min on 4 unthrottled cores, 2026-10-19) in one gate: three Playwright
+    # shards (--shard=i/3), each with its own network, seeded backend, smtp sink, empty backend and OIDC issuer, so
+    # they run at the same time (c7g.4xlarge: 6 slots, 3 x 2). Per shard ~35-50 min of specs + ~5-10 min seeding.
+    Gate("e2e-real-1", "e2e-real.sh", "Playwright shard 1/3 vs real backend + Bahar fixtures",
+         needs=("e2e-build", "frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1",
+                "backend-unit-2", "backend-unit-3"), timeout=5400, weight=2, args=("1/3",)),
+    Gate("e2e-real-2", "e2e-real.sh", "Playwright shard 2/3 vs real backend + Bahar fixtures",
+         needs=("e2e-build", "frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1",
+                "backend-unit-2", "backend-unit-3"), timeout=5400, weight=2, args=("2/3",)),
+    Gate("e2e-real-3", "e2e-real.sh", "Playwright shard 3/3 vs real backend + Bahar fixtures",
+         needs=("e2e-build", "frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1",
+                "backend-unit-2", "backend-unit-3"), timeout=5400, weight=2, args=("3/3",)),
+    # after every e2e-real shard so it reads this run's /w/playwright-report-<i>.json (args: the shard count); API rows
+    # still run if e2e failed, a missing shard report fails the gate
     Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)",
-         needs=("backend", "backend-unit-1", "backend-unit-2", "backend-unit-3"), after=("e2e-real",), timeout=1800),
+         needs=("backend", "backend-unit-1", "backend-unit-2", "backend-unit-3"),
+         after=("e2e-real-1", "e2e-real-2", "e2e-real-3"), timeout=1800, args=("3",)),
     # real workbooks, 4 solves (Bahar term ~5 min): planner-level violations fail the run
     Gate("planner", "planner.sh", "planner-level validation (tools/validate_planner.py)",
          needs=("backend", "backend-unit-1", "backend-unit-2", "backend-unit-3"), timeout=3600),

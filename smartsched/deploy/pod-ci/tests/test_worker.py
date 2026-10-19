@@ -82,9 +82,9 @@ def test_green_run_on_deploy_branch_deploys(cfg: Config, store: Store) -> None:
     conf = (cfg.deploy_dir / "smartsched/deploy/nginx/default.conf").read_text()
     assert "location /ci/" in conf
     assert (cfg.state_dir / "update-request").read_text().strip() == SHA_A
-    # idle alarm paused during the job and re-enabled afterwards
+    # idle alarm paused during the job; after a good deploy the pod serves the site, so it stays disarmed
     toggles = [e[1] for e in cloud.events if e[0] == "alarm_actions"]
-    assert toggles[0] is True and False in toggles and toggles[-1] is True
+    assert toggles[0] is True and False in toggles and toggles[-1] is False
     # workspace removed, logs kept
     assert not (cfg.work_dir / str(rid)).exists() and (cfg.logs_dir / str(rid) / "backend.log").exists()
 
@@ -95,16 +95,16 @@ def test_failed_gate_skips_dependents_and_deploy(cfg: Config, store: Store) -> N
     make(cfg, store, ex, rep).work()
     states = {s.name: s.state for s in store.steps(rid)}
     assert states["frontend"] == FAILURE
-    assert states["e2e-real"] == states["deploy"] == "skipped"
+    assert states["e2e-build"] == states["e2e-real-1"] == states["e2e-real-3"] == states["deploy"] == "skipped"
     assert "e2e-mock" not in states  # no mock gate: browser tests run against the real backend only
     assert states["backend"] == states["images"] == SUCCESS  # independent gates still run
     run = store.get(rid)
     assert states["frontend-unit-1"] == states["frontend-unit-2"] == "skipped"  # vitest needs the frontend gate
     assert run and run.state == FAILURE
-    assert run.summary.startswith("failed: frontend, frontend-unit-1, frontend-unit-2, e2e-real")
+    assert run.summary.startswith("failed: frontend, frontend-unit-1, frontend-unit-2, e2e-build, e2e-real-1")
     assert "deploy.sh" not in ex.scripts
     assert rep.last("pod-ci", SHA_A) == "failure" and rep.last("pod-ci/frontend") == "failure"
-    assert rep.last("pod-ci/e2e-real") == "error"  # skipped blocking gate is not green
+    assert rep.last("pod-ci/e2e-real-2") == "error"  # skipped blocking gate is not green
 
 
 def test_non_blocking_watchdog_failure_keeps_run_green(cfg: Config, store: Store) -> None:
@@ -219,13 +219,14 @@ def test_worker_exits_when_installed_code_changes(cfg: Config, store: Store, tmp
 
 
 def test_vitest_shards_run_as_their_own_gates(cfg: Config, store: Store) -> None:
-    """One failed vitest shard fails the run and skips e2e-real; the other shard and the static checks still run."""
+    """One failed vitest shard fails the run and skips the e2e build and shards; the other shard and the static checks
+    still run."""
     ex, rep = FakeExecute(fail={"frontend-unit-2"}), FakeReporter()
     rid = queue(store, "claude/smartsched-universal")
     make(cfg, store, ex, rep).work()
     states = {s.name: s.state for s in store.steps(rid)}
     assert states["frontend"] == states["frontend-unit-1"] == SUCCESS
-    assert states["frontend-unit-2"] == FAILURE and states["e2e-real"] == "skipped"
+    assert states["frontend-unit-2"] == FAILURE and states["e2e-build"] == states["e2e-real-1"] == "skipped"
     shards = [a[2:] for a in ex.argvs if Path(a[1]).name == "frontend-unit.sh"]
     assert shards == [["1/2"], ["2/2"]]
     timeouts = {g.name: g.timeout for g in GATES}
@@ -266,6 +267,40 @@ def test_plan_slots_scales_cpus_and_memory_and_respects_the_memory_cap() -> None
     assert runner.plan_slots(Config(parallel=8), cpu_count=8, memory_mb=c7g).count == 3
     assert runner.plan_slots(Config(), cpu_count=8, memory_mb=0).count == 1  # MemTotal unknown: sequential
     assert runner.plan_slots(Config(), cpu_count=2, memory_mb=c7g).count == 1
+
+
+def test_a_c7g_4xlarge_runs_the_three_e2e_shards_at_once() -> None:
+    """16 vCPU / 32 GiB (MemTotal ~31 GiB): 8 slots wanted, 6 fit; the three two-slot e2e-real shards fill them."""
+    slots = runner.plan_slots(Config(), cpu_count=16, memory_mb=31_600)
+    assert slots.count == 6 and slots.cpus == 2 and slots.memory_mb == (31_600 - 3072) // 6
+    shards = [g for g in GATES if g.script == "e2e-real.sh"]
+    assert len(shards) == 3 and sum(min(g.weight, slots.count) for g in shards) <= slots.count
+    assert all(g.timeout == 5400 and g.blocking for g in shards)
+    assert slots.count * slots.memory_mb <= 31_600 - 3072
+
+
+def test_e2e_shards_run_concurrently_and_parity_waits_for_all_of_them(cfg: Config, store: Store) -> None:
+    # the real gates minus the ones that could still hold a slot when the shards get ready (timing of the fake)
+    gates = tuple(g for g in GATES if g.name not in ("planner", "images", "watchdog"))
+    ex = ConcurrentExecute(fail={"e2e-real-2"})
+    rid = queue(store, "claude/smartsched-universal")
+    w = CheckoutStubWorker(dataclasses.replace(cfg, parallel=0), store, FakeReporter(), NoCloud(), lambda: "tok",
+                           execute=ex, run_cmd=FakeRun(), log=lambda _: None, disk_usage=lambda: 10.0,
+                           cpu_count=16, memory_mb=31_600, gates=gates)
+    assert w.slots.count == 6
+    w.work()
+    states = {s.name: s.state for s in store.steps(rid)}
+    assert states["e2e-real-2"] == FAILURE and states["e2e-real-1"] == states["e2e-real-3"] == SUCCESS
+    assert states["parity"] == SUCCESS  # `after`, not `needs`: parity still runs (and fails on a missing report)
+    starts = [ex.events.index(("start", f"e2e-real-{i}")) for i in (1, 2, 3)]
+    ends = [ex.events.index(("end", f"e2e-real-{i}")) for i in (1, 2, 3)]
+    assert max(starts) < min(ends)  # all three shards ran at the same time
+    assert ex.events.index(("end", "e2e-build")) < min(starts)
+    assert max(ends) < ex.events.index(("start", "parity"))
+    shards = [a[2:] for a in ex.argvs if Path(a[1]).name == "e2e-real.sh"]
+    assert sorted(shards) == [["1/3"], ["2/3"], ["3/3"]]
+    run = store.get(rid)
+    assert run and run.state == FAILURE  # every shard is blocking
 
 
 class ConcurrentExecute(FakeExecute):
@@ -314,11 +349,11 @@ def test_gates_run_concurrently_along_the_needs_dag_within_the_slot_cap(cfg: Con
             assert order.index(("end", need)) < start, (need, g.name)
     weights = {g.name: g.weight for g in GATES}
     running: set[str] = set()
-    for kind, g in order:  # e2e-real / images take two slots
+    for kind, g in order:  # e2e-build / e2e-real-* / images take two slots
         running.add(g) if kind == "start" else running.discard(g)
         assert sum(weights[x] for x in running) <= 3, running
     envs = {e["GATE_NAME"]: e for e in ex.envs if "GATE_NAME" in e}  # deploy.sh has its own env
-    assert envs["backend-unit-2"]["GATE_CPUS"] == "2" and envs["e2e-real"]["GATE_CPUS"] == "4"
+    assert envs["backend-unit-2"]["GATE_CPUS"] == "2" and envs["e2e-real-1"]["GATE_CPUS"] == "4"
     assert set(envs) == {g.name for g in GATES}
     assert ex.scripts[-1] == "deploy.sh"  # the deploy waits for every gate
     assert all(rep.last(f"pod-ci/{g.name}") == "success" for g in GATES)
@@ -330,11 +365,12 @@ def test_a_failed_gate_skips_only_its_dependants_when_parallel(cfg: Config, stor
     parallel_worker(cfg, store, ex).work()
     states = {s.name: s.state for s in store.steps(rid)}
     assert states["backend-unit-2"] == FAILURE
-    assert states["e2e-real"] == states["planner"] == states["parity"] == states["deploy"] == "skipped"
+    assert states["e2e-real-1"] == states["e2e-real-2"] == states["e2e-real-3"] == "skipped"
+    assert states["planner"] == states["parity"] == states["deploy"] == "skipped"
     assert states["backend-unit-1"] == states["backend-unit-3"] == states["frontend-unit-2"] == SUCCESS
     assert states["images"] == states["infra"] == SUCCESS
     run = store.get(rid)
-    assert run and run.state == FAILURE and run.summary.startswith("failed: backend-unit-2, e2e-real")
+    assert run and run.state == FAILURE and run.summary.startswith("failed: backend-unit-2, e2e-real-1")
 
 
 def test_after_orders_without_requiring_success(cfg: Config, store: Store) -> None:

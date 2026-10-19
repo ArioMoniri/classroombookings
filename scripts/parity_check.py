@@ -14,11 +14,13 @@ inventory with a reason and a proposed fix). Exit status 1 on any FAIL or MISSIN
     python3 scripts/parity_check.py                  # run, print, write the report
     python3 scripts/parity_check.py --dry-run        # mapping only (no tests run, no report)
     python3 scripts/parity_check.py --playwright-json results.json   # UI column from a Playwright JSON report
+    python3 scripts/parity_check.py --playwright-json s1.json --playwright-json s2.json   # merged shard reports
 
 UI titles are checked statically unless ``--playwright-json`` (``npx playwright test --reporter=json``) is given.
 With a report, a mapped UI title that was skipped, failed or not run fails its row; a report path that does not
-exist is an error (every UI row then counts as not run). Pod CI (gates/parity.sh) always passes the report of
-the e2e-real gate, so the UI column there is never "the title exists".
+exist is an error (every UI row then counts as not run). ``--playwright-json`` is repeatable: the reports of a
+sharded run (``--shard=i/N``, each lists only its own tests) are merged. Pod CI (gates/parity.sh) always passes the
+report of every e2e-real-<i> shard gate, so the UI column there is never "the title exists".
 """
 
 from __future__ import annotations
@@ -138,6 +140,22 @@ def playwright_results(path: Path) -> dict[str, str]:
 
     for s in data.get("suites", []):
         walk(s, s.get("file", ""))
+    return out
+
+
+def _rank(status: str) -> int:
+    """Merge order: a test that ran beats skipped / not run, and a failure beats a pass."""
+    return 0 if status == "skipped" else 1 if status == "passed" else 2
+
+
+def merged_playwright_results(paths: list[Path]) -> dict[str, str]:
+    """playwright_results() of every shard report, merged (a sharded run lists each test in one report only; the
+    same ``<spec>::<title>`` in two reports, e.g. two projects, keeps the worse of the results that ran)."""
+    out: dict[str, str] = {}
+    for path in paths:
+        for key, status in playwright_results(path).items():
+            if key not in out or _rank(status) > _rank(out[key]):
+                out[key] = status
     return out
 
 
@@ -382,7 +400,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", type=Path, help="also write the per-row result as JSON")
     ap.add_argument("--dry-run", action="store_true", help="check the mapping only; run no tests, write no report")
     ap.add_argument("--strict", action="store_true", help="declared gaps fail the gate too")
-    ap.add_argument("--playwright-json", type=Path, help="Playwright JSON report for the UI column")
+    ap.add_argument("--playwright-json", type=Path, action="append", default=[],
+                    help="Playwright JSON report for the UI column (repeatable: shard reports are merged)")
     ap.add_argument("--pytest-arg", action="append", default=[], help="extra pytest argument (repeatable)")
     args = ap.parse_args(argv)
 
@@ -396,10 +415,9 @@ def main(argv: list[str] | None = None) -> int:
     referenced = {t for r in rows for t in r.api}
     found = existing_nodeids(referenced)
     titles = ui_titles()
-    pw = playwright_results(args.playwright_json) if args.playwright_json else None
-    if args.playwright_json and not args.playwright_json.is_file():
-        errors.append(f"no Playwright report at {args.playwright_json} (did the e2e-real gate run?): "
-                      "every UI row counts as not run")
+    pw = merged_playwright_results(args.playwright_json) if args.playwright_json else None
+    errors += [f"no Playwright report at {p} (did its e2e-real shard run?): every UI row of that shard counts as "
+               "not run" for p in args.playwright_json if not p.is_file()]
 
     results: dict[str, dict[str, Any]] | None = None
     started = dt.datetime.now(dt.UTC)

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ADMIN_EMAIL, FINISHED, REAL, SKIP_REASON, TERM_CODE, api, boardRun, login, numberText, type Run, type Term } from "./helpers";
+import { ADMIN_EMAIL, FINISHED, REAL, SKIP_REASON, TERM_CODE, api, boardRun, login, numberText, pinTermCode, type Run, type Term } from "./helpers";
 import { pinLanguage } from "./language";
 
 /**
@@ -18,6 +18,7 @@ pinLanguage("tr");
 test("real backend: login → dashboard → classes → rooms → studio run → report → calendar → settings", async ({ page }) => {
   test.setTimeout(300_000);
   await login(page);
+  await pinTermCode(page, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
 
   // ---- dashboard numbers are the backend's

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, api, boardRun, login, pickSegmentById, solverRun, type Run } from "./helpers";
+import { FINISHED, PLANNING_LIST, REAL, SKIP_REASON, TERM_CODE, api, boardRun, login, pickSegmentById, pinTermCode, solverRun, type Run } from "./helpers";
 import { pinLanguage } from "./language";
 
 /**
@@ -39,6 +39,7 @@ test.describe("SmartSched smoke (real backend)", () => {
   test("login → import (real planning list) → classes → calendar → run report → settings", async ({ page }) => {
     test.setTimeout(240_000);
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/Özet|Dashboard/);
 
@@ -105,6 +106,7 @@ test.describe("SmartSched smoke (real backend)", () => {
     test.setTimeout(360_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     await page.goto("/generate?step=scope");
     await expect(page.getByTestId("scope-step")).toBeVisible();
 
@@ -184,6 +186,7 @@ test.describe("SmartSched smoke (real backend)", () => {
   test("phone: calendar day list, drawer and the command palette finds A 204", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     await page.goto(`/timetable?run=${boardRun()}&week=3`);
     await expect(page.getByTestId("calendar-mobile").or(page.getByTestId("agenda")).first()).toBeVisible({ timeout: 30_000 });
     const scrollW = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -201,6 +204,7 @@ test.describe("SmartSched smoke (real backend)", () => {
   test("generator studio on a phone: one step per screen", async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 760 });
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     await page.goto("/generate?step=scope");
     await expect(page.getByTestId("mobile-progress")).toContainText("1/5");
     await page.getByTestId("step-next").click();
@@ -266,6 +270,7 @@ test.describe("studio + calendar polish (real backend)", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setLang(page, baseURL, "en");
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     const termId = await openStudio(page, "rules");
     await page.getByTestId("add-template").click();
     await page.getByTestId("template-gallery").getByRole("tab", { name: "Times" }).click();
@@ -306,6 +311,7 @@ test.describe("studio + calendar polish (real backend)", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setLang(page, baseURL, "en");
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     const termId = await openStudio(page, "scope");
     const draft = (await call(page, "GET", `/terms/${termId}/studio?kind=COURSE`)).body as StudioDraft;
     const locked = ((await call(page, "GET", `/terms/${termId}/studio/classes?kind=COURSE&status=LOCKED&limit=1`)).body as { items: { id: number; course_code: string }[] }).items[0];
@@ -344,6 +350,7 @@ test.describe("studio + calendar polish (real backend)", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setLang(page, baseURL, "en");
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     const termId = await openStudio(page, "rules");
     const cls = ((await call(page, "GET", `/terms/${termId}/studio/classes?kind=COURSE&limit=1`)).body as { items: { id: number; course_code: string }[] }).items[0]!;
     const made: number[] = [];
@@ -387,6 +394,7 @@ test.describe("studio + calendar polish (real backend)", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setLang(page, baseURL, "en");
     await login(page);
+    await pinTermCode(page, TERM_CODE); // the smoke runs on the Bahar fixtures; the shell would open the current term by date
     const errors: string[] = [];
     let at = "";
     page.on("pageerror", (e) => {

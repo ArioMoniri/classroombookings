@@ -104,7 +104,9 @@ test("T-R2-19 F-08 S07/S08/S10/S11 (API): the dry run predicts the commit, one k
   const jobB = await job([EN_CSV]);
   ctx.jobB = jobB.id;
   const b = await api<{ changes: Counts }>("POST", `/council/jobs/${jobB.id}/commit`, BODY);
-  const nB = n(b.changes, "meeting_requests", "create");
+  // B's requests in the term: created on a fresh stack; on the e2e gate's stack the Bahar planning list is imported
+  // already (e2e-backend-entry.sh), so the same requests are matched (unchanged / updated), never written twice
+  const nB = n(b.changes, "meeting_requests", "create") + n(b.changes, "meeting_requests", "update") + n(b.changes, "meeting_requests", "unchanged");
   expect(nB).toBeGreaterThan(1300);
 
   // S07/S08: Job A, the workbook (fast path) with the same CSV: dry run == commit, and no second copy of B's rows

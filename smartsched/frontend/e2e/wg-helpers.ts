@@ -96,7 +96,7 @@ export async function settings(api: Api, body: Record<string, unknown>) {
 export async function signIn(browser: Browser, p: Person | { username: string; password: string }, opts: Record<string, unknown> = DESKTOP): Promise<{ context: BrowserContext; page: Page }> {
   const context = await browser.newContext(opts);
   const page = await context.newPage();
-  await login(page, p.username, p.password);
+  await login(page, p.username, p.password, { welcome: true });
   return { context, page };
 }
 

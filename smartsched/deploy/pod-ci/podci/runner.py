@@ -181,7 +181,7 @@ class Worker:
                 self.reporter.post(r.sha, "error", self.cfg.status_context, "pod CI worker was interrupted",
                                    self.cfg.run_url(r.id))
             self._kill_leftover_containers()
-            self._safe(lambda: self.cloud.set_alarm_actions(True), "re-enable idle alarm")
+            self._safe(lambda: self.cloud.set_alarm_actions(not serving_site(self.cfg)), "re-enable idle alarm")
             stamp = code_stamp(self.cfg.install_dir)
             done = 0
             while (run := self.store.next_queued(deploy_branch=self.cfg.deploy_branch)) is not None:
@@ -194,7 +194,7 @@ class Worker:
                 try:
                     self.run_one(run)
                 finally:
-                    self._safe(lambda: self.cloud.set_alarm_actions(True), "re-enable idle alarm")
+                    self._safe(lambda: self.cloud.set_alarm_actions(not serving_site(self.cfg)), "re-enable idle alarm")
                     self._safe(lambda: self.cloud.heartbeat(self.store.active()), "heartbeat")
                 done += 1
                 if max_runs is not None and done >= max_runs:
@@ -458,6 +458,11 @@ def cpu_times(stat: str | None = None) -> tuple[float, float]:
     return total - idle, total
 
 
+def serving_site(cfg: Config) -> bool:
+    """A deploy passed its health check on this pod (DEPLOYED_SHA): the pod is the website's host from now on."""
+    return (cfg.state_dir / DEPLOYED_SHA).is_file()
+
+
 def heartbeat(cfg: Config, store: Store, cloud: Cloud, now: float, uptime: float,
               sample: tuple[float, float] | None = None, log: Log = print) -> dict[str, Any]:
     """Publish Heartbeat/CIJobRunning, record a CPU sample and stop the pod when it is idle: no CI run
@@ -477,7 +482,16 @@ def heartbeat(cfg: Config, store: Store, cloud: Cloud, now: float, uptime: float
         (_, b0, t0), (_, b1, t1) = span
         out["cpu_percent"] = round(100.0 * (b1 - b0) / (t1 - t0), 2) if t1 > t0 else None
     last = store.last_finished_at()
-    idle = (cfg.idle_stop and not active and uptime > window and out["cpu_percent"] is not None
+    # A pod with a good deploy serves the website: it never stops itself, and the CloudWatch backstop stays
+    # disarmed (an hour of low CPU is a quiet site, not an idle CI box; the site kept going dark, 2026-10-19).
+    serving = serving_site(cfg)
+    out["serving"] = serving
+    if serving:
+        try:
+            cloud.set_alarm_actions(False)
+        except Exception as exc:  # noqa: BLE001
+            log(f"warning: disarming the idle alarm failed: {exc}")
+    idle = (cfg.idle_stop and not serving and not active and uptime > window and out["cpu_percent"] is not None
             and out["cpu_percent"] < cfg.idle_cpu and (last is None or now - last > window))
     if idle:
         log(f"idle for {cfg.idle_minutes} min (CPU {out['cpu_percent']}%, no CI job): stopping the pod")

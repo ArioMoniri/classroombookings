@@ -365,7 +365,8 @@ test("T-R1-09 login: field messages, focus on the alert, a per-identifier lock, 
   for (let i = 0; i < 11 && status !== 429; i++) {
     await page.getByTestId("login-identifier").fill(X);
     await page.getByTestId("login-password").fill("nope");
-    const [res] = await Promise.all([page.waitForResponse((r) => r.url().includes("/auth/login")), page.getByTestId("login-submit").click()]);
+    // the form posts through the sign-in route handler (/api/auth/mfa/login, AU-B), which passes the 429 through
+    const [res] = await Promise.all([page.waitForResponse((r) => /\/auth\/(mfa\/)?login$/.test(new URL(r.url()).pathname) && r.request().method() === "POST"), page.getByTestId("login-submit").click()]);
     status = res.status();
   }
   expect(status).toBe(429);

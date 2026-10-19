@@ -9,8 +9,9 @@ each other, and the planner's accepted exceptions as rule breaks).
 planner-level check (``planner_check``, the independent validator of the stored rows) and the publish integrity
 (``publish_guard.integrity``: violations and manual breaks, explained by a recorded override or not):
 
-* ``placed`` / ``total`` / ``unplaced``: the solver's classes (``stats.placed`` / ``events_total``; a joint lecture
-  is one class), the same numbers on the card, the report and the API;
+* ``placed`` / ``total``: the solver's classes (``stats.placed`` / ``events_total``; a joint lecture is one class);
+  ``unplaced``: the classes not fully placed (never placed or missing weeks), the length of ``unplaced_list``;
+  the same numbers on the card, the report and the API;
 * ``broken``: every hard rule the stored timetable breaks right now (``publish_guard.broken_rules``) - a forced move
   with its reason is listed, never hidden; ``hard_score`` is the integrity score;
 * ``exceptions``: the accepted exceptions the run reports, by cause, each with its planner-facing label and the
@@ -302,7 +303,10 @@ def build(run: ScheduleRun, check: Any, *, status: str | None = None) -> dict[st
         "source": "planner_check",
         "placed": placed_i,
         "total": total_i,
-        "unplaced": max(0, (total_i or 0) - (placed_i or 0)),
+        # decision 2026-10-19 (owner: "the KPI and the list agree the way a planner expects"): Yerleşmeyen counts the
+        # classes not fully placed - never placed or missing weeks - i.e. exactly the report's unplaced list; without
+        # the planner check's findings it falls back to the solver's classes (total - placed)
+        "unplaced": len(unplaced_list) if unplaced_list else max(0, (total_i or 0) - (placed_i or 0)),
         "requests": {"placed": check.requests_placed, "total": check.requests_total},
         "hard_score": hard,
         "edited": is_edited,

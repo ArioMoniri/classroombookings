@@ -44,7 +44,8 @@ export default defineConfig({
     { name: "intake", testMatch: /intake\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: `npx next build && npx next start -p ${PORT}`,
+    // E2E_PREBUILT=1: the caller (pod CI gates/e2e-real.sh) has just run `next build`; building twice cost minutes
+    command: process.env.E2E_PREBUILT ? `npx next start -p ${PORT}` : `npx next build && npx next start -p ${PORT}`,
     url: `http://127.0.0.1:${PORT}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,

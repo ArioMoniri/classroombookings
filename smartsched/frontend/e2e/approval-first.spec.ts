@@ -139,7 +139,7 @@ test.beforeAll(async () => {
   const terms = await api<{ id: number; code: string }[]>("GET", "/terms");
   ctx.termId = terms.find((x) => x.code === TERM_CODE)!.id;
   const runs = await api<{ id: number; kind: string; term_id: number; label: string; is_active: boolean }[]>("GET", "/runs");
-  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && r.label.startsWith("Grid import"));
+  const board = runs.find((r) => r.term_id === ctx.termId && r.kind === "COURSE" && (r.label ?? "").startsWith("Grid import"));
   if (board && !board.is_active) await api("POST", `/runs/${board.id}/activate`);
   let schedules = await api<{ id: number; periods: { id: number }[] }[]>("GET", "/booking-admin/schedules");
   let schedule = schedules.find((s) => s.periods.length >= 18);
@@ -401,10 +401,13 @@ test("approval-first 7. Profile › Bildirimler saves an event × channel switch
   await expect(prefs.getByTestId("prefs-cards-bookings")).toBeHidden();
   expect((await prefs.boundingBox())!.height).toBeLessThan(1600);
   expect(await noSidewaysScroll(p)).toBe(true);
-  // the settings tabs are 44 px on touch
+  // the settings sections are 44 px on touch: below 640 px one select names the section instead of the tab strip
+  // (HX12B-F14, settings-view.tsx)
   await p.goto("/settings");
-  await expect(p.getByTestId("tab-appearance")).toBeVisible({ timeout: 30_000 });
-  expect((await p.getByTestId("tab-appearance").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const section = p.getByTestId("settings-section-select");
+  await expect(section).toBeVisible({ timeout: 30_000 });
+  await expect(p.getByTestId("tab-appearance")).toBeHidden();
+  expect((await section.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await p.context().close();
 });
 
