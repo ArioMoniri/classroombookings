@@ -7,7 +7,7 @@
  *     npx playwright test e2e/wg-*.spec.ts --output=<scratch>
  */
 import { expect, request as pwRequest, type APIRequestContext, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, login } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, clientAddressFor, login } from "./helpers";
 
 export const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
 export const DESKTOP = { viewport: { width: 1440, height: 900 }, locale: "tr-TR", timezoneId: "Europe/Istanbul" };
@@ -27,7 +27,7 @@ export interface Api {
 export async function adminApi(): Promise<Api> {
   const ctx = await pwRequest.newContext();
   const tokenFor = async (identifier: string, password = PASSWORD) => {
-    const res = await ctx.post(`${API}/auth/login`, { data: identifier.includes("@") ? { email: identifier, password } : { username: identifier, password } });
+    const res = await ctx.post(`${API}/auth/login`, { data: identifier.includes("@") ? { email: identifier, password } : { username: identifier, password }, headers: { "x-forwarded-for": clientAddressFor(`api|${identifier}`) } });
     expect(res.ok(), await res.text()).toBeTruthy();
     return ((await res.json()) as { access_token: string }).access_token;
   };

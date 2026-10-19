@@ -355,9 +355,14 @@ def test_a_c7g_4xlarge_runs_the_three_e2e_shards_at_once() -> None:
 
 
 def test_e2e_shards_run_concurrently_and_parity_waits_for_all_of_them(cfg: Config, store: Store) -> None:
-    # the real gates minus the ones that could still hold a slot when the shards get ready (timing of the fake)
+    # the real gates minus the ones that could still hold a slot when the shards get ready; e2e-build also waits
+    # (`after`) for every other gate, so all six slots are free when the shards become ready, whatever the timing
     gates = tuple(g for g in GATES if g.name not in ("planner", "images", "watchdog"))
-    ex = ConcurrentExecute(fail={"e2e-real-2"})
+    others = tuple(g.name for g in gates if g.name not in ("e2e-build", "parity") and not g.name.startswith("e2e-"))
+    gates = tuple(dataclasses.replace(g, after=(*g.after, *(o for o in others if o not in g.needs)))
+                  if g.name == "e2e-build" else g for g in gates)
+    shard_names = {"e2e-real-1", "e2e-real-2", "e2e-real-3"}
+    ex = ConcurrentExecute(fail={"e2e-real-2"}, together=(shard_names,))
     rid = queue(store, "claude/smartsched-universal")
     w = CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, fail_fast=False), store, FakeReporter(), NoCloud(),
                            lambda: "tok", execute=ex, run_cmd=FakeRun(), log=lambda _: None, disk_usage=lambda: 10.0,
@@ -369,6 +374,7 @@ def test_e2e_shards_run_concurrently_and_parity_waits_for_all_of_them(cfg: Confi
     assert states["parity"] == SUCCESS  # `after`, not `needs`: parity still runs (and fails on a missing report)
     starts = [ex.events.index(("start", f"e2e-real-{i}")) for i in (1, 2, 3)]
     ends = [ex.events.index(("end", f"e2e-real-{i}")) for i in (1, 2, 3)]
+    assert ex.broken == []  # all three shards were running at once (the barrier needs all three)
     assert max(starts) < min(ends)  # all three shards ran at the same time
     assert ex.events.index(("end", "e2e-build")) < min(starts)
     assert max(ends) < ex.events.index(("start", "parity"))
@@ -379,13 +385,23 @@ def test_e2e_shards_run_concurrently_and_parity_waits_for_all_of_them(cfg: Confi
 
 
 class ConcurrentExecute(FakeExecute):
-    """Thread-safe: records start/finish order and the peak of gates running at once (each runs ~20 ms)."""
+    """Thread-safe: records start/finish order and the peak of gates running at once (each runs ~20 ms).
 
-    def __init__(self, fail: set[str] | None = None):
+    `together`: sets of gates that must overlap. Each gate of a set waits on a shared barrier after its start event, so
+    none of them ends before all of them have started; the overlap holds by construction when the worker really runs
+    them concurrently. A worker that serialises them breaks the barrier (timeout) and the gate is listed in `broken`.
+    """
+
+    def __init__(self, fail: set[str] | None = None, together: tuple[set[str], ...] = (), timeout: float = 10.0):
         super().__init__(fail)
         self.lock = threading.Lock()
         self.now = self.peak = 0
         self.events: list[tuple[str, str]] = []
+        self.barriers: dict[str, threading.Barrier] = {}
+        for group in together:  # one barrier shared by the whole group
+            barrier = threading.Barrier(len(group), timeout=timeout)
+            self.barriers.update(dict.fromkeys(group, barrier))
+        self.broken: list[str] = []
 
     def __call__(self, argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None, timeout: int) -> int:
         gate = log_path.stem
@@ -393,6 +409,12 @@ class ConcurrentExecute(FakeExecute):
             self.now += 1
             self.peak = max(self.peak, self.now)
             self.events.append(("start", gate))
+        if gate in self.barriers:
+            try:
+                self.barriers[gate].wait()
+            except threading.BrokenBarrierError:
+                with self.lock:
+                    self.broken.append(gate)
         time.sleep(0.02)
         with self.lock:
             code = super().__call__(argv, log_path, env, cwd, timeout)
@@ -409,14 +431,15 @@ def parallel_worker(cfg: Config, store: Store, ex: FakeExecute, rep: FakeReporte
 
 
 def test_gates_run_concurrently_along_the_needs_dag_within_the_slot_cap(cfg: Config, store: Store) -> None:
-    ex, rep = ConcurrentExecute(), FakeReporter()
+    # validate and backend-deps both get ready when prepare ends (3 free slots): they must overlap
+    ex, rep = ConcurrentExecute(together=({"validate", "backend-deps"},)), FakeReporter()
     rid = queue(store)
     w = parallel_worker(cfg, store, ex, rep)
     assert w.slots.count == 3
     w.work()
     run = store.get(rid)
     assert run and run.state == SUCCESS and run.summary == "all gates passed, deployed"
-    assert 1 < ex.peak <= 3  # concurrent, never more than the slots
+    assert ex.broken == [] and 1 < ex.peak <= 3  # concurrent, never more than the slots
     order = [(kind, g) for kind, g in ex.events if g != "deploy"]
     for g in GATES:
         start = order.index(("start", g.name))

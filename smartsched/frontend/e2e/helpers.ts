@@ -4,7 +4,7 @@
  * name "Show password", so label regexes match two elements).
  */
 import path from "node:path";
-import { expect, request as pwRequest, type Locator, type Page } from "@playwright/test";
+import { expect, request as pwRequest, test, type Locator, type Page } from "@playwright/test";
 import { resolveFixturesDir } from "../src/test/fixtures-dir";
 
 export const REAL = process.env.E2E_REAL === "1";
@@ -91,6 +91,33 @@ export async function dismissWelcomeSheet(page: Page): Promise<boolean> {
   return due;
 }
 
+/**
+ * The client address a sign-in comes from: one per person and test, inside 127.0.0.0/24 (127.0.0.2 to
+ * .254; only 127.0.0.1 is a trusted proxy hop). In the e2e stack every browser reaches the backend through the
+ * Next.js handler on one host, so a whole school's sign-ins shared 127.0.0.1 and the backend's per-address sign-in
+ * throttle (security_http.py: 60 POST /auth/login per address in 300 s) refused the admin on a fast host (pod e2e
+ * #141: laneE/laneF, visual-quality, "Çok fazla deneme"). The throttle and its caps stay as shipped; each simulated
+ * person gets a machine of their own, as a real one would have. The /24 is the one every e2e request came from
+ * before, so the network the backend remembers for devices and audit (hash of the /24, audit.hash_ip) is unchanged:
+ * no new-device mails or notifications. Per test, not per file: one address per person and file still put
+ * visual-quality's 54 admin sign-ins on one address. The handler forwards `x-forwarded-for` and the backend believes it because
+ * the hop is loopback (no nginx in the e2e stack; in production nginx appends the real peer, so a browser cannot
+ * choose its address there). The throttle tests (loop-r1-laneA T-R1-09, the backend unit tests) do not use this.
+ */
+const reporting = new WeakSet<Page>();
+
+export function clientAddressFor(identifier: string): string {
+  let where = "";
+  try {
+    where = test.info().testId; // a test (or a hook of its file) is its own machine
+  } catch {
+    // outside a test (global setup): the person alone
+  }
+  let h = 0x811c9dc5;
+  for (const ch of `${where}|${identifier.trim().toLowerCase()}`) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  return `127.0.0.${(h % 253) + 2}`;
+}
+
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
  *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. A privacy notice an earlier spec
  *  published is acknowledged unless `ackNotice: false` (the notice gate's own test); the first-sign-in welcome sheet
@@ -99,6 +126,13 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
   // A page still showing the app after its cookies were cleared answers its next poll with 401 and redirects
   // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
   if (page.url() !== "about:blank") await page.goto("about:blank");
+  await page.context().setExtraHTTPHeaders({ "x-forwarded-for": clientAddressFor(identifier) });
+  // an uncaught error in the app is printed with the test's output (the pod keeps only the logs: run #141's Studio
+  // scope sentence vanished with no trace of why)
+  if (!reporting.has(page)) {
+    reporting.add(page);
+    page.on("pageerror", (e) => console.log(`[pageerror] ${page.url()} ${e.message}`));
+  }
   await page.goto("/login?method=local");
   // the fields are controlled inputs: text typed into the server-rendered form before React hydrated it is dropped
   // on a slow host (the form then answers "identifier required"), so wait until React owns the form
@@ -197,7 +231,7 @@ export const API_BASE = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_
 export async function ensureBookingSetup(): Promise<{ termId: number; scheduleId: number; periods: Record<string, number> }> {
   const ctx = await pwRequest.newContext();
   try {
-    const login = await ctx.post(`${API_BASE}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
+    const login = await ctx.post(`${API_BASE}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD }, headers: { "x-forwarded-for": clientAddressFor(`api|${ADMIN_EMAIL}`) } });
     expect(login.ok(), `admin login ${login.status()}`).toBeTruthy();
     const headers = { Authorization: `Bearer ${((await login.json()) as { access_token: string }).access_token}` };
     const call = async <T>(method: "GET" | "POST" | "PUT", p: string, data?: unknown): Promise<T> => {
