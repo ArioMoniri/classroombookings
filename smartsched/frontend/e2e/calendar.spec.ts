@@ -40,6 +40,11 @@ test.use({ locale: "en-GB", timezoneId: "Europe/Istanbul", viewport: { width: 14
 
 async function login(page: Page) {
   await signIn(page, EMAIL, PASSWORD);
+  // the pages work on the shell's term, by default the current term by the browser's date (Güz since the gate seeds
+  // it, e2e-backend-entry.sh): every step here reads TERM's data, so TERM is the working term from the next page on
+  const term = (await api<{ id: number; code: string }[]>(page, "/terms")).find((t) => t.code === TERM);
+  expect(term, `${TERM} is imported`).toBeTruthy();
+  await pinTerm(page, term!.id);
 }
 
 /** Same-origin API call through the Next proxy (the httpOnly cookie carries the JWT). */
@@ -83,11 +88,6 @@ async function setup(page: Page): Promise<{ board: number; editable: number; roo
   const idx = await api<Index>(page, `/runs/${board.id}/calendar-index`);
   const room = idx.rooms.find((r) => r.name === ROOM_CODE);
   expect(room, `${ROOM_CODE} exists`).toBeTruthy();
-  // the pages work on the shell's term, by default the current term by the browser's date (Güz since the gate seeds
-  // it, e2e-backend-entry.sh): these steps read TERM's runs, so TERM is the working term
-  const term = (await api<{ id: number; code: string }[]>(page, "/terms")).find((t) => t.code === TERM);
-  expect(term, `${TERM} is imported`).toBeTruthy();
-  await pinTerm(page, term!.id);
   return { board: board.id, editable, roomId: room?.id ?? 0 };
 }
 

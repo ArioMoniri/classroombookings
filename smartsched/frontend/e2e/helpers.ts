@@ -61,6 +61,15 @@ export async function pinTerm(page: Page, termId: number, { forget = false }: { 
   );
 }
 
+/** `pinTerm` by term code (GET /terms through the proxy); returns the term id. */
+export async function pinTermCode(page: Page, code: string, opts: { forget?: boolean } = {}): Promise<number> {
+  const terms = await api<{ id: number; code: string }[]>(page, "/terms");
+  const term = terms.find((t) => t.code === code);
+  expect(term, `term ${code} is on this backend`).toBeTruthy();
+  await pinTerm(page, term!.id, opts);
+  return term!.id;
+}
+
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
  *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. A privacy notice an earlier spec
  *  published is acknowledged unless `ackNotice: false` (the notice gate's own test). */

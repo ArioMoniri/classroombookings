@@ -40,12 +40,13 @@ test("the language picker offers Turkish and English only and switches the inter
   await expect(picker).toBeVisible();
   await expect(picker.getByRole("button")).toHaveCount(2);
   await expect(picker.getByRole("button")).toHaveText(["tr", "en"]);
-  await picker.getByRole("button", { name: "en" }).click();
+  // each option is named by its language ("Türkçe", "English"; locale-toggle.tsx) and shows its code
+  await picker.getByRole("button", { name: "English", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await page.goto("/profile");
   await expect(page).toHaveTitle("Profile · SmartSched");
   await page.goto("/settings?tab=general");
-  await page.getByTestId("locale-toggle").first().getByRole("button", { name: "tr" }).click();
+  await page.getByTestId("locale-toggle").first().getByRole("button", { name: "Türkçe", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "tr");
   await page.goto("/profile");
   await expect(page).toHaveTitle("Profil · SmartSched"); // persona U-09: Turkish page titles
@@ -75,6 +76,6 @@ test("a legacy de language cookie renders English", async ({ page, context }) =>
   await page.goto("/settings?tab=general");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page).toHaveTitle("Settings · SmartSched");
-  await expect(page.getByTestId("locale-toggle").first().getByRole("button", { name: "en" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("locale-toggle").first().getByRole("button", { name: "English", exact: true })).toHaveAttribute("aria-pressed", "true");
   await context.addCookies([{ name: "NEXT_LOCALE", value: "tr", domain: url.hostname, path: "/" }]);
 });
