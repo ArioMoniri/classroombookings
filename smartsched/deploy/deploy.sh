@@ -15,7 +15,9 @@
 #   ./deploy.sh --status   show container status + health
 #   ./deploy.sh --backups  also install the nightly backup (backup.sh, 02:30) as /etc/cron.d/smartsched-backup (root;
 #                          otherwise the line to install is printed). The AWS pod has a systemd timer instead.
-#   extra flags: --no-build (start existing images), --no-pull (--update without git pull)
+#   extra flags: --no-build (start existing images; with --update: skip the rebuild when every smartsched-* image is
+#                present, e.g. retagged from the pod CI images gate), --no-pull (--update without git pull)
+#   ./deploy.sh --prepare  build/pull the images only: no `up`, no traffic, nothing started (pod first boot)
 #
 # Deploy-time values (each flag also works as --flag=value; docs/deploy/ONE-CLICK.md):
 #   --admin-email ADDR     the first administrator (env ADMIN_EMAIL; first start only, asked on a terminal if missing)
@@ -74,6 +76,17 @@ BACKUPS=0
 # every variable seed/bootstrap_settings.py reads (pod-ci/tests/test_deploy_oneclick.py keeps the lists equal)
 SETTINGS_KEYS=(ORG_NAME AI_PROVIDER AI_API_KEY AI_BASE_URL SMTP_HOST SMTP_PORT SMTP_SECURITY SMTP_USERNAME SMTP_PASSWORD SMTP_FROM SMTP_FROM_NAME SECURITY_CONTACT GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET MICROSOFT_CLIENT_ID MICROSOFT_CLIENT_SECRET MICROSOFT_TENANT)
 
+# true when an image the stack builds itself (smartsched-*) is not present locally (`config --images`: every service
+# of the active files and profiles)
+missing_local_images() {
+  local img out=1
+  while IFS= read -r img; do
+    [[ "$img" == smartsched-* ]] || continue
+    docker image inspect "$img" >/dev/null 2>&1 || { echo "missing image $img" >&2; out=0; }
+  done < <("${COMPOSE[@]}" config --images 2>/dev/null)
+  return $out
+}
+
 log()  { printf '\033[1;34m[deploy]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[deploy] warning:\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31m[deploy] error:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -101,6 +114,7 @@ while [[ $# -gt 0 ]]; do
     --down)     ACTION="down" ;;
     --logs)     ACTION="logs" ;;
     --update)   ACTION="update" ;;
+    --prepare)  ACTION="prepare" ;;
     --status)   ACTION="status" ;;
     --volumes)  REMOVE_VOLUMES=1 ;;
     --no-build) NO_BUILD=1 ;;
@@ -470,8 +484,14 @@ case "$ACTION" in
     fi
     log "pulling base images"
     "${COMPOSE[@]}" pull --ignore-buildable || true
-    log "rebuilding images"
-    "${COMPOSE[@]}" build --pull
+    if [[ $NO_BUILD -eq 1 ]] && ! missing_local_images; then
+      # pod CI: the images gate built this commit's images and gates/deploy.sh retagged them
+      log "--no-build: every local image is present; not rebuilding"
+    else
+      [[ $NO_BUILD -eq 1 ]] && warn "--no-build: a local image is missing; building after all"
+      log "rebuilding images"
+      "${COMPOSE[@]}" build --pull
+    fi
     log "restarting (migrations run in the backend entrypoint)"
     "${COMPOSE[@]}" up -d --remove-orphans
     wait_healthy "http://localhost:$(env_get PROXY_PORT)/api/v1/health"
@@ -480,6 +500,17 @@ case "$ACTION" in
     install_backups
     docker image prune -f >/dev/null 2>&1 || true
     print_summary
+    ;;
+  prepare)
+    # first boot of the pod: images only. Nothing is started and nothing serves traffic: the first deploy is pod CI's
+    # first green run (gates, then deploy.sh --update)
+    ensure_env
+    apply_tls
+    apply_observability
+    log "pulling base images"
+    "${COMPOSE[@]}" pull --ignore-buildable || true
+    log "building images (no containers are started)"
+    "${COMPOSE[@]}" build
     ;;
   up)
     seed_profile >/dev/null

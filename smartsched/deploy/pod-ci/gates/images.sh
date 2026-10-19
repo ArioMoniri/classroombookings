@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Gate: build the three images exactly as compose does (backend, frontend, legacy CRBS); no push. The
 # backend image must import the intake parsers. The per-run tags are removed afterwards; the BuildKit layer
-# cache stays and speeds up the redeploy.
+# cache stays and speeds up the redeploy. A deploy-branch run (RUN_DEPLOY=1) keeps its images as
+# smartsched-{backend,frontend,crbs}:ci-<full RUN_SHA> for gates/deploy.sh (retag + deploy.sh --no-build); the
+# ci-<sha> tags of every other commit are removed, so only the newest deploy-branch run's images stay.
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$WS/src"
 tags=()
@@ -26,3 +28,15 @@ args frontend
 build "smartsched-frontend:ci-${RUN_TAG}" -f smartsched/frontend/Dockerfile ${_args[@]+"${_args[@]}"} smartsched/frontend
 args crbs
 build "smartsched-crbs:ci-${RUN_TAG}" -f smartsched/deploy/legacy/Dockerfile ${_args[@]+"${_args[@]}"} .
+if [[ "${RUN_DEPLOY:-0}" == 1 && "${RUN_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
+  section "keep this commit's images for the deploy step (ci-${RUN_SHA:0:12})"
+  for svc in backend frontend crbs; do
+    docker tag "smartsched-${svc}:ci-${RUN_TAG}" "smartsched-${svc}:ci-${RUN_SHA}"
+    docker image ls --format '{{.Repository}}:{{.Tag}}' "smartsched-${svc}" | while IFS= read -r ref; do
+      case "${ref##*:}" in
+        "ci-${RUN_SHA}") ;;
+        ci-????????????????????????????????????????) docker image rm "$ref" >/dev/null 2>&1 || true ;;
+      esac
+    done
+  done
+fi

@@ -110,7 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     reporter = StatusReporter(cfg.repo, token, log=log)
     if cmd == "poll":
         try:
-            runner.poll(cfg, store, reporter, token(), log=log)
+            tok = token()
+            runner.poll(cfg, store, reporter, tok, log=log, changed=runner.mirror_changed_files(cfg, tok))
         except Exception as exc:  # noqa: BLE001 - keep the heartbeat going when GitHub is unreachable
             log(f"poll failed: {exc}")
         runner.heartbeat(cfg, store, cloud, time.time(), uptime_seconds(), log=log)

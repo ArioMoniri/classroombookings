@@ -96,3 +96,26 @@ def export_tree(mirror: Path, sha: str, dest: Path, run: Run = subprocess.run) -
     untar = run(["tar", "-x", "-C", str(dest)], input=archive.stdout, capture_output=True, timeout=600)
     if untar.returncode != 0:
         raise GitError(f"tar failed: {untar.stderr!r}"[-500:])
+
+
+def _git_rc(args: list[str], run: Run, timeout: float = 120) -> tuple[int, str]:
+    proc = run(["git", *args], capture_output=True, text=True, timeout=timeout)
+    return int(proc.returncode), str(proc.stdout or "")
+
+
+def is_ancestor(mirror: Path, ancestor: str, descendant: str, run: Run = subprocess.run) -> bool | None:
+    """`git merge-base --is-ancestor` in the mirror: True / False, None when git could not tell (missing commit)."""
+    if not (SHA_RE.match(ancestor) and SHA_RE.match(descendant)):
+        return None
+    code, _ = _git_rc(["--git-dir", str(mirror), "merge-base", "--is-ancestor", ancestor, descendant], run)
+    return {0: True, 1: False}.get(code)
+
+
+def changed_files(mirror: Path, old: str, new: str, run: Run = subprocess.run) -> list[str] | None:
+    """`git diff --name-only old new` in the mirror; None when git failed (then the caller treats it as a change)."""
+    if not (SHA_RE.match(old) and SHA_RE.match(new)):
+        return None
+    code, out = _git_rc(["--git-dir", str(mirror), "diff", "--name-only", old, new], run)
+    if code != 0:
+        return None
+    return [line.strip() for line in out.splitlines() if line.strip()]

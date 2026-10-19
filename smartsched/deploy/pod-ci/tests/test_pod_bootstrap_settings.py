@@ -1,11 +1,10 @@
 """Deploy-time settings on the AWS pod: `smartsched_aws.py up --org-name ...` stores them in SSM
-{prefix}/bootstrap/*; the pod's first deploy (pod-bootstrap.sh) and every pod CI deploy hand them to deploy.sh as
+{prefix}/bootstrap/*; every pod CI deploy hands them to deploy.sh as
 environment variables (never argv), where seed/bootstrap_settings.py writes each group once."""
 
 from __future__ import annotations
 
 import importlib.util
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -83,12 +82,18 @@ def test_pod_ci_deploy_survives_an_ssm_outage(cfg: Config, store: Store) -> None
     assert "deploy.sh" in ex.scripts
 
 
-def test_pod_bootstrap_sources_the_settings_for_the_first_deploy() -> None:
+def test_pod_bootstrap_never_deploys_ungated_and_only_prepares_images() -> None:
+    """First boot: no `deploy.sh --tls` (an untested commit serving traffic), no deployed-sha; the first green pod CI
+    run deploys. The prepare still sees the SSM settings (OBSERVABILITY decides the image set)."""
     text = (POD_CI / "pod-bootstrap.sh").read_text()
-    assert "podci bootstrap-env" in text
-    i_env, i_deploy = text.index("podci bootstrap-env"), text.index("./deploy.sh --tls")
-    assert i_env < i_deploy
-    assert "set -a" in text and "rm -f" in text
+    code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    assert "./deploy.sh --prepare --tls" in code
+    assert "./deploy.sh --tls" not in code and "--update" not in code and "deployed-sha" not in code
+    assert code.index("podci bootstrap-env") < code.index("./deploy.sh --prepare")
+    assert "set -a" in code and 'rm -f "$BOOT_ENV"' in code
     r = subprocess.run(["bash", "-n", str(POD_CI / "pod-bootstrap.sh")], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
-    assert os.access(POD_CI / "pod-bootstrap.sh", os.R_OK)
+    deploy_sh = (POD_CI.parent / "deploy.sh").read_text()
+    prepare = deploy_sh[deploy_sh.index("  prepare)"):deploy_sh.index("  up)")]
+    assert " build" in prepare and "up -d" not in prepare and "wait_healthy" not in prepare
+    assert "run_settings" not in prepare and "run_seed" not in prepare

@@ -60,18 +60,20 @@ GATES: tuple[Gate, ...] = (
     # frontend tree then. Two slots: the build's 3 GB heap (as in images)
     Gate("e2e-build", "e2e-build.sh", "next build for the e2e shards + no-mock-build check",
          needs=("frontend", "frontend-unit-1", "frontend-unit-2"), timeout=1800, weight=2),
+    # three docker builds, `next build` with its own 3 GB heap. After e2e-build in this order: among the ready gates
+    # the critical path (e2e-build -> the e2e shards) takes the slots first
+    Gate("images", "images.sh", "docker build backend/frontend/crbs", needs=("prepare",), timeout=2700, weight=2),
     # 436 specs at ~14 s each on one worker (~100 min on 4 unthrottled cores, 2026-10-19) in one gate: three Playwright
     # shards (--shard=i/3), each with its own network, seeded backend, smtp sink, empty backend and OIDC issuer, so
     # they run at the same time (c7g.4xlarge: 6 slots, 3 x 2). Per shard ~35-50 min of specs + ~5-10 min seeding.
+    # They need only the backend venv and the build: the backend pytest gates run alongside and still block the run
+    # (and the deploy), they just no longer hold the shards back.
     Gate("e2e-real-1", "e2e-real.sh", "Playwright shard 1/3 vs real backend + Bahar fixtures",
-         needs=("e2e-build", "frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1",
-                "backend-unit-2", "backend-unit-3"), timeout=5400, weight=2, args=("1/3",)),
+         needs=("backend-deps", "e2e-build"), timeout=5400, weight=2, args=("1/3",)),
     Gate("e2e-real-2", "e2e-real.sh", "Playwright shard 2/3 vs real backend + Bahar fixtures",
-         needs=("e2e-build", "frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1",
-                "backend-unit-2", "backend-unit-3"), timeout=5400, weight=2, args=("2/3",)),
+         needs=("backend-deps", "e2e-build"), timeout=5400, weight=2, args=("2/3",)),
     Gate("e2e-real-3", "e2e-real.sh", "Playwright shard 3/3 vs real backend + Bahar fixtures",
-         needs=("e2e-build", "frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1",
-                "backend-unit-2", "backend-unit-3"), timeout=5400, weight=2, args=("3/3",)),
+         needs=("backend-deps", "e2e-build"), timeout=5400, weight=2, args=("3/3",)),
     # after every e2e-real shard so it reads this run's /w/playwright-report-<i>.json (args: the shard count); API rows
     # still run if e2e failed, a missing shard report fails the gate
     Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)",
@@ -80,11 +82,10 @@ GATES: tuple[Gate, ...] = (
     # real workbooks, 4 solves (Bahar term ~5 min): planner-level violations fail the run
     Gate("planner", "planner.sh", "planner-level validation (tools/validate_planner.py)",
          needs=("backend", "backend-unit-1", "backend-unit-2", "backend-unit-3"), timeout=3600),
-    # three docker builds, `next build` with its own 3 GB heap
-    Gate("images", "images.sh", "docker build backend/frontend/crbs", needs=("prepare",), timeout=2700, weight=2),
     Gate("watchdog", "watchdog.sh", "agent ledger report", blocking=False, needs=("prepare",), timeout=300),
 )
-DEPLOY = Gate("deploy", "deploy.sh", "deploy.sh --update", timeout=1800)
+# the first deploy builds every image on the pod (no image reuse yet): 1800 s was not enough
+DEPLOY = Gate("deploy", "deploy.sh", "deploy.sh --update", timeout=3600)
 
 
 def playwright_image(src: Path) -> str:
