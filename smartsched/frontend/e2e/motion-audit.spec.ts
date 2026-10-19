@@ -472,8 +472,9 @@ test.describe("motion audit: helper drag on phones (HX-19)", () => {
       // the trailing click of a drag must not count as a tap
       await page.waitForTimeout(150);
       await expect(page.getByTestId("helper-sheet")).toBeVisible();
-      // 90 px in 50 ms is a flick: it closes although it is under 30 %
-      const released = await swipe(page, h.x, h.y, h.y + 90, 50, 3);
+      // 90 px released at once is a flick: it closes although it is under 30 %. The moves go without host waits: on a
+      // loaded single worker (the full suite) the 50 ms of timers stretched the gesture past a flick's speed
+      const released = await swipe(page, h.x, h.y, h.y + 90, 0, 3);
       const ms = await detachedAfter(page, released);
       results.push({ surface: "helper", name: `phone flick dismiss (${label})`, exitMs: Math.round(ms) });
       expect.soft(ms).toBeLessThanOrEqual(wall(reduced ? 80 : 260));

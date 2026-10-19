@@ -51,8 +51,11 @@ from app.schemas.ai import (
 router = APIRouter(tags=["ai"])
 log = logging.getLogger(__name__)
 
-#: how long ``/chat/stream`` waits for its first event before it commits to a 200 stream (F-VO-2)
-PRE_STREAM_WAIT_S = 2.0
+#: how long ``/chat/stream`` waits for its first event before it commits to a 200 stream (F-VO-2). The guard runs
+#: at the first model call, after the run's state and the history are loaded: 2 s was too short for a full-term run on
+#: a loaded host (a spoken injection came back as 200 + an error event, vo-mounts 3 on pod CI, 2026-10-19). Nothing is
+#: shown before the first event anyway, so the wait only moves the moment the headers go out.
+PRE_STREAM_WAIT_S = 15.0
 
 NO_KEY = "No Anthropic API key is configured. An admin can add one under Settings > AI (Ayarlar > Yapay zekâ)."
 
