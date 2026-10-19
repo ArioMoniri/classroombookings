@@ -54,9 +54,10 @@ GATES: tuple[Gate, ...] = (
          args=("1/2",)),
     Gate("frontend-unit-2", "frontend-unit.sh", "vitest shard 2/2", needs=("frontend",), timeout=1800,
          args=("2/2",)),
+    # 436 specs at ~14 s each on one worker (~100 min on 4 unthrottled cores, 2026-10-19), so 3600 s could never pass
     Gate("e2e-real", "e2e-real.sh", "Playwright (all specs) vs real backend + Bahar fixtures",
          needs=("frontend", "frontend-unit-1", "frontend-unit-2", "backend", "backend-unit-1", "backend-unit-2",
-                "backend-unit-3"), timeout=3600, weight=2),
+                "backend-unit-3"), timeout=10800, weight=2),
     # after e2e-real so it reads this run's /w/playwright-report.json; API rows still run if e2e failed
     Gate("parity", "parity.sh", "CRBS superset gate (scripts/parity_check.py)",
          needs=("backend", "backend-unit-1", "backend-unit-2", "backend-unit-3"), after=("e2e-real",), timeout=1800),

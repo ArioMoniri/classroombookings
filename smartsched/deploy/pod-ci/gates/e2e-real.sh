@@ -95,11 +95,11 @@ const api = \"http://backend:8000/api/v1\";
   process.exit(today >= \"2026-02-02\" && today <= \"2026-06-28\" ? 0 : 1);
 })().catch((e) => { console.log(String(e)); process.exit(1); });
 "
-echo "==== next build (warms .next/cache: the playwright webServer builds again and must start within 300 s)"
+echo "==== next build (the playwright webServer then only starts it: E2E_PREBUILT=1)"
 start=$(date +%s); npx next build >/w/next-build.log 2>&1 || { tail -n 60 /w/next-build.log; exit 1; }
 echo "next build: $(( $(date +%s) - start )) s"
 # one worker (also playwright.config.ts): the specs share one seeded backend and the pod has 2 vCPUs
-npx playwright test --workers=1 --reporter=list,json
+E2E_PREBUILT=1 npx playwright test --workers=1 --reporter=list,json
 echo "==== no mock/demo code in the production build"
 bash ../deploy/validate.sh --no-mock-build .next/standalone
 '
