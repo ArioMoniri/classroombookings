@@ -415,7 +415,8 @@ test("Taleplerim: the teacher's nav entry opens /moderation/me with their own re
   const p2 = await ctx2.newPage();
   await login(p2, UNLINKED.email, UNLINKED.password);
   await p2.goto("/moderation/me");
-  await expect(p2.getByTestId("mine-unlinked")).toContainText("Hesabınız bir öğretim elemanına bağlı değil");
+  // PER-F02: no dead end for an unlinked account; Taleplerim says where its planning requests will appear
+  await expect(p2.getByTestId(/^mine-unlinked/).first()).toContainText("Ders planlama talepleriniz, hesabınız bir öğretim elemanı kaydına bağlanınca burada görünür.");
   await ctx2.close();
 });
 

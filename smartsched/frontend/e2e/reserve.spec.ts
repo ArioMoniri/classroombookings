@@ -308,7 +308,7 @@ test("7. calendar sync: private links for me, a room and a department, copy, Goo
   for (const c of sync.connectors) await expect(panel.getByTestId(`sync-connect-${c.provider}`)).toHaveCount(c.configured ? 1 : 0);
   // reset: a new link, the old one stops working
   await panel.getByTestId("sync-reset").click();
-  await page.getByRole("dialog", { name: /sıfırlansın mı|Reset the private link/ }).getByRole("button", { name: /sıfırla|reset/i }).click();
+  await page.getByRole("alertdialog", { name: /sıfırlansın mı|Reset the private link/ }).getByRole("button", { name: /sıfırla|reset/i }).click();
   await expect(url).not.toHaveValue(mineUrl);
   const old = await ctx.api.get(mineUrl.replace(/^https?:\/\/[^/]+/, API.replace(/\/api\/v1$/, "")));
   expect(old.status()).toBe(404);

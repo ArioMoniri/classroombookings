@@ -142,7 +142,7 @@ test("1. My bookings: the consent step before the first link; a 409 consent_requ
   // withdrawn in another tab (the API here) while this page still believes it is given: the reset is refused
   await api("DELETE", "/me/consents/calendar_sync", undefined, ctx.teacherToken);
   await panel.getByTestId("sync-reset").click();
-  await page.getByRole("dialog", { name: /sıfırlansın mı/ }).getByRole("button", { name: /sıfırla/i }).click();
+  await page.getByRole("alertdialog", { name: /sıfırlansın mı/ }).getByRole("button", { name: /sıfırla/i }).click();
   const refused = panel.getByTestId("calendar-consent-refused");
   await expect(refused).toContainText('Bunun için "Takvimimle eşitleme (Google / Microsoft)" rızanız gerekir.');
   const link = refused.getByTestId("calendar-consent-link");

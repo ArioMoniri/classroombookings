@@ -250,10 +250,11 @@ test("T-R2-06 /reset-password: own hint without LDAP, '24 saat', a short code is
   await page.getByRole("button", { name: "Kod gönder" }).click();
   await expect(page.getByTestId("reset-requested")).toContainText("24 saat");
   await page.getByRole("button", { name: "Kodum var" }).click();
-  const form = page.getByLabel("Tek kullanımlık kod").locator("xpath=ancestor::form");
-  const text = await form.innerText();
+  // AUX12-F07: one set-password form (SetPasswordForm) with the policy's own length hint, no LDAP wording
+  await expect(page.getByLabel("Tek kullanımlık kod")).toBeVisible();
+  const text = await page.getByRole("main").innerText();
   expect(text).not.toMatch(/LDAP|Dizin/);
-  expect(text).toContain("En az 8 karakter.");
+  expect(text).toMatch(/En az \d+ karakter\./);
   await page.context().close();
   const r = await ctx.api.post(`${API}/auth/password-reset/confirm`, { data: { token: "12", password: "Flow-2026!pw" } });
   expect(r.status()).toBe(400);

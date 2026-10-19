@@ -40,6 +40,7 @@ interface Run {
   is_active: boolean;
   horizon_params: { weeks: number[] };
   error?: string | null;
+  params?: { source?: string } | null;
 }
 interface Truth {
   broken_count: number;
@@ -106,6 +107,13 @@ function trackErrors(page: Page): string[] {
   return errors;
 }
 
+/** the run report's figures live in the folded "Ayrıntılar" (FIX-H simpler run hero): open it */
+async function openRunDetails(page: Page) {
+  const details = page.getByTestId("run-details");
+  await details.waitFor();
+  if (!(await details.evaluate((el) => (el as HTMLDetailsElement).open))) await details.locator("summary").click();
+}
+
 test.beforeAll(async () => {
   ctx.api = await pwRequest.newContext();
   const res = await ctx.api.post(`${API}/auth/login`, { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } });
@@ -116,7 +124,8 @@ test.beforeAll(async () => {
   const runs = await api<Run[]>("GET", "/runs");
   const finished = (r: Run) => ["FEASIBLE", "OPTIMAL", "FEASIBLE_PARTIAL"].includes(r.status) && r.kind === "COURSE";
   const bahar = runs.filter((r) => r.term_id === ctx.bahar.id && finished(r));
-  ctx.termRun = bahar.filter((r) => r.horizon === "TERM").sort((a, b) => Number(b.is_active) - Number(a.is_active) || b.id - a.id)[0] ?? null;
+  // a solver run: an imported board (the e2e gate publishes Bahar's) shows no solver figures (HX12B-F07)
+  ctx.termRun = bahar.filter((r) => r.horizon === "TERM" && r.params?.source !== "GRID_IMPORT").sort((a, b) => Number(b.is_active) - Number(a.is_active) || b.id - a.id)[0] ?? null;
   ctx.weekRun = bahar.filter((r) => r.horizon === "WEEK").sort((a, b) => b.id - a.id)[0] ?? null;
   ctx.otherTermRun = runs.filter((r) => r.term_id !== ctx.bahar.id && finished(r))[0] ?? null;
 });
@@ -144,6 +153,7 @@ test("T-R2-26 · Sorun = broken + accepted exceptions at 1440 and 390; Veri notl
   const errors = trackErrors(page);
   await login(page);
   await page.goto(`/runs/${r.id}`);
+  await openRunDetails(page);
   const kpi = page.locator('[data-testid^="kpi-Sorun"]');
   await expect(kpi).toHaveText(String(want), { timeout: 20_000 });
   // the summary (planner check + data issues) takes ~8 s on a loaded 4-core host: the page shows the stored truth
@@ -164,6 +174,7 @@ test("T-R2-26 · Sorun = broken + accepted exceptions at 1440 and 390; Veri notl
   const phone = await phoneCtx.newPage();
   await login(phone);
   await phone.goto(`/runs/${r.id}`);
+  await openRunDetails(phone);
   await expect(phone.locator('[data-testid^="kpi-Sorun"]')).toHaveText(String(want), { timeout: 20_000 });
   await expect(phone.getByTestId("unplaced-list")).toBeVisible({ timeout: 45_000 });
   expect(await phone.getByTestId("unplaced-list").locator("li").count()).toBe(summary.truth.unplaced_count);

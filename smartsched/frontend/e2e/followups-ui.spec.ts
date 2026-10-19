@@ -335,6 +335,7 @@ test("5 · phone 390: the sheet is a bottom sheet with 44 px targets, the reject
   // the coordinator on a phone: a pending wish, the reject dialog is a bottom sheet
   await api("POST", "/moderation/me/preferences", { kind: "room_preference", request_ids: [ctx.ptl102.request_id], rooms: ["C 302"] }, ctx.teacherToken);
   const a = await phone(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await pinTermCode(a, TERM_CODE); // the spec works on TERM_CODE; the shell would open the current term by date
   await a.goto("/moderation?tab=preferences&view=teacher");
   const card = a.getByTestId("wish-card").filter({ hasText: "C 302" });
   await expect(card).toBeVisible();
