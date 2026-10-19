@@ -112,30 +112,35 @@ export function StudioProvider({ termId, kind, term, children }: { termId: numbe
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveNow = useCallback(async (): Promise<void> => {
-    // loop: edits made while a request is in flight are sent right after it
-    for (let round = 0; round < 10; round++) {
-    if (saving.current) {
-      await saving.current;
-    }
-    const s = store.getState().studio;
-    if (!s.server || s.dirty.length === 0 || s.status === "conflict" || (round > 0 && s.status !== "idle")) return;
-    const sent = [...s.dirty];
-    const sentEdits = { ...s.edits };
-    const { dispatch } = store.getState();
-    dispatch({ type: "saving" });
-    const run = (async () => {
-      try {
-        const d = await api.studio.saveDraft(termId, kind, s.server?.version ?? 0, patchFor(s.local, sent));
-        dispatch({ type: "saved", draft: d, sent, sentEdits });
-        qc.setQueryData(sk.draft(termId, kind), d);
-      } catch (e) {
-        if (e instanceof DraftConflictError) dispatch({ type: "conflict", current: e.current });
-        else dispatch({ type: "saveFailed", error: e instanceof Error ? e.message : String(e) });
+    // single flight: the autosave timer and a flush (the pre-check, a step change) can both ask while a save is in
+    // flight. A second loop woke by the same request used to resend the same version next to the first loop's
+    // follow-up save, got a 409 and left the edit dirty with the status stuck on "Kaydediliyor…" (pod e2e #125,
+    // integrity-r1 #4 / R1-M-12). Now a caller joins the running loop, and the loop picks up what was edited meanwhile.
+    if (saving.current) return saving.current;
+    const loop = (async () => {
+      // edits made while a request is in flight are sent right after it
+      for (let round = 0; round < 10; round++) {
+        const s = store.getState().studio;
+        if (!s.server || s.dirty.length === 0 || s.status === "conflict" || (round > 0 && s.status !== "idle")) return;
+        const sent = [...s.dirty];
+        const sentEdits = { ...s.edits };
+        const { dispatch } = store.getState();
+        dispatch({ type: "saving" });
+        try {
+          const d = await api.studio.saveDraft(termId, kind, s.server?.version ?? 0, patchFor(s.local, sent));
+          dispatch({ type: "saved", draft: d, sent, sentEdits });
+          qc.setQueryData(sk.draft(termId, kind), d);
+        } catch (e) {
+          if (e instanceof DraftConflictError) dispatch({ type: "conflict", current: e.current });
+          else dispatch({ type: "saveFailed", error: e instanceof Error ? e.message : String(e) });
+        }
       }
     })();
-    saving.current = run;
-    await run;
-    saving.current = null;
+    saving.current = loop;
+    try {
+      await loop;
+    } finally {
+      if (saving.current === loop) saving.current = null;
     }
   }, [store, termId, kind, qc]);
 
