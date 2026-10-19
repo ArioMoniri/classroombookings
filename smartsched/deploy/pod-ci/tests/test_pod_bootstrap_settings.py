@@ -5,7 +5,6 @@ environment variables (never argv), where seed/bootstrap_settings.py writes each
 from __future__ import annotations
 
 import importlib.util
-import os
 import subprocess
 import sys
 from pathlib import Path

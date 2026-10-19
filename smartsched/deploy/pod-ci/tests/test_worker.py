@@ -359,8 +359,8 @@ def test_e2e_shards_run_concurrently_and_parity_waits_for_all_of_them(cfg: Confi
     gates = tuple(g for g in GATES if g.name not in ("planner", "images", "watchdog"))
     ex = ConcurrentExecute(fail={"e2e-real-2"})
     rid = queue(store, "claude/smartsched-universal")
-    w = CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, fail_fast=False), store, FakeReporter(), NoCloud(), lambda: "tok",
-                           execute=ex, run_cmd=FakeRun(), log=lambda _: None, disk_usage=lambda: 10.0,
+    w = CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, fail_fast=False), store, FakeReporter(), NoCloud(),
+                           lambda: "tok", execute=ex, run_cmd=FakeRun(), log=lambda _: None, disk_usage=lambda: 10.0,
                            cpu_count=16, memory_mb=31_600, gates=gates)
     assert w.slots.count == 6
     w.work()
@@ -403,9 +403,9 @@ class ConcurrentExecute(FakeExecute):
 
 def parallel_worker(cfg: Config, store: Store, ex: FakeExecute, rep: FakeReporter | None = None,
                     gates: tuple[Gate, ...] = GATES, fail_fast: bool = True) -> CheckoutStubWorker:
-    return CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, fail_fast=fail_fast), store, rep or FakeReporter(), NoCloud(),
-                              lambda: "tok", execute=ex, run_cmd=FakeRun(), log=lambda _: None,
-                              disk_usage=lambda: 10.0, gates=gates, cpu_count=8, memory_mb=15_800)
+    return CheckoutStubWorker(dataclasses.replace(cfg, parallel=0, fail_fast=fail_fast), store,
+                              rep or FakeReporter(), NoCloud(), lambda: "tok", execute=ex, run_cmd=FakeRun(),
+                              log=lambda _: None, disk_usage=lambda: 10.0, gates=gates, cpu_count=8, memory_mb=15_800)
 
 
 def test_gates_run_concurrently_along_the_needs_dag_within_the_slot_cap(cfg: Config, store: Store) -> None:

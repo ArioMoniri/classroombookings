@@ -1205,8 +1205,8 @@ HEADINGS = {"# Test info", "# Error details", "# Page snapshot", "# Test source"
 SECRET = re.compile(r"(?i)(password|passwd|secret|token|api[_-]?key|authorization|basic_auth)(\S*\s*[:=]\s*|\s+)\S+")
 QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
 # two or more capitalised words in a row (Turkish letters included): what a person's name looks like
-NAME = re.compile(r"\b[A-ZÇĞİÖŞÜ][\wçğıöşü.'-]*"
-                  r"(\s+[A-ZÇĞİÖŞÜ][\wçğıöşü.'-]*)+")
+CAP = r"[A-Z\u00c7\u011e\u0130\u00d6\u015e\u00dc][\w.'-]*"
+NAME = re.compile(r"\b" + CAP + r"(\s+" + CAP + r")+")
 ARIA = re.compile(r"^(\s*-\s+)(/?[\w-]+)(.*)$")
 
 

@@ -91,6 +91,7 @@ cleanup() {
   rm -rf "${WS:?}/$sdir/next"  # the build copy; test-results (traces, screenshots) stay with the workspace
 }
 trap cleanup EXIT
+trap 'exit 143' TERM INT  # a timeout or a cancel (SIGTERM) still runs cleanup (bash skips EXIT traps on signals)
 section "shard ${SHARD}: private copy of the e2e-build gate's .next (no cache/, no standalone/)"
 rm -rf "${WS:?}/$sdir"
 mkdir -p "$WS/$sdir/next" "$WS/$sdir/test-results" "$WS/$sdir/empty" "$fe/test-results"

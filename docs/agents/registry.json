@@ -4591,7 +4591,8 @@
       "goal": "Implement gated pod-CI speed and reliability fixes. Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. DO NOT commit or push (the orchestrator commits). DO NOT touch smartsched/frontend/** (another agent is editing it) or docs/AGENT_STATE.md / docs/agents/registry.json. Scope: s…",
       "ledger": "Implement pod CI speed fixes",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-19 19:34"
     }
   ]
 }

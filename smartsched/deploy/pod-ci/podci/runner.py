@@ -12,7 +12,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any
@@ -46,17 +46,13 @@ CANCELLED_EXIT = 143  # a gate killed because its run was cancelled (superseded 
 
 def _kill_group(proc: subprocess.Popen[bytes], grace: float = 30) -> None:
     """SIGTERM the gate's process group, SIGKILL it after `grace` seconds."""
-    try:
+    with suppress(ProcessLookupError):
         os.killpg(proc.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
     try:
         proc.wait(timeout=grace)
     except subprocess.TimeoutExpired:
-        try:
+        with suppress(ProcessLookupError):
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         proc.wait()
 
 
