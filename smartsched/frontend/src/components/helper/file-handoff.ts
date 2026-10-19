@@ -170,6 +170,8 @@ export function landFocus(href: string, { tries = 20, every = 50 }: { tries?: nu
   const path = href.split(/[?#]/)[0];
   let n = 0;
   const tick = () => {
+    // the page (or a test's DOM) may be gone by the next tick: stop polling instead of throwing (pod run #124)
+    if (typeof document === "undefined") return;
     n += 1;
     const lost = !document.activeElement || document.activeElement === document.body;
     if (window.location.pathname === path && n >= 4) {
