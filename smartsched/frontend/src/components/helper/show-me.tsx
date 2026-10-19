@@ -12,7 +12,7 @@
  * followed and ringed again.
  */
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/ui/use-media-query";
 import { SpotlightRing } from "@/components/welcome/tour/spotlight-ring";
@@ -203,7 +203,8 @@ function ShowMe({ featureId }: { featureId: string }) {
     };
   }, [target, textId]);
 
-  useEffect(() => {
+  // at commit, not in a passive effect: a deferred focus could land after an early Esc and leave <body> focused
+  useLayoutEffect(() => {
     if (found.state === "waiting") return;
     cardRef.current?.querySelector<HTMLElement>("[data-step-primary]")?.focus();
   }, [found.state]);
@@ -217,15 +218,22 @@ function ShowMe({ featureId }: { featureId: string }) {
     focusAfterShowMe(target);
   };
 
+  // the Esc listener always calls this render's `end` (with this render's target): it is swapped at commit, so an Esc
+  // pressed right after the card appears never runs the previous render's listener, whose target was still null
+  // (pod run #144: the focus stayed on <body> when passive effects were late)
+  const endRef = useRef(end);
+  useLayoutEffect(() => {
+    endRef.current = end;
+  });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.preventDefault();
-      end(false);
+      endRef.current(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, []);
 
   if (!entry) return null;
   const title = entry.title[locale] ?? entry.title.tr;
