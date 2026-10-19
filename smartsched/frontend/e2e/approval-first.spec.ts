@@ -401,10 +401,13 @@ test("approval-first 7. Profile › Bildirimler saves an event × channel switch
   await expect(prefs.getByTestId("prefs-cards-bookings")).toBeHidden();
   expect((await prefs.boundingBox())!.height).toBeLessThan(1600);
   expect(await noSidewaysScroll(p)).toBe(true);
-  // the settings tabs are 44 px on touch
+  // the settings sections are 44 px on touch: below 640 px one select names the section instead of the tab strip
+  // (HX12B-F14, settings-view.tsx)
   await p.goto("/settings");
-  await expect(p.getByTestId("tab-appearance")).toBeVisible({ timeout: 30_000 });
-  expect((await p.getByTestId("tab-appearance").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const section = p.getByTestId("settings-section-select");
+  await expect(section).toBeVisible({ timeout: 30_000 });
+  await expect(p.getByTestId("tab-appearance")).toBeHidden();
+  expect((await section.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await p.context().close();
 });
 

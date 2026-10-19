@@ -12,7 +12,7 @@
  *  5. R1-M-03: the impossible hard pin (ING 302, 100 students -> B 201, 30 seats) is refused with the one sentence.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { REAL, SKIP_REASON, api, login } from "./helpers";
+import { REAL, SKIP_REASON, api, login, pinTerm } from "./helpers";
 
 test.skip(!REAL, SKIP_REASON);
 
@@ -22,11 +22,7 @@ type RunRow = { id: number; term_id: number; kind: string; horizon: string; stat
 async function useTerm(page: Page, code: string): Promise<TermRow> {
   const terms = await api<TermRow[]>(page, "/terms");
   const term = terms.find((t) => t.code === code)!;
-  await page.evaluate((id) => {
-    const raw = localStorage.getItem("smartsched.ui");
-    const cur = raw ? (JSON.parse(raw) as { state?: Record<string, unknown>; version?: number }) : {};
-    localStorage.setItem("smartsched.ui", JSON.stringify({ ...cur, state: { ...(cur.state ?? {}), termId: id } }));
-  }, term.id);
+  await pinTerm(page, term.id);
   return term;
 }
 
