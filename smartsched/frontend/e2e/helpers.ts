@@ -70,10 +70,30 @@ export async function pinTermCode(page: Page, code: string, opts: { forget?: boo
   return term!.id;
 }
 
+/**
+ * A new account meets the first-sign-in welcome sheet (a modal, welcome-guide.md) on its first home or /admin/* page,
+ * opened a moment after the page settles, so it races whatever the spec clicks next. Specs that are not about the
+ * guide close it for good through the API, the event the sheet's own "never" action sends, and reload so the shell
+ * reads that; the welcome-guide specs keep it (`login(..., { welcome: true })`). Returns whether it was due.
+ */
+export async function dismissWelcomeSheet(page: Page): Promise<boolean> {
+  const due = await page.evaluate(async () => {
+    const r = await fetch(`/api/v1/welcome?first_route=${encodeURIComponent(location.pathname)}`, { headers: { Accept: "application/json" } });
+    if (!r.ok) return false;
+    const w = (await r.json()) as { show?: { kind?: string } | null };
+    if (w.show?.kind !== "sheet" && w.show?.kind !== "delta") return false;
+    const e = await fetch("/api/v1/welcome/events", { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ guide_key: "sheet", event: "dismissed" }) });
+    return e.ok;
+  });
+  if (due) await page.reload();
+  return due;
+}
+
 /** Sign in through the form; resolves once the app left /login. `?method=local` opens the password door when
  *  Microsoft sign-in is on (sign-in.md §4.2) and is harmless when it is off. A privacy notice an earlier spec
- *  published is acknowledged unless `ackNotice: false` (the notice gate's own test). */
-export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD, { ackNotice = true }: { ackNotice?: boolean } = {}): Promise<void> {
+ *  published is acknowledged unless `ackNotice: false` (the notice gate's own test); the first-sign-in welcome sheet
+ *  is closed for good unless `welcome: true` (the welcome-guide specs). */
+export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADMIN_PASSWORD, { ackNotice = true, welcome = false }: { ackNotice?: boolean; welcome?: boolean } = {}): Promise<void> {
   // A page still showing the app after its cookies were cleared answers its next poll with 401 and redirects
   // itself to /login?expired, which aborts our own navigation (net::ERR_ABORTED). Leave the app first.
   if (page.url() !== "about:blank") await page.goto("about:blank");
@@ -89,6 +109,7 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
   await page.getByTestId("login-submit").click();
   await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
   if (ackNotice) await ackPrivacyNotice(page);
+  if (!welcome) await dismissWelcomeSheet(page);
 }
 
 /** Same-origin GET through the Next proxy (the httpOnly cookie carries the JWT). */

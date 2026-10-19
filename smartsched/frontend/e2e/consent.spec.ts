@@ -65,10 +65,6 @@ async function loginToken(identifier: string, password: string): Promise<string>
 async function ackNotice(token: string): Promise<void> {
   const me = await api<{ notice: { id: number } | null; needs_ack: boolean }>("GET", "/me/privacy", undefined, token);
   if (me.needs_ack && me.notice) await api("POST", "/me/privacy/ack", { notice_id: me.notice.id }, token);
-  // a new account also meets the first-sign-in welcome sheet (a modal) on My bookings, at a moment that races the
-  // steps' clicks; this spec is not about the guide (wg-*.spec.ts): the person closes it for good, as its
-  // own "never" action does
-  await api("POST", "/welcome/events", { guide_key: "sheet", event: "dismissed" }, token);
 }
 async function syncConsent(token = ctx.teacherToken): Promise<{ required: boolean; granted: boolean }> {
   return (await api<{ consent: { required: boolean; granted: boolean } }>("GET", "/calendar/sync", undefined, token)).consent;

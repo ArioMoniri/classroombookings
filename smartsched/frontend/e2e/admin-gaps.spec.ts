@@ -53,10 +53,6 @@ async function signIn(page: Page) {
     await ctx.clearCookies();
     await login(page, ME.username, ME.password);
     await call(page, "PUT", "/auth/profile", { language: "en" });
-    // a new account meets the first-sign-in welcome sheet (a modal) on its next home or /admin/* page, at a moment
-    // that races the steps' own clicks; this spec is not about the guide (wg-*.spec.ts), so the person closes it
-    // for good up front, through the same event the sheet's own "never" action sends
-    await call(page, "POST", "/welcome/events", { guide_key: "sheet", event: "dismissed" });
     await ctx.clearCookies();
     ready = true;
   }
