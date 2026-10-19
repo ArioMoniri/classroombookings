@@ -106,10 +106,29 @@ export async function login(page: Page, identifier = ADMIN_EMAIL, password = ADM
     const el = document.querySelector('[data-testid="login-submit"]');
     return !!el && Object.keys(el).some((k) => k.startsWith("__reactProps$"));
   }, undefined, { timeout: 30_000 });
-  await page.getByTestId("login-identifier").fill(identifier);
-  await page.getByTestId("login-password").fill(password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 30_000 });
+  const submit = async () => {
+    await page.getByTestId("login-identifier").fill(identifier);
+    await page.getByTestId("login-password").fill(password);
+    await page.getByTestId("login-submit").click();
+  };
+  await submit();
+  // left /login, or the form answered: a field the hydration dropped ("… gerekli") is typed once more; a refusal (wrong
+  // password, a 429 lock with its minutes, offline) fails here with the form's own sentence instead of a bare timeout
+  const away = () => !new URL(page.url()).pathname.startsWith("/login");
+  const required = page.locator('[data-testid="login-identifier-required"], [data-testid="login-password-required"]');
+  let retried = false;
+  for (const until = Date.now() + 30_000; !away(); ) {
+    if (Date.now() > until) throw new Error(`login as ${identifier} did not leave ${new URL(page.url()).pathname} in 30 s`);
+    if (!retried && (await required.count())) {
+      retried = true;
+      await submit();
+    } else if ((await page.getByTestId("login-error").count()) && !away()) {
+      await page.waitForTimeout(1_000); // a refusal stays; a late redirect does not
+      if (!away() && (await page.getByTestId("login-error").count())) throw new Error(`login as ${identifier} refused: ${(await page.getByTestId("login-error").innerText().catch(() => "")).trim()}`);
+    }
+    await page.waitForTimeout(100);
+  }
+  await page.waitForLoadState("domcontentloaded");
   if (ackNotice) await ackPrivacyNotice(page);
   if (!welcome) await dismissWelcomeSheet(page);
 }

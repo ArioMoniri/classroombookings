@@ -43,7 +43,19 @@ async function csvOk(page: Page, href: string | null) {
   expect(res.body.split("\n").length).toBeGreaterThan(1);
 }
 
+/** the pool member the invigilation test adds through the UI: removed even when the test stops half-way (pod run #125:
+ *  a member left behind made loop-r1-laneF's "empty pool" plan short of staff instead of empty) */
+let invigLeft: { name: string; termId: number } | null = null;
+
 test.describe("planning analytics", () => {
+  test.afterEach(async ({ page }) => {
+    if (!invigLeft) return;
+    const left = invigLeft;
+    invigLeft = null;
+    const pool = await api<{ id: number; full_name: string }[]>(page, `/invigilation/pool?term_id=${left.termId}`).catch(() => []);
+    for (const m of pool.filter((x) => x.full_name === left.name)) await send(page, "DELETE", `/invigilation/pool/${m.id}`).catch(() => undefined);
+  });
+
   test("scenario comparison from the runs list: headline, verdicts, class changes, rooms, rules, CSV", async ({ page }) => {
     await login(page);
     const a = await runByLabel(page, "Bahar 3. hafta (A)");
@@ -161,7 +173,8 @@ test.describe("planning analytics", () => {
     await page.goto(`/exams/invigilation?run=${exam.id}&tab=pool`);
 
     // pool: a research assistant who cannot invigilate on the first Final morning
-    const name = `Arş. Gör. Deniz Kaya ${Date.now() % 100000}`;
+    const name = `Arş. Gör. e2e Gözetmen ${Date.now() % 100000}`;
+    invigLeft = { name, termId: (await api<TermRow[]>(page, "/terms")).find((t) => t.code === "2026-FINAL")!.id };
     await page.getByTestId("pool-add").click();
     const form = page.getByTestId("pool-form");
     await form.getByTestId("pool-name").fill(name);
@@ -186,7 +199,10 @@ test.describe("planning analytics", () => {
     await plan.getByTestId("invig-advanced").click();
     await plan.getByTestId("invig-param-time_limit_s").fill("3");
     await plan.getByTestId("invig-param-label").fill("e2e varsayılan kurallar");
-    await plan.getByTestId("invig-form-submit").click();
+    // a bounded click (pod run #125 waited 15 min on it: the dialog was taller than the window, the button below the
+    // edge where nothing could reach it): enabled and clickable within 30 s, else this step fails here with its reason
+    await expect(plan.getByTestId("invig-form-submit")).toBeEnabled();
+    await plan.getByTestId("invig-form-submit").click({ timeout: 30_000 });
     await expect(plan).toBeHidden();
     const detail = page.getByTestId("invig-plan");
     await expect(detail).toHaveAttribute("data-status", /^(OPTIMAL|FEASIBLE|INFEASIBLE)$/, { timeout: 240_000 });
@@ -218,7 +234,8 @@ test.describe("planning analytics", () => {
     await expect(plan).toContainText("yeniden çalıştır");
     if (!(await plan.getByTestId("invig-param-time_limit_s").isVisible())) await plan.getByTestId("invig-advanced").click();
     await expect(plan.getByTestId("invig-param-time_limit_s")).toHaveValue("3");
-    await plan.getByTestId("invig-form-submit").click();
+    await expect(plan.getByTestId("invig-form-submit")).toBeEnabled();
+    await plan.getByTestId("invig-form-submit").click({ timeout: 30_000 });
     await expect(detail).toContainText("planından", { timeout: 30_000 });
     await expect(detail).toHaveAttribute("data-status", /^(OPTIMAL|FEASIBLE|INFEASIBLE)$/, { timeout: 240_000 });
     type Detail = { parent_plan_id: number | null; posts: { assigned: { post_key: string; person_key: string; is_locked: boolean }[] }[] };

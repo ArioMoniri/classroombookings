@@ -86,10 +86,13 @@ export function RecreatePreview({ runId }: { runId: number }) {
     }
   }, [d, t]);
   // the "Yeniden çözüm #n başladı" toast sits bottom-right, exactly over the sticky footer's "Onayla ve yayınla", and
-  // Sonner pauses its expiry under a resting pointer: it goes the moment this page shows the run (T-R2-23 / e2e gate)
+  // Sonner pauses its expiry under a resting pointer: it goes the moment that footer renders, i.e. when the preview is
+  // ready. Not on mount: while the solve is still running the toast is the only confirmation the start worked, and
+  // dismissing it on navigation hid it before anyone could read it (pod e2e #125, T-R2-23)
+  const ready = d?.ready === true;
   useEffect(() => {
-    toast.dismiss(RECREATE_STARTED_TOAST);
-  }, [runId]);
+    if (ready) toast.dismiss(RECREATE_STARTED_TOAST);
+  }, [runId, ready]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
