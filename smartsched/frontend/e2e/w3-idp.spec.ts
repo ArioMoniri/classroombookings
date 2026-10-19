@@ -19,7 +19,7 @@ import { expect, request as pwRequest, test, type Page } from "@playwright/test"
 import { ADMIN_EMAIL, ADMIN_PASSWORD, REAL, SKIP_REASON, login } from "./helpers";
 
 const API = (process.env.E2E_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "") + "/api/v1";
-const WEB = `http://127.0.0.1:${process.env.PW_PORT ?? 3000}`;
+const WEB = `http://127.0.0.1:${process.env.PW_PORT ?? 3100}`;
 const ISSUER_PORT = Number(process.env.W3_IDP_ISSUER_PORT ?? 19712);
 const ISSUER = `http://localhost:${ISSUER_PORT}/realms/uni`;
 const STAMP = Date.now().toString(36);

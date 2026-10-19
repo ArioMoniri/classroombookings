@@ -161,6 +161,8 @@ test("2. Profil › Takvim aktarımı: Connect asks for the consent, then goes t
   await signInAs(page, TEACHER.username, TEACHER.password);
   await page.goto("/profile");
   const section = page.getByTestId("calendar-connections");
+  // the provider connections are the older path, folded under "Gelişmiş" (calendar export: "Takvimime ekle" leads)
+  await section.getByTestId("calendar-connections-advanced-toggle").click();
   await expect(section.getByTestId("calendar-connections-consent")).toContainText("Bağlanırken önce takvim eşitleme rızanız istenir");
   await section.getByTestId("calendar-connect-google").click();
   const step = section.getByTestId("calendar-consent-google");
