@@ -135,7 +135,7 @@ export function PasskeyDoor({ ctl }: { ctl: PasskeySignIn }) {
   }, [focusing, ctl.notice]);
   if (!ctl.enabled) return null;
   return (
-    <div className="mt-5 flex flex-col gap-4" data-testid="passkey-door">
+    <div className="mt-5 flex flex-col gap-4 [@media(max-height:960px)]:mt-3" data-testid="passkey-door">
       <div className="flex items-center gap-3 type-footnote text-label-3" aria-hidden>
         <span className="h-px flex-1 bg-(--hairline)" />
         {t("auth.passkey.or")}
