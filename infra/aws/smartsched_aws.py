@@ -1149,7 +1149,7 @@ POD_DIAG = (
     "echo '==== app stack'; systemctl is-active smartsched-stack.service 2>&1; "
     "journalctl -u smartsched-stack.service -b -n 15 --no-pager -o cat 2>&1 | tail -15; "
     "echo \"deployed-sha: $(cat /var/lib/smartsched-ci/deployed-sha 2>&1)\"; "
-    "echo \"checkout: $(git -C /opt/smartsched/src rev-parse --short HEAD 2>&1)\"; "
+    "echo \"checkout: $(git -c safe.directory=* -C /opt/smartsched/src rev-parse --short HEAD 2>&1)\"; "
     "test -f /opt/smartsched/src/smartsched/deploy/.env && echo '.env: present' || echo '.env: MISSING'; "
     "docker ps -a --filter status=exited --filter status=created --format '{{.Names}} {{.Status}}' 2>&1 "
     "| grep -v -e podci- -e smartsched-ci- | head -15; "
