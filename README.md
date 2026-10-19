@@ -409,6 +409,6 @@ To cite SmartSched, use [CITATION.cff](CITATION.cff) or GitHub's "Cite this repo
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c9a95fd` (committed 2026-10-19 13:10 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8c29e93` (committed 2026-10-19 19:45 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->

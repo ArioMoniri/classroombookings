@@ -17,7 +17,7 @@ never rewritten.
 
 <!-- AUTO:last-updated -->
 
-Generated blocks last synced on top of commit `c9a95fd` (committed 2026-10-19 13:10 UTC) by `python3 -I scripts/docs/sync_docs.py`.
+Generated blocks last synced on top of commit `8c29e93` (committed 2026-10-19 19:45 UTC) by `python3 -I scripts/docs/sync_docs.py`.
 
 <!-- /AUTO:last-updated -->
 
@@ -171,12 +171,12 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 | `frontend-unit-1` | vitest shard 1/2 | yes | frontend | not recorded |
 | `frontend-unit-2` | vitest shard 2/2 | yes | frontend | not recorded |
 | `e2e-build` | next build for the e2e shards + no-mock-build check | yes | frontend, frontend-unit-1, frontend-unit-2 | not recorded |
-| `e2e-real-1` | Playwright shard 1/3 vs real backend + Bahar fixtures | yes | e2e-build, frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | not recorded |
-| `e2e-real-2` | Playwright shard 2/3 vs real backend + Bahar fixtures | yes | e2e-build, frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | not recorded |
-| `e2e-real-3` | Playwright shard 3/3 vs real backend + Bahar fixtures | yes | e2e-build, frontend, frontend-unit-1, frontend-unit-2, backend, backend-unit-1, backend-unit-2, backend-unit-3 | not recorded |
+| `images` | docker build backend/frontend/crbs | yes | prepare | error (did not finish: disk, needs 8 GB free) |
+| `e2e-real-1` | Playwright shard 1/3 vs real backend + Bahar fixtures | yes | backend-deps, e2e-build | not recorded |
+| `e2e-real-2` | Playwright shard 2/3 vs real backend + Bahar fixtures | yes | backend-deps, e2e-build | not recorded |
+| `e2e-real-3` | Playwright shard 3/3 vs real backend + Bahar fixtures | yes | backend-deps, e2e-build | not recorded |
 | `parity` | CRBS superset gate (scripts/parity_check.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; PASS 179 / GAP 13 / FAIL 0) |
 | `planner` | planner-level validation (tools/validate_planner.py) | yes | backend, backend-unit-1, backend-unit-2, backend-unit-3 | success (forced; 0 violations on all 4) |
-| `images` | docker build backend/frontend/crbs | yes | prepare | error (did not finish: disk, needs 8 GB free) |
 | `watchdog` | agent ledger report | no (report only) | prepare | not recorded |
 | `deploy` | deploy.sh --update | yes | - | success (deploy smoke OK) |
 
@@ -186,7 +186,7 @@ Results with their commit and date from [`gate-results.json`](testing/gate-resul
 
 <!-- AUTO:agents check=no -->
 
-415 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 390 · stopped 11 · superseded 7.
+420 agents in [`docs/agents/registry.json`](agents/registry.json): running 7 · finished 395 · stopped 11 · superseded 7.
 
 | Running ledger | Agent type | Started (UTC) |
 |---|---|---|
