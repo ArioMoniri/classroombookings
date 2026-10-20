@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { NativeSelect } from "@/components/common/native-select";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,9 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
   const { t, n, locale } = useI18n();
   const { terms } = useActiveTerm();
   const setTermId = useUiStore((s) => s.setTermId);
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const { termId, kind, local, dispatch, store, termWeeks, summary, summaryData, classes, classesLoading } = useStudio();
   const isAdmin = useStudio().isAdmin;
 
@@ -83,6 +87,15 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
             value={String(termId)}
             onChange={(e) => {
               const id = Number(e.target.value);
+              // the other term's Studio opens where its draft was left (last_step) unless the address names a step:
+              // a term picked here keeps the person on the scope step. Without this the page jumped to that term's
+              // rules or classes step once its draft arrived, right after the switch (pod e2e #141/#147, T-R1-47 /
+              // T-R2-27: the scope sentence vanished on a host where the draft answered late)
+              if (params.get("step") !== "scope") {
+                const next = new URLSearchParams(params.toString());
+                next.set("step", "scope");
+                router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+              }
               setTermId(id);
               toast(t("nav.switched", { term: terms.find((x) => x.id === id)?.name ?? "" }));
             }}
