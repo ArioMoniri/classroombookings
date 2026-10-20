@@ -4524,7 +4524,7 @@
       "ledger": "Fix failing pod e2e specs",
       "resumed": false,
       "status": "finished",
-      "finished_at": "2026-10-19 23:40"
+      "finished_at": "2026-10-20 06:35"
     },
     {
       "id": "a07de39eaaebcdd29",
@@ -4711,7 +4711,16 @@
       "goal": "1. Use the Mobbin tools (mcp__Mobbin__search_screens / search_flows / search_sections) to study 8–12 strong web login/sign-in screens (SaaS, education/scheduling, Apple-like: e.g. Linear, Notion, Vercel, Cron/Notion Calendar, Arc, Raycast, Stripe, Height, Superhuman, Apple ID) for: split layouts that use the side panel well (product preview, testimonial/value points, live data), form density, fiel…",
       "ledger": "Mobbin research: login + navbar",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-10-20 06:37"
+    },
+    {
+      "id": "ac3db6a7be3467757",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-10-20 06:32",
+      "left_off": "deploy the new login page when done"
     }
   ]
 }
