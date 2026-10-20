@@ -115,6 +115,10 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 - keep the heartbeat going when GitHub is unreachable
             log(f"poll failed: {exc}")
         runner.heartbeat(cfg, store, cloud, time.time(), uptime_seconds(), log=log)
+        try:  # a serving site whose app containers vanished comes back within one poll (2 min)
+            runner.stack_guard(cfg, log=log)
+        except Exception as exc:  # noqa: BLE001 - the guard never breaks the poll
+            log(f"stack guard failed: {exc}")
         if store.active():  # smartsched-ci-worker.path (PathChanged) starts the worker unit
             (cfg.state_dir / "queue-signal").write_text(f"{time.time()}\n", encoding="utf-8")
         return 0
