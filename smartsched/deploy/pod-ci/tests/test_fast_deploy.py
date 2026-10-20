@@ -23,7 +23,8 @@ GATES_DIR = POD_CI / "gates"
 FAKE = """#!/usr/bin/env bash
 printf '%s %s\\n' "$(basename "$0")" "$*" >> "$FAKE_LOG"
 case "$(basename "$0") $1 $2" in
-  "docker image inspect") for img in $FAKE_IMAGES; do [[ "$3" == "$img" ]] && exit 0; done; exit 1 ;;
+  "docker image inspect") [[ "$3" == --format ]] && { echo "${FAKE_RUN_LABEL:-<no value>}"; exit 0; }
+    for img in $FAKE_IMAGES; do [[ "$3" == "$img" ]] && exit 0; done; exit 1 ;;
 esac
 [[ "$(basename "$0")" == curl ]] && { [[ "$*" == *127.0.0.1* || -n "${FAKE_PUBLIC_OK:-}" ]] && echo '{"db":true}'; }
 exit 0
@@ -79,6 +80,13 @@ def test_deploy_gate_builds_when_an_image_is_missing_or_the_env_changes_build_ar
     code, out, calls = run_deploy_gate(tmp_path / "c", "PROXY_PORT=8080\n", [f"smartsched-{s}:ci-{SHA_B}"
                                                                            for s in ("backend", "frontend", "crbs")])
     assert "deploy.sh --update --no-pull --tls" in calls  # another commit's images are never used
+
+
+def test_deploy_gate_never_reuses_images_that_carry_the_ci_run_label(tmp_path: Path) -> None:
+    """Images built before the label fix carry smartsched-ci.run: their containers would look like CI containers."""
+    code, out, calls = run_deploy_gate(tmp_path, "PROXY_PORT=8080\n", CI_IMAGES, FAKE_RUN_LABEL="150-d70920e")
+    assert code == 0, out
+    assert "deploy.sh --update --no-pull --tls" in calls and not any(c.startswith("docker tag") for c in calls)
 
 
 def test_deploy_gate_public_check_is_report_only_and_shows_the_proxy_log(tmp_path: Path) -> None:
