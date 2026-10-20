@@ -162,13 +162,32 @@ export function Sidebar() {
   const { can, me } = usePermissions();
   const hydrated = useHydrated();
   const home = hydrated && me && !can("planning.view") ? "/bookings" : "/dashboard";
-  // the current page's row is always in view (on /admin at 900 px tall it sat below the fold of the nav list)
+  // the current page's row is always in view (on /admin at 900 px tall it sat below the fold of the nav list);
+  // centred, so the checklist card that mounts in the footer afterwards cannot cover it again
   const content = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   useEffect(() => {
     if (!hydrated) return;
-    const id = window.requestAnimationFrame(() => content.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView?.({ block: "nearest" }));
-    return () => window.cancelAnimationFrame(id);
+    // the nav list scrolls itself (never the page): the row is brought to the list's middle, again when the list
+    // changes size in the first two seconds (the checklist card and the "Daha fazla" rows mount after the first frame)
+    const list = content.current;
+    if (!list) return;
+    const centre = () => {
+      const row = list.querySelector<HTMLElement>('[aria-current="page"]');
+      if (!row) return;
+      const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+      list.scrollTop = Math.max(0, top - (list.clientHeight - row.offsetHeight) / 2);
+    };
+    const id = window.requestAnimationFrame(centre);
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(centre);
+    ro?.observe(list);
+    for (const group of list.children) ro?.observe(group);
+    const stop = window.setTimeout(() => ro?.disconnect(), 2000);
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.clearTimeout(stop);
+      ro?.disconnect();
+    };
   }, [pathname, hydrated, collapsed, me]);
   return (
     <aside aria-label={t("glass.shell.sidebar")} data-collapsed={collapsed} data-chrome={tintOnly ? "tint" : "glass"} className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col lg:flex", collapsed ? "w-[72px]" : "w-[264px]", tintOnly && TINT_ONLY_OVER_SCENE)}>
