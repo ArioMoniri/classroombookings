@@ -201,7 +201,7 @@ function withoutBackground(mod: unknown): LottieJson {
 const FRAME = "relative aspect-video w-full overflow-hidden rounded-2xl bg-(--mat-thin) glass-edge";
 
 function Poster({ theme }: { theme: Theme }) {
-  return <Image src={POSTER[theme]} alt="" fill sizes="640px" className="object-cover" priority={false} />;
+  return <Image src={POSTER[theme]} alt="" fill sizes="720px" className="object-cover" priority={false} />;
 }
 
 type Loaded = { Player: Player; data: LottieJson };
@@ -331,7 +331,8 @@ export const SignInHero = memo(function SignInHero() {
       aria-hidden="true"
       data-testid="signin-hero"
       data-state={state}
-      className="pointer-events-none absolute right-8 bottom-8 w-[min(calc(52vw-120px),640px)] select-none max-lg:hidden forced-colors:hidden"
+      // login-navbar-2026-10.md §2.2: in the showcase column under the copy, centred; width from --showcase-hero-w
+      className="pointer-events-none relative w-(--showcase-hero-w) self-center select-none max-lg:hidden forced-colors:hidden"
     >
       {still ? (
         reduce ? (

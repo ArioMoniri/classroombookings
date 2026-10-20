@@ -29,7 +29,8 @@ const TABS: Tab[] = [
   { href: "/timetable", labelKey: "nav.timetable", icon: CalendarDays, permission: "planning.view" },
 ];
 
-const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-(--mat-thick) glass-edge";
+/** the one active style of the shell (sidebar row, admin tab, tab): the tint-soft pill with tint text */
+const PILL = "pointer-events-none absolute inset-0 -z-10 rounded-full bg-tint-soft";
 /** one equal column per tab; 48 px tall (≥ 44 px target) with the label always shown (review §3 "Mobile tab bar") */
 /** mobile-a fix 14: below 360 px the items lose their side padding (and the search circle moves to the top bar). The
  * threshold is in rem (22.5rem = 360 px at the default text size), so at 125–200 % text a phone gets the same room.
@@ -102,7 +103,10 @@ export function TabBar() {
           {label}
         </span>
         {extra.count ? (
-          <span aria-hidden className="absolute top-1 right-[max(0.125rem,calc(50%-1.75rem))] h-4 min-w-5 max-w-[calc(100%-0.25rem)] truncate rounded-full bg-status-warning px-1 text-center type-caption leading-4 font-semibold text-status-warning-fg tnum" data-testid="tab-badge">
+          // after the label in the DOM (innerText starts with the label), drawn from the glyph's right edge outwards: its
+          // right edge sits 8 px right of the centre and translate-x-full moves it out, so it touches the 20 px glyph's
+          // corner instead of covering it ("99+" hid the inbox), over a ring of the bar's material
+          <span aria-hidden className="absolute top-0.5 right-[calc(50%-0.5rem)] h-4 min-w-5 translate-x-full rounded-full bg-status-warning px-1 text-center type-caption leading-4 font-semibold text-status-warning-fg tnum ring-2 ring-(--mat-chrome-solid)" data-testid="tab-badge">
             {extra.count > 99 ? "99+" : extra.count}
           </span>
         ) : null}
@@ -136,7 +140,7 @@ export function TabBar() {
     // FIX-K: a container, so the search capsule can step aside at a 32 px root text size (root-rem container query)
     <div data-slot="tab-bar" className="@container pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 flex items-center justify-center gap-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] lg:hidden">
       <LayoutGroup id="tab-bar">
-        <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className={cn("glass-chrome pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none [@media(max-height:500px)]:p-0", tintOnly && TINT_ONLY_OVER_CONTENT)}>
+        <nav aria-label={t("glass.shell.tabs")} data-glass="chrome" className={cn("glass-chrome [--mat-chrome:var(--mat-thick)] pointer-events-auto min-w-0 flex-1 rounded-full p-1 sm:max-w-md sm:flex-none [@media(max-height:500px)]:p-0", tintOnly && TINT_ONLY_OVER_CONTENT)}>
           <ul className="grid grid-flow-col auto-cols-[minmax(0,1fr)] items-center gap-0.5">
             {tabs.map((tab) => item(tab.href, t(tab.labelKey), <tab.icon />, tab.href === activeHref, { href: tab.href, count: tab.badge ? badges[tab.badge] : undefined, testId: `tab-${navTestId(tab.href)}` }))}
             {item("more", t("glass.shell.more"), <MoreHorizontal />, moreActive, { onClick: () => setDrawerOpen(true), testId: "open-drawer" })}
@@ -145,7 +149,7 @@ export function TabBar() {
       </LayoutGroup>
       {/* ui-alignment 2026-10-18: the detached search is a tab of its own (same capsule padding, ITEM box, 20 px icon and
           label), so its glyph sits on the tabs' icon line; the 48 px circle centred a 16 px glyph 12 px below them */}
-      <BareButton aria-label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className={cn("glass-chrome pointer-events-auto shrink-0 rounded-full p-1 font-normal max-[22.5rem]:hidden @max-[22.5rem]:hidden [@media(max-height:500px)]:p-0", tintOnly && TINT_ONLY_OVER_CONTENT)} data-testid="open-palette-mobile">
+      <BareButton aria-label={t("helper.trigger.name")} onClick={() => setPaletteOpen(true)} data-glass="chrome" className={cn("glass-chrome [--mat-chrome:var(--mat-thick)] pointer-events-auto shrink-0 rounded-full p-1 font-normal max-[22.5rem]:hidden @max-[21rem]:hidden [@media(max-height:500px)]:p-0", tintOnly && TINT_ONLY_OVER_CONTENT)} data-testid="open-palette-mobile">
         <span className={cn(ITEM, "px-[min(0.75rem,12px)]")}>
           <span aria-hidden className={cn(ICON, "text-label-2")}>
             <Search />

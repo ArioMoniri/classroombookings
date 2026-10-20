@@ -470,7 +470,9 @@ test("admin gaps 15. the login page shows the organisation's logo, name and logi
     await expect(page.getByTestId("signin-org-logo")).toHaveAttribute("src", /\/uploads\/rooms\/org-logo\./);
     await expect(page.getByTestId("login-message")).toContainText(`Personel hesabınızla girin (${STAMP}).`);
     await expect(page.getByTestId("forgot-password")).toHaveAttribute("href", "/reset-password");
-    await expect(page.getByTestId("app-version")).toHaveText(/^v\d/);
+    // login-navbar-2026-10: the running version is not on the public sign-in screen any more; the signed-in account
+    // menu names it (test 1 above: "Version <health.version>")
+    await expect(page.getByTestId("app-version")).toHaveCount(0);
     await shot(page, "15-login-brand");
   } finally {
     await signIn(page);

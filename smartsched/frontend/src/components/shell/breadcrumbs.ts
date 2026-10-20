@@ -13,6 +13,9 @@ const PATH_LABELS: ReadonlyMap<string, MessageKey> = new Map(
     .map((item) => [item.href, item.labelKey] as const),
 );
 
+/** Pages whose H1 is not the sidebar word: the crumb (and the phone bar's title) reads the H1 ("Plan oluşturucu"). */
+const PAGE_TITLES: ReadonlyMap<string, MessageKey> = new Map([["/generate", "studio.title"]]);
+
 /**
  * Parent paths without their own navigation entry: `/analytics` and `/exams` only redirect to their one page
  * (the heatmap, the invigilator assignment), so their crumb names the area, not the raw segment.
@@ -80,7 +83,7 @@ export function breadcrumbs(pathname: string, t: (key: MessageKey, vars?: Record
     const href = `/${parts.slice(0, i + 1).join("/")}`;
     const current = i === parts.length - 1;
     if (SILENT_PARENTS.has(href) && !current) return;
-    const key = PATH_LABELS.get(href) ?? PARENT_LABELS.get(href) ?? SEGMENT_LABELS[seg];
+    const key = PAGE_TITLES.get(href) ?? PATH_LABELS.get(href) ?? PARENT_LABELS.get(href) ?? SEGMENT_LABELS[seg];
     if (key) return out.push({ href, label: t(key), current });
     const parent = out.at(-1);
     if (isId(seg) && parent) {

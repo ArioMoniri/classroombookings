@@ -17,6 +17,9 @@ import { useProfileLanguage } from "@/components/bookings/use-booking-format";
 import { Loading, NoAccess } from "./kit";
 import { wave1Requirement, wave1SectionsFor } from "./wave1-sections";
 
+/** /admin screens that are sidebar rows of their own (nav-config NAV_GROUPS) */
+const SIDEBAR_SCREENS: ReadonlySet<string> = new Set(["/admin/users"]);
+
 export function AdminGate({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -26,14 +29,16 @@ export function AdminGate({ children }: { children: ReactNode }) {
   // wave-1 screens carry their own permission (audit.view need not come with a setup.* right)
   const w1 = wave1Requirement(pathname);
   if (!(w1 !== undefined ? hasPermission(perms, w1) : canAccessRoute(perms, pathname))) return <NoAccess title={t("crbs.admin.noAccessTitle")} body={t("crbs.admin.noAccessBody")} />;
-  const sections: { id: string; href: string; labelKey: MessageKey }[] = [...adminSectionsFor(perms), ...wave1SectionsFor(perms)];
+  // one entry per screen: a section with its own sidebar row (Kullanıcılar) is not repeated as a tab here
+  const sections: { id: string; href: string; labelKey: MessageKey }[] = [...adminSectionsFor(perms), ...wave1SectionsFor(perms)].filter((s) => !SIDEBAR_SCREENS.has(s.href));
   return (
     <div className="flex flex-col gap-5">
       {sections.length > 1 ? (
         // UI/UX review §3: 15 sections overflow; the strip scrolls with faded edges so a cut-off tab reads as
         // "more this way" instead of a clipped label ("Sign-", "Acce")
-        <nav aria-label={t("crbs.admin.title")} className="-mx-1 overflow-x-auto px-3 pb-1 scrollbar-thin [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-24px),transparent)]">
-          <ul className="flex w-max gap-1">
+        // From lg up the strip wraps instead (at 1440 the last tab was cut to "Kurum ayar…" behind the fade).
+        <nav aria-label={t("crbs.admin.title")} className="-mx-1 overflow-x-auto px-3 pb-1 scrollbar-thin [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-24px),transparent)] lg:overflow-visible lg:[mask-image:none]">
+          <ul className="flex w-max gap-1 lg:w-auto lg:flex-wrap">
             <li>
               <AdminLink href="/admin" active={pathname === "/admin"}>
                 {t("crbs.admin.title")}

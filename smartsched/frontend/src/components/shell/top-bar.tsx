@@ -24,6 +24,7 @@ import { breadcrumbs, type Crumb } from "./breadcrumbs";
 import { hasOwnBottomBar } from "./tab-bar";
 import { HelperTrigger } from "@/components/helper/helper-trigger";
 import { UserMenu } from "./user-menu";
+import { Logo } from "@/components/brand";
 
 export function useBreadcrumbs(): Crumb[] {
   const pathname = usePathname();
@@ -132,8 +133,13 @@ export function TopBar() {
   const hydrated = useHydrated();
   const running = hydrated && planner ? runs.data?.find(isActive) : undefined;
   const tintOnly = useTintOnlyChrome();
+  // a top-level page's only crumb is its own H1 right below: the pill would say the same word twice
+  const trail = crumbs.length > 1;
   return (
-    <header className="pointer-events-none sticky top-0 z-30 hidden items-center gap-3 px-4 pt-2 pb-1 sm:px-6 lg:flex lg:px-8">
+    // the bar shares the content's column (max 1600, centred), so the crumbs and the toolbar line up with the page
+    <header className="pointer-events-none sticky top-0 z-30 hidden px-4 pt-2 pb-1 sm:px-6 lg:block lg:px-8">
+      <div className="mx-auto flex w-full max-w-[1600px] items-center gap-3">
+      {trail ? (
       <ThickeningCapsule className="pointer-events-auto min-w-0 px-3" tintOnly={tintOnly}>
         <nav aria-label={t("glass.shell.breadcrumb")} className="min-w-0">
           <ol className="flex h-8 items-center gap-1 type-callout">
@@ -161,6 +167,7 @@ export function TopBar() {
           </ol>
         </nav>
       </ThickeningCapsule>
+      ) : null}
       <div className="flex-1" />
       <ThickeningCapsule className="pointer-events-auto" label={t("glass.shell.toolbar")} tintOnly={tintOnly}>
         {running ? <RunIsland run={running} /> : null}
@@ -169,6 +176,7 @@ export function TopBar() {
         <WhatsNewIndicator />
         <NotificationBell />
       </ThickeningCapsule>
+      </div>
     </header>
   );
 }
@@ -190,13 +198,19 @@ export function MobileTopBar() {
   const title = crumbs.at(-1)?.label ?? "";
   const tintOnly = useTintOnlyChrome();
   return (
-    <header className="sticky top-0 z-30 box-content flex h-12 items-center gap-2 pt-[env(safe-area-inset-top)] [@media(max-height:500px)]:static pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:hidden @container" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
+    <header className="sticky top-0 z-30 box-content flex h-12 items-center gap-2 pt-[env(safe-area-inset-top)] [@media(max-height:500px)]:static pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:hidden @container [&_svg]:size-5!" data-scrolled={scrolled} data-chrome={tintOnly ? "tint" : "glass"}>
       <span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-20", !tintOnly && BACKDROP)} />
       <motion.span aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 edge-hairline-b", tintOnly ? "bg-(--mat-chrome-solid)" : "bg-(--mat-chrome)")} style={{ opacity: solid ? 1 : reduce ? undefined : tint }} animate={reduce && !solid ? { opacity: scrolled ? 1 : 0.35 } : undefined} transition={tween.fadeIn} />
+      {/* the left is never empty: the mark always, the page title beside it once the large title has scrolled away.
+          One glyph size in the row (tokens §A.5): the mark and every glyph here are 20 px, as in the tab bar */}
+      <Logo variant="mark" size={20} decorative className="shrink-0" />
       <motion.p className="type-headline min-w-0 flex-1 truncate text-label-1" style={{ opacity: reduce ? (scrolled ? 1 : 0) : titleOpacity }} aria-hidden>
         {title}
       </motion.p>
-      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("helper.trigger.name")} className={ownBottomBar ? "inline-flex" : "hidden max-[22.5rem]:inline-flex @max-[22.5rem]:inline-flex"} data-testid="open-palette-narrow">
+      {/* below 22.5rem of viewport the tab bar has no room for its search. The header is its own container and its
+          content box is the viewport less 2 × 1rem padding, so the container threshold is 22.5 − 2 = 20.5rem (at
+          22.5rem a 390 px phone's 358 px header matched and showed a second search beside the tab bar's) */}
+      <Button variant="ghost" size="icon" onClick={() => setPaletteOpen(true)} aria-label={t("helper.trigger.name")} className={ownBottomBar ? "inline-flex" : "hidden max-[22.5rem]:inline-flex @max-[20.5rem]:inline-flex"} data-testid="open-palette-narrow">
         <Search aria-hidden />
       </Button>
       {ownBottomBar ? (
@@ -204,7 +218,7 @@ export function MobileTopBar() {
           <MoreHorizontal aria-hidden />
         </Button>
       ) : null}
-      <WhatsNewIndicator />
+      {/* "Yenilikler" on a phone is in the "Diğer" sheet's Yardım group (four icons crowded this bar) */}
       <NotificationBell />
       <UserMenu compact />
     </header>

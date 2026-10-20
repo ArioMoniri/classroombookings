@@ -16,14 +16,19 @@ const src = (f: string) => readFileSync(path.join(__dirname, f), "utf8");
 const lineOf = (f: string, needle: string) => src(f).split("\n").find((l) => l.includes(needle)) ?? "";
 
 describe("tab bar search at a 32 px root", () => {
+  // the container query measures the bar's content box: the viewport less its inline padding (tab bar 2 × 0.75rem, top
+  // bar 2 × 1rem), so "below 22.5rem of viewport" is @max-[21rem] / @max-[20.5rem] (at @max-[22.5rem] a 390 px phone's
+  // 358 px top bar matched and showed a second search beside the tab bar's: login-navbar-2026-10 audit #2)
   it("the tab bar is a container and its search capsule hides below 22.5rem of root text", () => {
     expect(lineOf("tab-bar.tsx", 'data-slot="tab-bar"')).toContain("@container");
-    expect(lineOf("tab-bar.tsx", 'data-testid="open-palette-mobile"')).toContain("@max-[22.5rem]:hidden");
+    expect(lineOf("tab-bar.tsx", 'data-slot="tab-bar"')).toContain("pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))]");
+    expect(lineOf("tab-bar.tsx", 'data-testid="open-palette-mobile"')).toContain("@max-[21rem]:hidden");
     expect(lineOf("tab-bar.tsx", 'data-testid="open-palette-mobile"')).toContain("max-[22.5rem]:hidden");
   });
   it("the top bar shows its own search in that case", () => {
     expect(lineOf("top-bar.tsx", '<header className="sticky top-0 z-30')).toContain("@container");
-    expect(lineOf("top-bar.tsx", 'data-testid="open-palette-narrow"')).toContain("@max-[22.5rem]:inline-flex");
+    expect(lineOf("top-bar.tsx", '<header className="sticky top-0 z-30')).toContain("pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]");
+    expect(lineOf("top-bar.tsx", 'data-testid="open-palette-narrow"')).toContain("@max-[20.5rem]:inline-flex");
   });
 });
 

@@ -95,7 +95,7 @@ function ProviderLink({ p, href, label, busyLabel, onNavigate }: { p: SignInProv
           "after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:bg-black/[0.04] after:opacity-0 after:transition-opacity hover:after:opacity-100 dark:after:bg-white/[0.07]",
           google
             ? "[--g-bg:#ffffff] [--g-fg:#1f1f1f] [--g-edge:#747775] dark:[--g-bg:#131314] dark:[--g-fg:#e3e3e3] dark:[--g-edge:#8e918f] bg-(--g-bg) text-(--g-fg) font-medium"
-            : "bg-(--mat) text-label-1 type-callout font-semibold shadow-(--edge-control)",
+            : "bg-(--mat-thick) text-label-1 type-callout font-semibold shadow-(--edge-control)",
           "forced-colors:border forced-colors:border-[ButtonText] forced-colors:bg-[ButtonFace] forced-colors:text-[ButtonText]",
         )}
       >

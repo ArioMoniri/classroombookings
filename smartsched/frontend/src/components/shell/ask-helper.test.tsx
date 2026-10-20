@@ -98,7 +98,8 @@ describe("Yardımcıya sor in the shell", () => {
     renderShell();
     const aside = await screen.findByRole("complementary", {}, { timeout: 15_000 });
     await userEvent.click(await within(aside).findByTestId("user-menu", {}, { timeout: 15_000 }));
-    await screen.findByTestId("help-whats-new", {}, { timeout: 15_000 });
+    // the menu is open (its Yardım group has no "Yenilikler" row any more: the header's button is the one entry)
+    await screen.findByTestId("logout", {}, { timeout: 15_000 });
     expect(screen.queryByTestId("help-ask-helper")).toBeNull();
   }, 30_000);
 });

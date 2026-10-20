@@ -22,6 +22,8 @@ import { Toolbar, ToolbarButton, ToolbarLabel } from "@/components/ui/toolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { crbs, crbsError, crbsKeys, useBookingContext, useBookingDates, useBookingGrid, useCrbsMe, useOrgPublic, type Grid, type GridQuery, type GridSlot } from "@/lib/api/crbs";
 import { bookingCapabilities, hasPermission } from "@/lib/permissions";
+import { useActiveTerm } from "@/components/shell/term-switcher";
+import { useUiStore } from "@/stores/ui";
 import { useI18n } from "@/lib/i18n/provider";
 import { Alert, PageTitle, SelectField } from "@/components/admin/kit";
 import { BookSheet, type BookTarget } from "./book-sheet";
@@ -80,8 +82,15 @@ export function BookingsView() {
   const [revealHidden, toggleHidden] = useReducer((v: boolean) => !v, false);
   const display = (params.get("display") as Display | null) ?? opening.display;
   const num = (k: string) => (params.get(k) ? Number(params.get(k)) : undefined);
-  const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term"), room_group_id: num("group"), room_id: num("room") };
-  const grid = useBookingGrid(query, ctx.isSuccess);
+  // one working term: once a planner has picked a term (the sidebar's switcher, or this page's session select, which
+  // moves the sidebar with it), the grid opens that session when the link names none and it is bookable (the page
+  // said 2026-BAHAR under a chosen 2026-GUZ). With nothing picked the server's current session stays the default.
+  const planner = hasPermission(me.data?.permissions, "planning.view");
+  const picked = useUiStore((s) => s.termId);
+  const shell = useActiveTerm({ enabled: planner && picked !== null });
+  const shellSession = planner && picked !== null && shell.term && (ctx.data?.sessions ?? []).some((s) => s.id === shell.term?.id) ? shell.term.id : undefined;
+  const query: GridQuery = { display, date: params.get("date") ?? undefined, term_id: num("term") ?? shellSession, room_group_id: num("group"), room_id: num("room") };
+  const grid = useBookingGrid(query, ctx.isSuccess && !me.isPending && !(planner && picked !== null && shell.isLoading));
   const g = useShownGrid(grid.data, slotDisplay, revealHidden);
   const hiddenCount = grid.data ? hiddenPeriodCount(grid.data.periods, slotDisplay) : 0;
   // the administrator made quick reserve the landing view: a bare /bookings opens it (links with parameters stay here)
@@ -378,7 +387,10 @@ export function BookingsView() {
   const sessionPicker = (wide = false) => (
     <>
       <span className="sr-only">{t("crbs.toolbar.session")}</span>
-      <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => setParams({ term: e.target.value, date: null })} className={wide ? "w-full" : undefined} fieldSize={wide ? "md" : "sm"} data-testid="session-select">
+      <SelectField value={String(g?.term.id ?? "")} aria-label={t("crbs.toolbar.session")} onChange={(e) => {
+          setParams({ term: e.target.value, date: null });
+          if (planner) useUiStore.getState().setTermId(Number(e.target.value));
+        }} className={wide ? "w-full" : undefined} fieldSize={wide ? "md" : "sm"} data-testid="session-select">
         {/* CRBS grid/Controls.php: "Current and future" and "Past" */}
         {[
           { label: t("reserve.toolbar.current"), items: sessions.filter((s) => s.is_current || !dates.data?.today || s.end >= dates.data.today) },

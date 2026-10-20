@@ -119,6 +119,16 @@ function themeChecks(theme, v) {
   }
   // body text directly on the scene
   for (const [k, c] of Object.entries(sceneSamples)) check(theme, `label-3 on scene:${k}`, labels["label-3"], c, 4.5);
+  // login-navbar-2026-10 §7: the sign-in showcase sits on the scene (headline label-1, value lines label-2)
+  for (const [k, c] of Object.entries(sceneSamples)) {
+    check(theme, `showcase label-1 on scene:${k}`, labels["label-1"], c, 4.5);
+    check(theme, `showcase label-2 on scene:${k}`, labels["label-2"], c, 4.5);
+  }
+  // §8.5: the one active nav style (tint-soft pill, tint text) on the chrome sidebar over every scene sample
+  for (const [k, c] of Object.entries(sceneSamples)) {
+    const pill = over(P("--accent-soft"), over(P("--mat-chrome"), c));
+    check(theme, `active nav: accent-text on accent-soft over chrome/scene:${k}`, P("--accent-text"), pill, 4.5);
+  }
 
   // accent: text-on-accent and accent-as-text (links) on cards
   const accentPresets = [["default", v]].concat(
