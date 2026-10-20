@@ -206,6 +206,8 @@ def test_remove_run_containers_by_label_and_name() -> None:
         calls.append(argv)
         out = "c1\nc2\n" if "label=smartsched-ci.run=7-aaaaaaa" in argv and "ps" in argv else ""
         out = "c2\nc3\n" if "name=podci-7-aaaaaaa-" in argv else out
+        if argv[:2] == ["docker", "inspect"]:  # CI containers: no compose project (test_app_isolation: the app)
+            out = "\n".join(f"{c}|/podci-7-aaaaaaa-{c}|" for c in argv[4:])
         return subprocess.CompletedProcess(argv, 0, stdout=out, stderr="")
 
     runner.remove_run_containers("7-aaaaaaa", run=run)

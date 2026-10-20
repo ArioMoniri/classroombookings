@@ -24,6 +24,10 @@ if [[ "$sha" =~ ^[0-9a-f]{40}$ ]] && [[ -z "$(env_val BACKEND_EXTRA_PIP)" ]] \
   reuse=1
   for svc in backend frontend crbs; do
     docker image inspect "smartsched-${svc}:ci-${sha}" >/dev/null 2>&1 || reuse=0
+    # an image built before the label fix carries smartsched-ci.run (its containers would look like CI containers)
+    run_label="$(docker image inspect --format '{{index .Config.Labels "smartsched-ci.run"}}' \
+      "smartsched-${svc}:ci-${sha}" 2>/dev/null || true)"
+    [[ -z "$run_label" || "$run_label" == "<no value>" ]] || reuse=0
   done
 fi
 if [[ "$reuse" == 1 ]]; then

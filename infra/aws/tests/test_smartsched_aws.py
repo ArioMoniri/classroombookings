@@ -932,5 +932,5 @@ def test_stack_restart_script_brings_back_the_last_good_deploy_without_building(
     script = sa.POD_STACK_RESTART
     assert script.startswith("set -u")
     assert "systemctl restart smartsched-stack.service" in script  # stack-up.sh: compose up -d --no-build
-    assert "deploy.sh" not in script and "build" not in script.replace("--no-build", "")
+    assert "deploy.sh" not in script and "compose build" not in script and "docker build" not in script
     assert "docker logs --tail 25" in script and "OOMKilled" in script

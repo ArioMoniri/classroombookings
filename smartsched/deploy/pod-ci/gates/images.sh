@@ -9,9 +9,12 @@ cd "$WS/src"
 tags=()
 # per-run tags and this run's dangling images go; the BuildKit cache stays (podci/disk.py trims it)
 trap 'docker image rm "${tags[@]}" >/dev/null 2>&1 || true
-docker image prune -f --filter "label=smartsched-ci.run=${RUN_TAG}" >/dev/null 2>&1 || true' EXIT
+docker image prune -f --filter "label=smartsched-ci.image=${RUN_TAG}" >/dev/null 2>&1 || true' EXIT
 section "disk before the builds"; df -h / | tail -n 1
-build() { local tag="$1"; shift; tags+=("$tag"); section "docker build $tag"; docker build --label "smartsched-ci.run=${RUN_TAG}" -t "$tag" "$@"; }
+# The image label is smartsched-ci.image, NEVER smartsched-ci.run: containers inherit their image's labels, and these
+# images can become the live app's (gates/deploy.sh retags them); a run label on them made the worker's leftover
+# cleanup remove the live backend and frontend (gracious run #150, 2026-10-20)
+build() { local tag="$1"; shift; tags+=("$tag"); section "docker build $tag"; docker build --label "smartsched-ci.image=${RUN_TAG}" -t "$tag" "$@"; }
 # the build args compose passes (digest-pinned base images, NEXT_PUBLIC_API_URL default; smartsched/deploy/pins.py)
 args() {
   local out

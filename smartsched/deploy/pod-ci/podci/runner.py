@@ -38,6 +38,8 @@ from podci.state import (
 Execute = Callable[[list[str], Path, dict[str, str], Path | None, int], int]
 # state_dir file: the last commit whose deploy passed its health check (rollback target, boot stack)
 DEPLOYED_SHA = "deployed-sha"
+# held by the deploy step (and its rollback) and by the stack guard: never both at once
+DEPLOY_LOCK = "deploy.lock"
 Log = Callable[[str], None]
 
 
@@ -56,28 +58,67 @@ def _kill_group(proc: subprocess.Popen[bytes], grace: float = 30) -> None:
         proc.wait()
 
 
-def remove_run_containers(run_tag: str, run: Callable[..., Any] = subprocess.run) -> None:
-    """docker rm -f every container of a run: labelled smartsched-ci.run=<RUN_TAG> (lib.sh docker_common) or named
-    podci-<RUN_TAG>-* (e2e-real.sh, backend gates); then the run's networks. Never touches the app stack."""
-    if not run_tag:
-        return
+APP_PROJECT = "smartsched"  # docker-compose.yml `name:` (COMPOSE_PROJECT_NAME default): the live app stack
+CI_LABEL = "smartsched-ci.run"
+
+
+def ci_containers(filters: list[str], run: Callable[..., Any] = subprocess.run) -> list[str]:
+    """Ids of pod CI containers matching any of the `docker ps` filters, NEVER a container of a compose project
+    (the app stack) or one named smartsched-*: a container inherits its image's labels, and the app's
+    smartsched-backend/-frontend images can carry the images gate's `smartsched-ci.run` label (gracious run #150,
+    2026-10-20: a new worker's leftover cleanup removed the live backend and frontend right after the deploy)."""
     ids: list[str] = []
-    for flt in (f"label=smartsched-ci.run={run_tag}", f"name=podci-{run_tag}-"):
+    for flt in filters:
         try:
             proc = run(["docker", "ps", "-aq", "--filter", flt], capture_output=True, text=True, timeout=60)
-            ids += [i for i in str(proc.stdout or "").split() if i not in ids]
         except (OSError, subprocess.SubprocessError):
             continue
+        ids += [i for i in str(proc.stdout or "").split() if i not in ids]
+    if not ids:
+        return []
+    fmt = '{{.Id}}|{{.Name}}|{{index .Config.Labels "com.docker.compose.project"}}'
+    try:
+        proc = run(["docker", "inspect", "--format", fmt, *ids], capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return []  # cannot tell CI from app containers: remove nothing
+    keep: list[str] = []
+    for line in str(proc.stdout or "").splitlines():
+        parts = line.strip().split("|")
+        if len(parts) != 3:
+            continue
+        cid, name, project = parts
+        if project.strip() or name.lstrip("/").startswith(f"{APP_PROJECT}-"):
+            continue  # the app stack (compose) is never a CI container
+        if any(cid.startswith(i) or i.startswith(cid) for i in ids):
+            keep.append(cid)
+    return keep
+
+
+def _remove(ids: list[str], net_filter: str, run: Callable[..., Any]) -> None:
     try:
         if ids:
             run(["docker", "rm", "-f", *ids], capture_output=True, timeout=120)
-        nets = run(["docker", "network", "ls", "-q", "--filter", f"label=smartsched-ci.run={run_tag}"],
-                   capture_output=True, text=True, timeout=60)
+        nets = run(["docker", "network", "ls", "-q", "--filter", net_filter], capture_output=True, text=True,
+                   timeout=60)
         net_ids = str(nets.stdout or "").split()
-        if net_ids:
+        if net_ids:  # compose networks never carry the CI label; docker refuses to remove a network in use
             run(["docker", "network", "rm", *net_ids], capture_output=True, timeout=120)
     except (OSError, subprocess.SubprocessError):
         pass
+
+
+def remove_run_containers(run_tag: str, run: Callable[..., Any] = subprocess.run) -> None:
+    """docker rm -f every container of a run: labelled smartsched-ci.run=<RUN_TAG> (lib.sh docker_common) or named
+    podci-<RUN_TAG>-* (e2e-real.sh, backend gates); then the run's networks. Never the app stack (ci_containers)."""
+    if not run_tag:
+        return
+    ids = ci_containers([f"label={CI_LABEL}={run_tag}", f"name=podci-{run_tag}-"], run=run)
+    _remove(ids, f"label={CI_LABEL}={run_tag}", run)
+
+
+def remove_all_ci_containers(run: Callable[..., Any] = subprocess.run) -> None:
+    """Every pod CI container and network left by a dead worker; never the app stack (ci_containers)."""
+    _remove(ci_containers([f"label={CI_LABEL}", "name=podci-"], run=run), f"label={CI_LABEL}", run)
 
 
 def run_logged(argv: list[str], log_path: Path, env: dict[str, str], cwd: Path | None, timeout: int,
@@ -105,6 +146,18 @@ def run_logged(argv: list[str], log_path: Path, env: dict[str, str], cwd: Path |
                 remove_run_containers(env.get("RUN_TAG", ""))
                 fh.write(b"\n[pod-ci] CANCELLED (run cancelled: superseded or preempted)\n")
                 return CANCELLED_EXIT
+
+
+@contextmanager
+def held(path: Path) -> Iterator[None]:
+    """Blocking flock (the deploy lock: a deploy waits for a running stack guard and the reverse)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fh: IO[str] = open(path, "a+")  # noqa: SIM115 - held for the duration of the context
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        yield
+    finally:
+        fh.close()
 
 
 @contextmanager
@@ -317,9 +370,7 @@ class Worker:
             self.log(f"warning: {what} failed: {exc}")
 
     def _kill_leftover_containers(self) -> None:
-        self.run_cmd(["sh", "-c", "docker ps -aq --filter label=smartsched-ci.run | xargs -r docker rm -f; "
-                      "docker network ls -q --filter label=smartsched-ci.run | xargs -r docker network rm"],
-                     capture_output=True, timeout=120)
+        remove_all_ci_containers(run=self.run_cmd)
 
     # ---- one run ------------------------------------------------------------------------------
     def context(self, gate: str | None = None) -> str:
@@ -606,6 +657,10 @@ class Worker:
             return {}
 
     def _deploy(self, run: Run, logs: Path) -> str:
+        with held(self.cfg.state_dir / DEPLOY_LOCK):  # the stack guard never runs during a deploy
+            return self._deploy_locked(run, logs)
+
+    def _deploy_locked(self, run: Run, logs: Path) -> str:
         """deploy.sh --update never stops the running stack first (build, then `up -d`), so a failed build
         leaves the live stack as it was. A failed deploy (build, migrations or health) is rolled back to the
         last good commit (DEPLOYED_SHA) so the pod checkout, the images and a reboot all come back to it."""
@@ -724,3 +779,69 @@ def heartbeat(cfg: Config, store: Store, cloud: Cloud, now: float, uptime: float
         except Exception as exc:  # noqa: BLE001
             log(f"warning: self-stop failed: {exc}")
     return out
+
+
+APP_SERVICES = ("db", "backend", "frontend", "proxy")
+UNHEALTHY_MARK = "stack-guard-unhealthy"
+
+
+def local_health(cfg: Config) -> bool:
+    """The app's own health through the proxy on the host loopback (PROXY_PORT of the deploy .env)."""
+    import urllib.request
+
+    from podci.config import read_env_file
+
+    port = read_env_file(cfg.deploy_dir / "smartsched/deploy/.env").get("PROXY_PORT") or "8080"
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/v1/health", timeout=10) as resp:
+            return resp.status == 200 and b'"db":true' in resp.read(4096)
+    except Exception:  # noqa: BLE001 - down, refused, timeout: unhealthy
+        return False
+
+
+def stack_guard(cfg: Config, run: Callable[..., Any] = subprocess.run, health: Callable[[], bool] | None = None,
+                log: Log = print) -> str:
+    """Self-heal of a serving site (every poll, 2 min): with a deployed-sha, the app compose services must be running
+    and the local health must answer. A missing service starts the last good deploy at once (gates/stack-up.sh:
+    `compose up -d --no-build`, never a build or a stop); a failing health with every service up only after a second
+    failing check in a row. Never while a deploy (or its rollback) holds the deploy lock."""
+    if not serving_site(cfg):
+        return "no deploy yet"
+    with exclusive(cfg.state_dir / DEPLOY_LOCK) as got:
+        if not got:
+            return "deploy running"
+        want = set(APP_SERVICES) | ({"caddy"} if "--tls" in cfg.deploy_flags else set())
+        try:
+            proc = run(["docker", "ps", "--filter", f"label=com.docker.compose.project={APP_PROJECT}", "--filter",
+                        "status=running", "--format", '{{.Label "com.docker.compose.service"}}'],
+                       capture_output=True, text=True, timeout=60)
+        except (OSError, subprocess.SubprocessError) as exc:
+            log(f"stack guard: docker ps failed: {exc}")
+            return "docker unavailable"
+        if proc.returncode != 0:
+            log("stack guard: docker ps failed")
+            return "docker unavailable"
+        missing = sorted(want - set(str(proc.stdout or "").split()))
+        healthy = (health or (lambda: local_health(cfg)))()
+        mark = cfg.state_dir / UNHEALTHY_MARK
+        if not missing and healthy:
+            mark.unlink(missing_ok=True)
+            return "ok"
+        if not missing and not mark.exists():
+            mark.write_text("1\n", encoding="utf-8")
+            log("stack guard: local health failed with every app service running; checking again next poll")
+            return "unhealthy once"
+        log(f"stack guard: app services not running {missing or '-'}, health {'ok' if healthy else 'failing'}: "
+            "starting the last good deploy (gates/stack-up.sh, no build)")
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(cfg.state_dir),
+               "PODCI_DEPLOY_DIR": str(cfg.deploy_dir), "PODCI_STATE_DIR": str(cfg.state_dir),
+               "PODCI_DEPLOY_FLAGS": ",".join(cfg.deploy_flags)}
+        try:
+            r = run(["bash", str(cfg.gates_dir / "stack-up.sh")], env=env, capture_output=True, text=True,
+                    timeout=240)
+            code, tail = int(r.returncode), str(r.stdout or "").strip().splitlines()[-3:]
+        except (OSError, subprocess.SubprocessError) as exc:
+            code, tail = -1, [str(exc)]
+        mark.unlink(missing_ok=True)
+        log(f"stack guard: stack-up.sh exit {code}: {' | '.join(tail)}"[:400])
+        return "healed" if code == 0 else "heal failed"
