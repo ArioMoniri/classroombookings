@@ -3299,6 +3299,13 @@
       "language": "Language",
       "region": "Language and appearance"
     },
+    "showcase": {
+      "eyebrow": "Timetables · Exams · Rooms",
+      "title": "Your university's week, in one place.",
+      "point1": "<b>Clash-free timetables.</b> Every class gets a fitting room and slot.",
+      "point2": "<b>A free room in seconds.</b> Find it and book it.",
+      "point3": "<b>Exams and invigilation.</b> In step with the term calendar."
+    },
     "exchange": {
       "busy": "Signing in…",
       "title": "Signing you in"

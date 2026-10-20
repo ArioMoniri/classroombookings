@@ -853,6 +853,50 @@ def test_failed_gates_block_gives_every_gate_its_failures_before_any_error_conte
     assert "| head -c 12500" in sa.POD_DIAG and "| head -c 5000" in sa.POD_DIAG
 
 
+def test_failed_gates_block_shows_backend_errors_per_shard_and_the_main_region_first(tmp_path: Any) -> None:
+    import time
+
+    now = time.time()
+    db = status_db(tmp_path, now)
+    logs = tmp_path / "logs" / "150"
+    logs.mkdir(parents=True)
+    shard = logs / "e2e-real-2.log"
+    shard.write_text(shard_log(50, ["e2e/studio.spec.ts:9:1 \u203a scope sentence"], details=True), encoding="utf-8")
+    db.execute("INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)",
+               (150, "claude/gracious-cerf-w1598m", "2" * 40, "failure", 1, 1, now - 900, now - 800, now - 5,
+                "failed: e2e-real-2"))
+    db.execute("INSERT INTO steps VALUES (?,?,?,?,?,?,?,?,?)",
+               (150, 3, "e2e-real-2", "failure", 1, now - 700, now - 10, 1, str(shard)))
+    db.commit()
+    db.close()
+    art = tmp_path / "logs/150/artifacts"
+    (art / "e2e-shard-2/studio-chromium").mkdir(parents=True)
+    (art / "backend-errors-2.log").write_text("\n".join([
+        'INFO: "GET /api/v1/studio/scope HTTP/1.1" 500 Internal Server Error',
+        "Traceback (most recent call last):",
+        "sqlite3.OperationalError: database is locked",
+        "ERROR: request by Ornek Kisi failed",
+        *[f"ERROR: extra line {i}" for i in range(40)],
+    ]) + "\n", encoding="utf-8")
+    (art / "e2e-shard-2/studio-chromium/error-context.md").write_text("\n".join([
+        "# Page snapshot", "```yaml", "- generic [ref=e1]:", "  - navigation [ref=e2]:",
+        '    - link "Sidebar Link" [ref=e3]', "  - main [ref=e9]:", '    - heading "Studio" [level=1] [ref=e10]',
+        "    - text: Ornek Kisi", "```",
+    ]) + "\n", encoding="utf-8")
+    out = run_py(sa.POD_FAILED_GATES_PY, str(tmp_path), str(sa.FAILED_GATE_TAIL))
+    gate = out[out.index("==== e2e-real-2: failure"):out.index("==== error context of")]
+    assert gate.index("scope sentence") < gate.index("Error: expect(locator)") < gate.index("---- backend errors")
+    backend = gate[gate.index("---- backend errors"):]
+    # (capitalised word runs such as "Internal Server Error" fall to the name redaction too: redact more, not less)
+    assert '/api/v1/studio/scope HTTP/1.1" 500' in backend and "database is locked" in backend
+    assert "Ornek Kisi" not in backend and "[name]" in backend  # redacted like the other artifacts
+    assert "extra line 15" in backend and "extra line 16" not in backend  # the first 20 lines
+    ctx = out[out.index("==== error context of"):]
+    assert "# Page snapshot (from the main region)" in ctx
+    assert "navigation" not in ctx and "- main [ref=e9]" in ctx and '- heading "[text]" [level=1] [ref=e10]' in ctx
+    assert "Ornek" not in ctx and "Sidebar" not in ctx
+
+
 def test_resize_stops_changes_the_type_and_starts_without_touching_the_budget(aws: StubAws) -> None:
     ec2 = aws.stub("ec2")
     iid = "i-0123456789abcdef0"

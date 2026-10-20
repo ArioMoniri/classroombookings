@@ -23,7 +23,7 @@ export function LocaleToggle({ className }: { className?: string }) {
   };
 
   return (
-    <div role="group" aria-label={t("nav.language")} className={cn("inline-flex h-7 items-center gap-0.5 rounded-full bg-fill-2 p-[3px] edge-hairline pointer-coarse:h-9", className)} data-testid="locale-toggle">
+    <div role="group" aria-label={t("nav.language")} className={cn("inline-flex h-7 items-center gap-0.5 rounded-full bg-fill-2 p-[3px] edge-hairline pointer-coarse:h-[50px]", className)} data-testid="locale-toggle">
       {languages.map((l) => (
         <Button
           key={l}
@@ -37,6 +37,7 @@ export function LocaleToggle({ className }: { className?: string }) {
           data-testid={`locale-option-${l}`}
           className={cn(
             // the Button keeps a 44 px hit area on coarse pointers without changing the drawn pill (skill §8)
+            // the track is 44 + 2 × 3 px inset on touch, so the 44 px option (Button xs, coarse min-h-11) stays inside it
             "h-full px-2.5 uppercase pointer-coarse:min-w-11",
             locale === l ? "bg-(--mat-thick) text-label-1 glass-edge hover:bg-(--mat-thick)" : "text-label-2 hover:bg-transparent hover:text-label-1",
           )}

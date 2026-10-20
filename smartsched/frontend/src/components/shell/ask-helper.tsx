@@ -49,7 +49,7 @@ export function AskHelperDrawerRow({ onNavigate }: { onNavigate?: () => void }) 
         // after the drawer's close, so the full-screen sheet is not opened inside a closing one
         window.setTimeout(() => useHelperStore.getState().openSheet({ opener: opener("open-drawer") }), 180);
       }}
-      className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left type-callout text-label-1 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) [&_svg]:size-5 [&_svg]:text-label-2"
+      className="flex min-h-11 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left type-callout font-medium text-label-1 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75] [&_svg]:text-label-2"
       data-testid="drawer-ask-helper"
     >
       <MessageCircleQuestion aria-hidden /> {t("helper.askHelper")}

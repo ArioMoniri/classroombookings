@@ -175,3 +175,49 @@ def test_artifacts_are_kept_for_the_last_three_runs(cfg: Config) -> None:
     assert disk.prune_artifacts(cfg) == [5, 3]
     assert sorted(int(d.name) for d in cfg.logs_dir.iterdir() if (d / "artifacts").exists()) == [9, 12, 13]
     assert (cfg.logs_dir / "3" / "backend.log").exists()  # the gate logs stay (keep_runs trims those)
+
+
+def shell_fn(name: str) -> str:
+    text = (GATES_DIR / "e2e-real.sh").read_text()
+    m = re.search(rf"^{name}\(\) \{{.*?^\}}", text, re.S | re.M)
+    assert m, name
+    return m.group(0)
+
+
+def test_backend_errors_keeps_500s_and_tracebacks_masked_and_capped() -> None:
+    log = "\n".join([
+        "INFO: 127.0.0.1 - GET /api/v1/health 200 OK",
+        'INFO: 127.0.0.1 - "GET /api/v1/studio/scope HTTP/1.1" 500 Internal Server Error',
+        "Traceback (most recent call last):",
+        *[f"  frame {i}" for i in range(10)],
+        "sqlite3.OperationalError: database is locked",
+        "INFO: login ok for planner@example.test password=hunter2-secret",
+        "WARNING: slow query",
+        "ERROR: Exception in ASGI application token: abc.def.ghi",
+    ]) + "\n"
+    script = "set -euo pipefail\n" + shell_fn("backend_errors") + "\nbackend_errors\n"
+    out = subprocess.run(["bash", "-c", script], input=log, capture_output=True, text=True, timeout=30,
+                         check=True).stdout.splitlines()
+    assert out[0].endswith("500 Internal Server Error") and out[1].startswith("Traceback")
+    assert out[2:10] == [f"  frame {i}" for i in range(8)]  # 8 lines of context after a Traceback
+    assert "  frame 8" not in out and "  frame 9" not in out
+    assert "sqlite3.OperationalError: database is locked" in out
+    assert not any("200 OK" in ln or "slow query" in ln or "login ok" in ln for ln in out)
+    assert any("Exception in ASGI" in ln and "token [redacted]" in ln and "abc.def" not in ln for ln in out)
+    masked = subprocess.run(["bash", "-c", script], input="Error for planner@example.test password=hunter2\n",
+                            capture_output=True, text=True, timeout=30, check=True).stdout
+    assert "planner@example.test" not in masked and "hunter2" not in masked and "[email]" in masked
+    big = "".join(f"Error {i} " + "x" * 100 + "\n" for i in range(5000))
+    capped = subprocess.run(["bash", "-c", script], input=big, capture_output=True, text=True, timeout=30,
+                            env={**os.environ, "BACKEND_ERRORS_MAX_BYTES": "4096"}).stdout
+    assert len(capped.encode()) <= 4096
+
+
+def test_a_failed_shard_saves_backend_errors_before_its_containers_go() -> None:
+    text = (GATES_DIR / "e2e-real.sh").read_text()
+    cleanup = shell_fn("cleanup")
+    assert cleanup.index("local rc=$?") < cleanup.index("keep_backend_errors") < cleanup.index("docker rm -f")
+    assert 'if [[ "$rc" != 0 ]]; then keep_backend_errors' in cleanup  # failed shards only
+    keep = shell_fn("keep_backend_errors")
+    assert 'docker logs "$backend"' in keep and 'backend-errors-${idx}.log' in keep
+    assert "trap cleanup EXIT" in text

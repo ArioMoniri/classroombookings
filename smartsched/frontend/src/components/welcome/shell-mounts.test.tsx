@@ -91,7 +91,9 @@ describe("welcome guide in the shell", () => {
     await userEvent.click(within(aside).getByTestId("user-menu"));
     expect(await screen.findByText("Yardım")).toBeInTheDocument();
     expect(screen.getByTestId("help-checklist")).toHaveTextContent("Başlarken listesi (1 / 3)");
-    expect(screen.getByTestId("help-whats-new")).toBeInTheDocument();
+    // "Yenilikler" has one entry: the header's button (with the unread dot), not a second row in this menu
+    expect(screen.queryByTestId("help-whats-new")).toBeNull();
+    expect(screen.getAllByTestId("whats-new").length).toBeGreaterThan(0);
     await userEvent.click(screen.getByTestId("help-restart-tour"));
     expect(await screen.findByTestId("welcome-sheet", {}, { timeout: 5000 })).toBeInTheDocument();
   }, 30_000);

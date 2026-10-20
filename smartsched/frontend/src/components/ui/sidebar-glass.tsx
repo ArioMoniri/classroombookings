@@ -89,7 +89,7 @@ function SidebarGlassItem({ className, active = false, icon, count, hint, childr
     props: mergeProps<"a">(
       {
         className: cn(
-          "group/sidebar-item relative flex h-8 items-center gap-2.5 rounded-[10px] px-2.5 type-callout font-medium text-label-1 transition-colors duration-(--dur-fast) hover:bg-fill-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) aria-[current=page]:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
+          "group/sidebar-item relative flex h-8 items-center gap-2.5 rounded-[10px] px-2.5 type-callout font-medium text-label-1 transition-colors duration-(--dur-fast) hover:bg-fill-3 pointer-coarse:min-h-11 aria-[current=page]:font-semibold aria-[current=page]:text-tint-text focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus) aria-[current=page]:hover:bg-transparent [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75]",
           className
         ),
         "aria-current": active ? "page" : undefined,
@@ -100,13 +100,15 @@ function SidebarGlassItem({ className, active = false, icon, count, hint, childr
                 layoutId="sidebar-glass-active"
                 transition={transition}
                 aria-hidden
-                className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] bg-fill-1 shadow-[inset_0_1px_0_0_var(--specular-low)]"
+                // one active style across the shell (sidebar, admin tabs, tab bar): the tint-soft pill, tint text, semibold
+                className="pointer-events-none absolute inset-0 -z-10 rounded-[inherit] bg-tint-soft"
               />
             ) : null}
             {icon ? <span className={cn("flex text-label-2", active && "text-tint-text")}>{icon}</span> : null}
-            <span className="min-w-0 flex-1 truncate">{children}</span>
+            {/* an icon rail passes only an sr-only label: it leaves the flow, so the icon is centred in the row */}
+            <span className="min-w-0 flex-1 truncate has-[>.sr-only:only-child]:absolute">{children}</span>
             {typeof count === "number" ? <span className="type-footnote font-normal text-label-3 tabular-nums">{count}</span> : null}
-            {hint ? <span className="hidden text-label-3 group-hover/sidebar-item:inline-flex">{hint}</span> : null}
+            {hint ? <span className="hidden text-label-3 group-hover/sidebar-item:inline-flex group-focus-visible/sidebar-item:inline-flex pointer-coarse:!hidden">{hint}</span> : null}
           </>
         ),
       },

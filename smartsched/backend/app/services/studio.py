@@ -147,8 +147,32 @@ async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind:
     one draft (usability U2). The INSERT runs in a SAVEPOINT, so the loser rolls back only that INSERT and
     re-reads the winner's row; a full session rollback expired the request's other rows (the ``User`` of
     PUT /terms/{id}/studio -> MissingGreenlet -> 500, pod CI e2e 2026-10-17)."""
-    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.exc import IntegrityError, OperationalError
 
+    def _find():
+        return select(StudioDraft).where(
+            StudioDraft.term_id == term_id, StudioDraft.user_id == user_id, StudioDraft.kind == kind
+        )
+
+    try:
+        return await _insert_draft(session, term_id, user_id, kind)
+    except IntegrityError:
+        return (await session.execute(_find())).scalar_one()
+    except OperationalError as exc:
+        # The Studio asks for the draft, its rules, classes and summary at once; on a first visit each request tries
+        # to create the draft. Seen in the e2e stack (2026-10-19): the classes request's INSERT answered "database
+        # is locked" and the request failed with 500. End this request's transaction and read again: when a parallel
+        # request created the draft meanwhile it is there now; otherwise the error stands.
+        if "locked" not in str(exc).lower():
+            raise
+        await session.rollback()
+        found = (await session.execute(_find())).scalar_one_or_none()
+        if found is None:
+            raise
+        return found
+
+
+async def _insert_draft(session: AsyncSession, term_id: int, user_id: int, kind: str) -> StudioDraft:
     draft = StudioDraft(
         term_id=term_id,
         user_id=user_id,
@@ -162,17 +186,8 @@ async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind:
         rule_overrides={},
         params={},
     )
-    try:
-        async with session.begin_nested():
-            session.add(draft)
-    except IntegrityError:
-        return (
-            await session.execute(
-                select(StudioDraft).where(
-                    StudioDraft.term_id == term_id, StudioDraft.user_id == user_id, StudioDraft.kind == kind
-                )
-            )
-        ).scalar_one()
+    async with session.begin_nested():
+        session.add(draft)
     await session.commit()
     await session.refresh(draft)
     return draft

@@ -1,7 +1,8 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { CalendarRange, Check, ChevronsUpDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -64,33 +65,42 @@ function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
     setOpen(false);
     toast(t("nav.switched", { term: x.name }));
   };
+  const trigger = (
+    <Button
+      variant="ghost"
+      aria-label={`${t("nav.term")}: ${term?.name ?? "…"}. ${t("nav.switchTerm")}`}
+      data-testid="term-switcher"
+      className={cn(
+        "h-auto w-full justify-start gap-2 rounded-xl bg-fill-3 px-2.5 py-1.5 text-left font-normal whitespace-normal edge-hairline hover:bg-fill-2 active:not-aria-[haspopup]:scale-100",
+        // the rail: a 40 px calendar button; the term's full name is its tooltip (a two-letter "GU" said nothing)
+        collapsed && "mx-auto size-10 justify-center px-0 py-0 [&_svg]:size-4",
+      )}
+    >
+      {collapsed ? (
+        <CalendarRange aria-hidden className="text-label-1" />
+      ) : (
+        <>
+          <span className="min-w-0 flex-1">
+            <span className="type-headline block truncate text-label-1">{term?.name ?? "…"}</span>
+            <span className="type-footnote block truncate text-label-3">{term ? kindLabel(term.kind) : " "}</span>
+          </span>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-label-3" aria-hidden />
+        </>
+      )}
+    </Button>
+  );
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            aria-label={`${t("nav.term")}: ${term?.name ?? "…"}. ${t("nav.switchTerm")}`}
-            data-testid="term-switcher"
-            className={cn(
-              "h-auto w-full justify-start gap-2 rounded-xl bg-fill-3 px-2.5 py-1.5 text-left font-normal whitespace-normal edge-hairline hover:bg-fill-2 active:not-aria-[haspopup]:scale-100",
-              collapsed && "justify-center px-0",
-            )}
-          >
-            {collapsed ? (
-              <span className="type-caption text-label-1">{term?.code.split("-")[1]?.slice(0, 2) ?? "—"}</span>
-            ) : (
-              <>
-                <span className="min-w-0 flex-1">
-                  <span className="type-headline block truncate text-label-1">{term?.name ?? "…"}</span>
-                  <span className="type-footnote block truncate text-label-3">{term ? kindLabel(term.kind) : " "}</span>
-                </span>
-                <ChevronsUpDown className="size-3.5 shrink-0 text-label-3" aria-hidden />
-              </>
-            )}
-          </Button>
-        }
-      />
+      {collapsed ? (
+        <Tooltip>
+          <PopoverTrigger render={<TooltipTrigger render={trigger} />} />
+          <TooltipContent side="right">
+            {term ? `${term.name} · ${kindLabel(term.kind)}` : t("nav.term")}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        <PopoverTrigger render={trigger} />
+      )}
       <PopoverContent align="start" side={collapsed ? "right" : "bottom"} className="w-72 p-1.5">
         <p className="px-2.5 pt-1 pb-1.5 type-caption font-semibold text-label-3">{t("nav.switchTerm")}</p>
         {years.map((year) => (

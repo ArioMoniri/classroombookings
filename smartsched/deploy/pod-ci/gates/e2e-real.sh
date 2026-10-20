@@ -81,8 +81,25 @@ keep_failure_context() {
   [[ -d "$dest" ]] && echo "failure context: $(find "$dest" -type f | wc -l) error-context.md kept in $dest"
   return 0
 }
+# A failed shard also keeps its seeded backend's side of the failure: lines with " 500 ", Traceback, Error, locked or
+# Exception (+ the 8 lines after each Traceback), at most 200 KB, as ARTIFACT_DIR/backend-errors-<shard>.log. E-mail
+# addresses and credential-looking values are masked here; `smartsched_aws.py logs` redacts again when it prints.
+backend_errors() {  # stdin: the backend's log, stdout: the filtered, masked lines
+  awk '/Traceback/ { print; n = 8; next } n > 0 { print; n--; next } / 500 |Error|locked|Exception/ { print }' \
+    | sed -E -e 's/[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:]]{2,}/[email]/g' \
+      -e 's/(password|passwd|secret|token|api[_-]?key|authorization|cookie)([^[:space:]]*[[:space:]]*[:=][[:space:]]*|[[:space:]]+)[^[:space:]]+/\1 [redacted]/Ig' \
+    | head -c "${BACKEND_ERRORS_MAX_BYTES:-204800}"
+}
+keep_backend_errors() {
+  [[ -n "${ARTIFACT_DIR:-}" ]] || return 0
+  mkdir -p "$ARTIFACT_DIR" || return 0
+  docker logs "$backend" 2>&1 | backend_errors > "$ARTIFACT_DIR/backend-errors-${idx}.log" || true
+  echo "backend errors: $(wc -l < "$ARTIFACT_DIR/backend-errors-${idx}.log") line(s) kept in $ARTIFACT_DIR/backend-errors-${idx}.log"
+}
 cleanup() {
+  local rc=$?
   keep_failure_context || true
+  if [[ "$rc" != 0 ]]; then keep_backend_errors || true; fi
   for c in "$backend" "$empty" "$smtp" "$idp"; do
     echo "==== ${c##*-${RUN_TAG}-} log (tail)"; docker logs --tail 200 "$c" 2>&1 || true
   done
