@@ -180,7 +180,8 @@ export function NotificationBell({ className }: { className?: string }) {
                     animate={{ scale: 1 }}
                     exit={{ opacity: 0, transition: { duration: 0.1 } }}
                     transition={reduce ? { duration: 0 } : springs.bouncySubtle}
-                    className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-tint px-1 text-center text-[11px] leading-4 font-semibold text-tint-foreground tabular-nums"
+                    // inside the button's box with a ring, so it never runs over the capsule edge or the glyph's outline
+                    className="absolute top-0.5 right-0.5 min-w-4 rounded-full bg-tint px-1 ring-2 ring-(--mat-chrome-solid) text-center text-[11px] leading-4 font-semibold text-tint-foreground tabular-nums"
                   >
                     {label}
                   </motion.span>

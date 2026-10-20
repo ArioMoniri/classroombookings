@@ -2,7 +2,7 @@
 
 import { clearHelperFileSession } from "@/components/helper/file-session";
 import { useQueryClient } from "@tanstack/react-query";
-import { Keyboard, LogOut, Settings, UserRound } from "lucide-react";
+import { Keyboard, LogOut, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { HelpMenuGroup } from "@/components/welcome";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AskHelperMenuItem } from "./ask-helper";
 
 export function initials(name: string | null | undefined, email: string): string {
@@ -49,44 +50,56 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
     router.push("/login?reason=signed_out"); // "Çıkış yaptınız." (sign-in.md §6.2)
     router.refresh();
   };
+  const trigger = (
+    <Button
+      variant="ghost"
+      aria-label={t("nav.account")}
+      data-testid="user-menu"
+      data-tour="user-menu"
+      className={cn("gap-2 p-0 text-left font-normal", compact ? "size-(--control-h-md)" : collapsed ? "size-10 rounded-full" : "h-auto w-full justify-start rounded-xl px-2 py-1.5 pointer-coarse:min-h-11")}
+    >
+      <Avatar className="size-7">
+        <AvatarFallback className="type-caption">{user ? initials(user.full_name, user.email ?? user.username ?? "?") : "…"}</AvatarFallback>
+      </Avatar>
+      {!collapsed && !compact ? (
+        <span className="min-w-0 flex-1">
+          <span className="block truncate type-callout font-medium text-label-1">{user?.full_name ?? user?.email ?? user?.username ?? "…"}</span>
+          <span className="block truncate type-caption text-label-3">{user ? t(`glass.role.${user.role}` as MessageKey) : ""}</span>
+        </span>
+      ) : null}
+    </Button>
+  );
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            aria-label={t("nav.account")}
-            data-testid="user-menu"
-            data-tour="user-menu"
-            className={cn("gap-2 p-0 text-left font-normal", compact ? "size-(--control-h-md)" : collapsed ? "size-9 rounded-xl" : "h-auto w-full justify-start rounded-xl px-2 py-1.5")}
-          >
-            <Avatar className="size-7">
-              <AvatarFallback className="type-caption">{user ? initials(user.full_name, user.email ?? user.username ?? "?") : "…"}</AvatarFallback>
-            </Avatar>
-            {!collapsed && !compact ? (
-              <span className="min-w-0 flex-1">
-                <span className="block truncate type-callout font-medium text-label-1">{user?.full_name ?? user?.email ?? user?.username ?? "…"}</span>
-                <span className="block truncate type-caption text-label-3">{user ? t(`glass.role.${user.role}` as MessageKey) : ""}</span>
-              </span>
-            ) : null}
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-56">
+      {collapsed ? (
+        // the rail: the avatar's name and role are its tooltip
+        <Tooltip>
+          <DropdownMenuTrigger render={<TooltipTrigger render={trigger} />} />
+          <TooltipContent side="right">{user ? `${user.full_name ?? user.email ?? user.username ?? ""} · ${t(`glass.role.${user.role}` as MessageKey)}` : t("nav.account")}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <DropdownMenuTrigger render={trigger} />
+      )}
+      {/* opaque (the thick material let the checklist card read through "Çıkış yap"); wide enough for an e-mail */}
+      <DropdownMenuContent align="end" side={collapsed ? "right" : undefined} className="w-64 [--mat-thick:var(--mat-thick-solid)]">
         {/* Base UI: a group label must sit inside Menu.Group (error #31 otherwise, the menu crashed on open) */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel>
-            <span className="block truncate">{user?.full_name ?? ""}</span>
-            <span className="block truncate type-footnote font-normal text-label-3">{user?.email ?? ""}</span>
+          <DropdownMenuLabel className="flex items-center gap-2.5 py-2" data-testid="user-menu-header">
+            <Avatar className="size-9 shrink-0">
+              <AvatarFallback className="type-footnote">{user ? initials(user.full_name, user.email ?? user.username ?? "?") : "…"}</AvatarFallback>
+            </Avatar>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate type-callout font-semibold text-label-1">{user?.full_name ?? user?.username ?? ""}</span>
+              <span className="block truncate type-footnote font-normal text-label-2">{user ? t(`glass.role.${user.role}` as MessageKey) : ""}</span>
+              <span className="block truncate type-footnote font-normal text-label-3">{user?.email ?? ""}</span>
+            </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {/* CRBS header "Display name" -> profile/edit: names, e-mail, language, password (UI gap audit #1) */}
           <DropdownMenuItem onClick={() => router.push("/profile")} data-testid="user-menu-profile">
             <UserRound /> {t("crbs.nav.profile")}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/settings")}>
-            <Settings /> {t("nav.settings")}
-          </DropdownMenuItem>
+          {/* Ayarlar is a sidebar entry ("g s"); the menu keeps what is about the person only */}
           {touch ? null : (
             <DropdownMenuItem onClick={() => setShortcutsOpen(true)} data-testid="user-menu-shortcuts">
               <Keyboard /> {t("shortcuts.title")}
@@ -94,7 +107,8 @@ export function UserMenu({ collapsed, compact }: { collapsed?: boolean; compact?
           )}
         </DropdownMenuGroup>
         {/* WG-06: Yardım (Turu yeniden başlat, Başlarken listesi, Yenilikler); HX-03: "Yardımcıya sor" first */}
-        <HelpMenuGroup assistant={<AskHelperMenuItem />} />
+        {/* "Yenilikler" is the header's own button (with the unread dot), so the menu does not list it twice */}
+        <HelpMenuGroup assistant={<AskHelperMenuItem />} whatsNew={false} />
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={() => void logout()} data-testid="logout">
           <LogOut /> {t("nav.logout")}

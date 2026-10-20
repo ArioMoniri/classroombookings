@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Logo } from "@/components/brand";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -49,6 +49,9 @@ export function isActive(pathname: string, search: string, href: string): boolea
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
+/** the fewest "rarely used" rows worth a "Daha fazla" disclosure */
+export const RARE_MIN = 3;
+
 export const navTestId = (href: string) => `nav-${href.replace(/[/?=]/g, "-").replace(/^-/, "")}`;
 
 /** Grouped navigation (SidebarGlass grammar): quiet sentence-case section labels, plain numerals, g-key hints. */
@@ -67,10 +70,12 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   return (
     <>
       {groups.map((group) => {
-        const rare = collapsed ? [] : group.items.filter((i) => i.more);
+        // a disclosure that hides one or two rows saves nothing ("Daha fazla (1)"): only three or more wait under it
+        const tagged = group.items.filter((i) => i.more);
+        const rare = collapsed || tagged.length < RARE_MIN ? [] : tagged;
         const rareActive = rare.some((i) => isActive(pathname, search, i.href));
         const showRare = rareActive || !!opened[group.labelKey];
-        const shown = collapsed ? group.items : group.items.filter((i) => !i.more || showRare);
+        const shown = rare.length === 0 ? group.items : group.items.filter((i) => !i.more || showRare);
         return (
         <SidebarGlassSection key={group.labelKey} title={collapsed ? undefined : t(group.labelKey)} aria-label={collapsed ? t(group.labelKey) : undefined}>
           {shown.map((item) => {
@@ -80,14 +85,22 @@ export function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavig
             const aria = item.badge && count > 0 ? `${label}, ${t(item.badge === "needsReview" ? "nav.needsReview" : item.badge === "approvals" ? "wave1.nav.approvalsOpen" : "nav.running", { count })}` : label;
             const props = {
               active,
-              icon: <item.icon aria-hidden />,
+              icon: collapsed && count > 0 ? (
+                // the rail has no room for a number: a dot on the icon (the count is in the name and the tooltip)
+                <span className="relative flex">
+                  <item.icon aria-hidden />
+                  <span aria-hidden data-testid="nav-dot" className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-tint ring-2 ring-(--mat-chrome-solid)" />
+                </span>
+              ) : (
+                <item.icon aria-hidden />
+              ),
               count: !collapsed && count > 0 ? count : undefined,
               hint: !collapsed && item.key ? <KbdHint keys={["G", item.key.toUpperCase()]} sequence thenLabel={t("glass.shell.then")} /> : undefined,
               "aria-label": aria,
               "data-testid": navTestId(item.href),
               "data-tour": tourAnchorFor(item.href),
               onClick: onNavigate,
-              className: cn(collapsed && "justify-center px-0"),
+              className: cn(collapsed && "mx-auto size-10 justify-center px-0"),
               children: collapsed ? <span className="sr-only">{label}</span> : (
                 <>
                   {label}
@@ -149,6 +162,33 @@ export function Sidebar() {
   const { can, me } = usePermissions();
   const hydrated = useHydrated();
   const home = hydrated && me && !can("planning.view") ? "/bookings" : "/dashboard";
+  // the current page's row is always in view (on /admin at 900 px tall it sat below the fold of the nav list);
+  // centred, so the checklist card that mounts in the footer afterwards cannot cover it again
+  const content = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  useEffect(() => {
+    if (!hydrated) return;
+    // the nav list scrolls itself (never the page): the row is brought to the list's middle, again when the list
+    // changes size in the first two seconds (the checklist card and the "Daha fazla" rows mount after the first frame)
+    const list = content.current;
+    if (!list) return;
+    const centre = () => {
+      const row = list.querySelector<HTMLElement>('[aria-current="page"]');
+      if (!row) return;
+      const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+      list.scrollTop = Math.max(0, top - (list.clientHeight - row.offsetHeight) / 2);
+    };
+    const id = window.requestAnimationFrame(centre);
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(centre);
+    ro?.observe(list);
+    for (const group of list.children) ro?.observe(group);
+    const stop = window.setTimeout(() => ro?.disconnect(), 2000);
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.clearTimeout(stop);
+      ro?.disconnect();
+    };
+  }, [pathname, hydrated, collapsed, me]);
   return (
     <aside aria-label={t("glass.shell.sidebar")} data-collapsed={collapsed} data-chrome={tintOnly ? "tint" : "glass"} className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col lg:flex", collapsed ? "w-[72px]" : "w-[264px]", tintOnly && TINT_ONLY_OVER_SCENE)}>
       <SidebarGlass aria-label={t("glass.shell.primary")} className="flex-1">
@@ -176,16 +216,17 @@ export function Sidebar() {
         <div className={cn("px-2 pb-2", collapsed && "px-1.5")}>
           <TermSwitcher collapsed={collapsed} />
         </div>
-        <SidebarGlassContent>
+        <SidebarGlassContent ref={content}>
           <NavList collapsed={collapsed} />
         </SidebarGlassContent>
-        <SidebarGlassFooter className={cn(collapsed && "items-center")}>
+        <SidebarGlassFooter className={cn(collapsed && "items-center gap-2")}>
           <ChecklistPill collapsed={collapsed} />
-          <div className={cn("flex items-center gap-1", collapsed && "flex-col")}>
-            <div className="min-w-0 flex-1">
+          {/* the account and its appearance switch are one group; in the rail both are 40 px circles with tooltips */}
+          <div role="group" aria-label={t("nav.account")} className={cn("flex items-center gap-1", collapsed && "flex-col rounded-2xl bg-fill-3 p-1")}>
+            <div className={cn("min-w-0", !collapsed && "flex-1")}>
               <UserMenu collapsed={collapsed} />
             </div>
-            <ThemeToggle />
+            <ThemeToggle tooltipSide={collapsed ? "right" : "top"} className={cn(collapsed && "size-10")} />
           </div>
         </SidebarGlassFooter>
       </SidebarGlass>

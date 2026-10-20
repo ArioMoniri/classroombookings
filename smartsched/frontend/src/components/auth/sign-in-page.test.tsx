@@ -275,9 +275,10 @@ describe("SignInPage (docs/design/v2/sign-in.md)", () => {
     expect(fireEvent.click(ms)).toBe(false); // default prevented
   });
 
-  it("shows the backend version in the footer and a TR/EN radiogroup", () => {
+  it("keeps the version off the public sign-in screen (it is in the signed-in account menu) and offers a TR/EN radiogroup", () => {
     view(org());
-    expect(screen.getByTestId("app-version")).toHaveTextContent("v1.4.0");
+    // login-navbar-2026-10: the running version is not shown before sign-in (user-menu.tsx carries it)
+    expect(screen.queryByTestId("app-version")).toBeNull();
     expect(screen.getByRole("radiogroup", { name: "Dil" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Türkçe" })).toHaveAttribute("aria-checked", "true");
   });

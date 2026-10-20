@@ -714,22 +714,52 @@ def status_db(tmp_path: Any, now: float) -> Any:
     return db
 
 
-def test_pod_status_block_shows_runs_running_gates_shard_progress_and_redacted_error_context(tmp_path: Any) -> None:
+CONTEXT_MD = "\n".join([
+    "# Test info", "", "- Name: bookings \u203a book a room", "", "# Error details", "",
+    "Error: expect(locator).toHaveText(expected) failed",
+    'Expected: "Deneme Kullanici Bir"  contact sample@example.test or 0555 123 45 67',
+    "", "# Page snapshot", "", "```yaml",
+    '- generic [ref=e1]:', '  - heading "Rezervasyonlar" [level=1] [ref=e2]',
+    '  - row "Ornek Kisi 09:00 Oda 101" [ref=e3]:', '    - cell "Ornek Kisi" [ref=e4]',
+    "    - text: Ornek Kisi token=abc123", '  - link "Panel" [ref=e5]:', "    - /url: /panel?user=7", "```",
+]) + "\n"
+
+
+def shard_log(n_ok: int, failing: list[str], total: int | None = None, details: bool = False) -> str:
+    out = f"Running {total or n_ok + len(failing)} tests using 1 worker\n"
+    out += "".join(f"  \u2713  {i} [chromium] \u203a e2e/a.spec.ts:1:1 \u203a ok (1.0s)\n" for i in range(1, n_ok + 1))
+    out += "".join(f"  \u2718  {n_ok + i + 1} [chromium] \u203a {t} (9.0s)\n" for i, t in enumerate(failing))
+    out += "".join(f"  \u2718  {n_ok + i + 1} [chromium] \u203a {t} (retry #1) (9.0s)\n" for i, t in enumerate(failing))
+    if details:
+        for i, t in enumerate(failing, 1):
+            out += (f"\n  {i}) [chromium] \u203a {t} \n\n    Error: expect(locator).toBeVisible() failed\n\n"
+                    f"    Locator: getByTestId('row-{i}')\n    Expected: visible\n"
+                    "    Received: <element(s) not found>\n"
+                    f"    Timeout: 10000ms\n\n      at {t.split(' ')[0]}:12:5\n")
+        out += f"\n  {len(failing)} failed\n  {n_ok} passed (40.0m)\n"
+    return out + "==== backend log (tail)\n" + "".join(f"backend noise {i}\n" for i in range(200))
+
+
+def run_py(script: str, *args: str) -> str:
     import sys
+
+    return subprocess.run([sys.executable, "-", *args], input=script, text=True, capture_output=True,
+                          check=True).stdout
+
+
+def test_pod_status_block_shows_runs_running_gates_shard_progress_and_live_failures(tmp_path: Any) -> None:
     import time
 
     now = time.time()
     db = status_db(tmp_path, now)
     logs = tmp_path / "logs"
     (logs / "91").mkdir(parents=True)
-    shard_log = logs / "91" / "e2e-real-2.log"
-    shard_log.write_text("Running 150 tests using 1 worker, shard 2 of 3\n"
-                         + "".join(f"  \u2713  {i} [chromium] \u203a e2e/a.spec.ts:1:1 \u203a ok (1.0s)\n"
-                                   for i in range(1, 141))
-                         + "".join(f"  \u2718  {i} [chromium] \u203a e2e/b.spec.ts:1:1 \u203a bad (9.0s)\n"
-                                   for i in range(141, 144))
-                         + "  \u2718  144 [chromium] \u203a e2e/b.spec.ts:1:1 \u203a bad (retry #1) (9.0s)\n",
-                         encoding="utf-8")
+    live = logs / "91" / "e2e-real-2.log"
+    live.write_text(shard_log(140, [f"e2e/b.spec.ts:1:1 \u203a bad {i}" for i in range(3)], total=150),
+                    encoding="utf-8")
+    failed_live = logs / "91" / "e2e-real-1.log"
+    failed_live.write_text(shard_log(10, [f"e2e/c.spec.ts:2:1 \u203a broken {i}" for i in range(8)]),
+                           encoding="utf-8")
     db.executemany("INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)", [
         (90, "claude/gracious-cerf-w1598m", "e" * 40, "failure", 1, 1, now - 7200, now - 7000, now - 3000,
          "failed: e2e-real-1"),
@@ -739,23 +769,12 @@ def test_pod_status_block_shows_runs_running_gates_shard_progress_and_redacted_e
         (90, 0, "prepare", "success", 1, now - 7000, now - 6900, 0, ""),
         (90, 1, "e2e-real-1", "failure", 1, now - 6000, now - 3100, 1, ""),
         (91, 0, "prepare", "success", 1, now - 1400, now - 1300, 0, ""),
-        (91, 1, "e2e-real-2", "running", 1, now - 1260, None, None, str(shard_log)),
+        (91, 1, "e2e-real-1", "failure", 1, now - 1300, now - 100, 1, str(failed_live)),
+        (91, 2, "e2e-real-2", "running", 1, now - 1260, None, None, str(live)),
     ])
     db.commit()
     db.close()
-    ctx = logs / "90" / "artifacts" / "e2e-shard-1" / "bookings-spec-ts-book-a-room-chromium"
-    ctx.mkdir(parents=True)
-    (ctx / "error-context.md").write_text("\n".join([
-        "# Test info", "", "- Name: bookings \u203a book a room", "", "# Error details", "",
-        "Error: expect(locator).toHaveText(expected) failed",
-        'Expected: "Deneme Kullanici Bir"  contact sample@example.test or 0555 123 45 67',
-        "", "# Page snapshot", "", "```yaml",
-        '- generic [ref=e1]:', '  - heading "Rezervasyonlar" [level=1] [ref=e2]',
-        '  - row "Ornek Kisi 09:00 Oda 101" [ref=e3]:', '    - cell "Ornek Kisi" [ref=e4]',
-        "    - text: Ornek Kisi token=abc123", '  - link "Panel" [ref=e5]:', "    - /url: /panel?user=7", "```",
-    ]) + "\n", encoding="utf-8")
-    out = subprocess.run([sys.executable, "-", str(tmp_path)], input=sa.POD_STATUS_PY, text=True,
-                         capture_output=True, check=True).stdout
+    out = run_py(sa.POD_STATUS_PY, str(tmp_path))
     lines = out.splitlines()
     assert lines[0].startswith("==== pod-ci runs (newest 12)")
     assert lines[1].startswith("#91 ") and " running " in lines[1] and lines[2].startswith("#90 ")
@@ -763,16 +782,119 @@ def test_pod_status_block_shows_runs_running_gates_shard_progress_and_redacted_e
     assert any(line.startswith("==== RUNNING run #91") for line in lines)
     shard = next(line for line in lines if "e2e-real-2" in line and "shard" in line)
     assert "shard 2: 143/150 done, 3 failed" in shard and "21m" in shard
+    # failures of the running run show before it ends: the failed gate's and the running shard's titles
+    assert "bad 2 (9.0s)" in out and "broken 0 (9.0s)" in out and "broken 5 (9.0s)" in out
+    assert "broken 6 (9.0s)" not in out and "... 2 more" in out  # at most 6 titles per gate
+    assert "retry #1" not in out
     assert any(line.startswith("==== step durations of run #90") for line in lines)
-    ctx_out = out[out.index("==== Playwright error context of run #90"):]
+    assert "error context" not in out  # that is the failed-gates block's, after every gate's failures
+
+
+def test_failed_gates_block_gives_every_gate_its_failures_before_any_error_context(tmp_path: Any) -> None:
+    """Run #141: 19 error-context files of shard 1 used to crowd out shards 2 and 3 and the infra tail."""
+    import time
+
+    now = time.time()
+    db = status_db(tmp_path, now)
+    logs = tmp_path / "logs" / "141"
+    logs.mkdir(parents=True)
+    paths = {}
+    for i, n in ((1, 19), (2, 4), (3, 2)):
+        paths[i] = logs / f"e2e-real-{i}.log"
+        paths[i].write_text(shard_log(100, [f"e2e/s{i}-{k}.spec.ts:3:1 \u203a case {k}" for k in range(n)],
+                                      details=True), encoding="utf-8")
+    infra = logs / "infra.log"
+    infra.write_text("".join(f"collect line {i}\n" for i in range(300))
+                     + "FAILED infra/aws/tests/test_x.py::test_y - AssertionError\n1 failed, 319 passed in 28.4s\n",
+                     encoding="utf-8")
+    db.execute("INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)",
+               (141, "claude/gracious-cerf-w1598m", "1" * 40, "failure", 1, 1, now - 9000, now - 8900, now - 10,
+                "failed: infra, e2e-real-1, e2e-real-2, e2e-real-3"))
+    db.executemany("INSERT INTO steps VALUES (?,?,?,?,?,?,?,?,?)", [
+        (141, 0, "infra", "failure", 1, now - 8800, now - 8750, 1, str(infra)),
+        *[(141, i, f"e2e-real-{i}", "failure", 1, now - 8000, now - 20, 1, str(paths[i])) for i in (1, 2, 3)],
+    ])
+    db.commit()
+    db.close()
+    for i, n in ((1, 19), (2, 4), (3, 2)):
+        for k in range(n):
+            d = tmp_path / "logs/141/artifacts" / f"e2e-shard-{i}" / f"s{i}-{k}-chromium"
+            d.mkdir(parents=True)
+            (d / "error-context.md").write_text(CONTEXT_MD, encoding="utf-8")
+    out = run_py(sa.POD_FAILED_GATES_PY, str(tmp_path), str(sa.FAILED_GATE_TAIL))
+    assert sa.FAILED_GATE_TAIL == 25
+    first_ctx = out.index("==== error context of")
+    gates_part = out[:first_ctx]
+    # infra: the end of its log (the pytest summary), nothing older than the tail
+    assert "1 failed, 319 passed in 28.4s" in gates_part and "collect line 299" in gates_part
+    assert "collect line 270" not in gates_part
+    for i in (1, 2, 3):
+        section = gates_part[gates_part.index(f"==== e2e-real-{i}: failure"):]
+        section = section[:section.index("\n==== ", 1) if "\n==== " in section[1:] else len(section)]
+        body = section.splitlines()[1:]
+        assert len(body) <= sa.FAILED_GATE_TAIL
+        assert "case 0 (9.0s)" in section and "failed" in section  # titles + summary first
+        titles_end = max(j for j, ln in enumerate(body) if "\u2718" in ln or ln.strip().endswith("failed"))
+        assert any("Error: expect(locator)" in ln for ln in body[titles_end:])  # then the failure details
+        assert "Received: <element(s) not found>" in section and "backend noise" not in section
+        assert "Locator: getByTestId('row-1')" in section
+    # then the error context, shared: every shard's files, at most 3 per gate, redacted
+    ctx = out[first_ctx:]
+    for i in (1, 2, 3):
+        assert f"==== error context of e2e-real-{i}" in ctx
+    assert ctx.count("-- e2e-shard-1/") == 3 and ctx.count("-- e2e-shard-3/") == 2
     for leaked in ("Ornek", "Kisi", "Deneme", "Kullanici", "sample@example.test", "0555 123 45 67", "abc123",
                    "user=7", "Rezervasyonlar"):
-        assert leaked not in ctx_out, leaked
-    assert '- heading "[text]" [level=1] [ref=e2]' in ctx_out and "- cell \"[text]\" [ref=e4]" in ctx_out
-    assert "- text: [text]" in ctx_out and "/url: /panel" in ctx_out and "[email]" in ctx_out
-    assert "# Error details" in ctx_out and "toHaveText" in ctx_out
-    excerpt = ctx_out.splitlines()[2:]
-    assert 0 < len(excerpt) <= 15
+        assert leaked not in ctx, leaked
+    assert '- heading "[text]" [level=1] [ref=e2]' in ctx and "[email]" in ctx and "# Error details" in ctx
+    for block in ctx.split("\n-- ")[1:]:
+        assert len([ln for ln in block.splitlines()[1:] if ln.startswith("  ")]) <= 10
+    assert len(out) < 12_500  # the shell cap (head -c) never has to cut it
+    assert "| head -c 12500" in sa.POD_DIAG and "| head -c 5000" in sa.POD_DIAG
+
+
+def test_failed_gates_block_shows_backend_errors_per_shard_and_the_main_region_first(tmp_path: Any) -> None:
+    import time
+
+    now = time.time()
+    db = status_db(tmp_path, now)
+    logs = tmp_path / "logs" / "150"
+    logs.mkdir(parents=True)
+    shard = logs / "e2e-real-2.log"
+    shard.write_text(shard_log(50, ["e2e/studio.spec.ts:9:1 \u203a scope sentence"], details=True), encoding="utf-8")
+    db.execute("INSERT INTO runs VALUES (?,?,?,?,?,?,?,?,?,?)",
+               (150, "claude/gracious-cerf-w1598m", "2" * 40, "failure", 1, 1, now - 900, now - 800, now - 5,
+                "failed: e2e-real-2"))
+    db.execute("INSERT INTO steps VALUES (?,?,?,?,?,?,?,?,?)",
+               (150, 3, "e2e-real-2", "failure", 1, now - 700, now - 10, 1, str(shard)))
+    db.commit()
+    db.close()
+    art = tmp_path / "logs/150/artifacts"
+    (art / "e2e-shard-2/studio-chromium").mkdir(parents=True)
+    (art / "backend-errors-2.log").write_text("\n".join([
+        'INFO: "GET /api/v1/studio/scope HTTP/1.1" 500 Internal Server Error',
+        "Traceback (most recent call last):",
+        "sqlite3.OperationalError: database is locked",
+        "ERROR: request by Ornek Kisi failed",
+        *[f"ERROR: extra line {i}" for i in range(40)],
+    ]) + "\n", encoding="utf-8")
+    (art / "e2e-shard-2/studio-chromium/error-context.md").write_text("\n".join([
+        "# Page snapshot", "```yaml", "- generic [ref=e1]:", "  - navigation [ref=e2]:",
+        '    - link "Sidebar Link" [ref=e3]', "  - main [ref=e9]:", '    - heading "Studio" [level=1] [ref=e10]',
+        "    - text: Ornek Kisi", "```",
+    ]) + "\n", encoding="utf-8")
+    out = run_py(sa.POD_FAILED_GATES_PY, str(tmp_path), str(sa.FAILED_GATE_TAIL))
+    gate = out[out.index("==== e2e-real-2: failure"):out.index("==== error context of")]
+    assert gate.index("scope sentence") < gate.index("Error: expect(locator)") < gate.index("---- backend errors")
+    backend = gate[gate.index("---- backend errors"):]
+    # (capitalised word runs such as "Internal Server Error" fall to the name redaction too: redact more, not less)
+    assert '/api/v1/studio/scope HTTP/1.1" 500' in backend and "database is locked" in backend
+    assert "Ornek Kisi" not in backend and "[name]" in backend  # redacted like the other artifacts
+    assert "extra line 15" in backend and "extra line 16" not in backend  # the first 20 lines
+    ctx = out[out.index("==== error context of"):]
+    assert "# Page snapshot (from the main region)" in ctx
+    assert "navigation" not in ctx and "- main [ref=e9]" in ctx and '- heading "[text]" [level=1] [ref=e10]' in ctx
+    assert "Ornek" not in ctx and "Sidebar" not in ctx
 
 
 def test_resize_stops_changes_the_type_and_starts_without_touching_the_budget(aws: StubAws) -> None:

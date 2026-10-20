@@ -3297,6 +3297,13 @@
       "language": "Dil",
       "region": "Dil ve görünüm"
     },
+    "showcase": {
+      "eyebrow": "Ders programı · Sınavlar · Derslikler",
+      "title": "Üniversitenizin haftası, tek bir yerde.",
+      "point1": "<b>Çakışmasız program.</b> Her ders uygun derslik ve saate yerleşir.",
+      "point2": "<b>Boş derslik, saniyeler içinde.</b> Bulun ve ayırın.",
+      "point3": "<b>Sınav ve gözetmen planı.</b> Dönem takvimiyle uyumlu."
+    },
     "exchange": {
       "busy": "Giriş yapılıyor…",
       "title": "Giriş yapılıyor"

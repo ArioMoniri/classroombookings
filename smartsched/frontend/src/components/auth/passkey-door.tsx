@@ -47,6 +47,9 @@ export interface PasskeySignIn {
   signIn: () => Promise<void>;
 }
 
+/** login-navbar-2026-10.md §4.4: secondary sign-in methods are outlined on the fields' surface, not a grey fill */
+export const SIGNIN_OUTLINED = "w-full bg-(--mat-thick) text-label-1 edge-control hover:bg-(--mat-thick-solid) active:bg-fill-3";
+
 export function usePasskeySignIn(enabled: boolean, next: string | null): PasskeySignIn {
   const finish = useFinishSignIn(next);
   const [busy, setBusy] = useState(false);
@@ -148,7 +151,7 @@ export function PasskeyDoor({ ctl }: { ctl: PasskeySignIn }) {
           </Alert>
         </div>
       ) : null}
-      <BusyButton type="button" variant="secondary" size="lg" shape="rect" className="w-full" busy={ctl.busy} busyLabel={t("auth.passkey.busy")} onClick={() => void ctl.signIn()} icon={<KeyRound aria-hidden />} data-testid="passkey-signin">
+      <BusyButton type="button" variant="secondary" size="lg" shape="rect" className={SIGNIN_OUTLINED} busy={ctl.busy} busyLabel={t("auth.passkey.busy")} onClick={() => void ctl.signIn()} icon={<KeyRound aria-hidden />} data-testid="passkey-signin">
         {t("auth.passkey.button")}
       </BusyButton>
     </div>

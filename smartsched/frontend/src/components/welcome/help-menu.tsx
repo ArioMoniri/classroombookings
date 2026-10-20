@@ -47,7 +47,8 @@ export function useWelcomeActions() {
 }
 
 /** The user menu's Yardım group (Base UI menu: the label sits inside the group). */
-export function HelpMenuGroup({ assistant }: { assistant?: ReactNode }) {
+/** `whatsNew={false}` where the header already carries the "Yenilikler" button (the account menu): one entry each. */
+export function HelpMenuGroup({ assistant, whatsNew = true }: { assistant?: ReactNode; whatsNew?: boolean }) {
   const { t } = useI18n();
   const hydrated = useHydrated();
   const actions = useWelcomeActions();
@@ -69,9 +70,11 @@ export function HelpMenuGroup({ assistant }: { assistant?: ReactNode }) {
             <ListChecks /> {t("welcome.help.checklistCount", { done: model.done, total: model.total })}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onClick={() => window.setTimeout(openWhatsNew, 0)} data-testid="help-whats-new">
-          <Megaphone /> {t("welcome.help.whatsNew")}
-        </DropdownMenuItem>
+        {whatsNew ? (
+          <DropdownMenuItem onClick={() => window.setTimeout(openWhatsNew, 0)} data-testid="help-whats-new">
+            <Megaphone /> {t("welcome.help.whatsNew")}
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuGroup>
     </>
   );
@@ -99,7 +102,11 @@ export function useWelcomeCommands(): WelcomeCommand[] {
 }
 
 /** Phone "Daha": the checklist first (92 px), then Yardım (spec §4.3, §9). */
-export function DrawerWelcomeRows({ onNavigate, assistant }: { onNavigate?: () => void; assistant?: ReactNode }) {
+/**
+ * `part`: the drawer puts the checklist card first and the Yardım rows after the navigation (login-navbar-2026-10:
+ * destinations before help); "all" keeps both together.
+ */
+export function DrawerWelcomeRows({ onNavigate, assistant, part = "all" }: { onNavigate?: () => void; assistant?: ReactNode; part?: "all" | "checklist" | "help" }) {
   const { t } = useI18n();
   const hydrated = useHydrated();
   const actions = useWelcomeActions();
@@ -111,11 +118,11 @@ export function DrawerWelcomeRows({ onNavigate, assistant }: { onNavigate?: () =
     // after the drawer's close, so the next sheet is not opened inside a closing one
     window.setTimeout(fn, 180);
   };
-  const row = "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left type-callout text-label-1 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) [&_svg]:size-5 [&_svg]:text-label-2";
-  return (
-    <div className="flex flex-col gap-1 px-2 pb-2" data-testid="drawer-welcome">
-      {model && !model.hidden ? (
-        <BareButton onClick={run(actions.openChecklist)} className={cn(row, "min-h-[92px] flex-col items-stretch justify-center gap-1.5 bg-fill-3")} data-testid="drawer-checklist" aria-label={t("welcome.check.pillLabel", { done: model.done, total: model.total })}>
+  // the same row as the navigation above it (SidebarGlassItem in the drawer): 44 px, px-2.5, gap-2.5, 16 px glyphs
+  const row = "flex min-h-11 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left type-callout font-medium text-label-1 outline-hidden hover:bg-fill-3 focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-(--focus) [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:stroke-[1.75] [&_svg]:text-label-2";
+  const checklist =
+      model && !model.hidden ? (
+        <BareButton onClick={run(actions.openChecklist)} className={cn(row, "min-h-[92px] flex-col items-stretch justify-center gap-1.5 rounded-xl bg-fill-3 px-3")} data-testid="drawer-checklist" aria-label={t("welcome.check.pillLabel", { done: model.done, total: model.total })}>
           <span aria-hidden className="flex items-center justify-between type-headline">
             <span>{t("welcome.check.title")}</span>
             <span className="tabular-nums">
@@ -131,8 +138,12 @@ export function DrawerWelcomeRows({ onNavigate, assistant }: { onNavigate?: () =
             </span>
           ) : null}
         </BareButton>
-      ) : null}
-      <p className="px-3 pt-1 type-footnote font-semibold text-label-3">{t("welcome.help.group")}</p>
+      ) : null;
+  if (part === "checklist") return checklist ? <div className="flex flex-col px-2 pb-2" data-testid="drawer-welcome-checklist">{checklist}</div> : null;
+  return (
+    <div className="flex flex-col gap-px px-2 pb-2" data-testid="drawer-welcome">
+      {part === "all" ? checklist : null}
+      <p className="px-2.5 pt-2 pb-1 type-caption font-semibold tracking-[0.02em] text-label-3">{t("welcome.help.group")}</p>
       {assistant}
       {actions.available ? (
         <BareButton onClick={run(() => void actions.restart())} className={row} data-testid="help-restart-tour">
