@@ -926,3 +926,11 @@ def test_ci_upgrade_script_reinstalls_from_the_deploy_branch_and_restarts_the_wo
     assert "--branch claude/gracious-cerf-w1598m https://github.com/ArioMoniri/classroombookings.git" in script
     restart = "systemctl start --no-block smartsched-ci-worker.service"
     assert script.index("install.sh --upgrade") < script.index(restart)
+
+
+def test_stack_restart_script_brings_back_the_last_good_deploy_without_building() -> None:
+    script = sa.POD_STACK_RESTART
+    assert script.startswith("set -u")
+    assert "systemctl restart smartsched-stack.service" in script  # stack-up.sh: compose up -d --no-build
+    assert "deploy.sh" not in script and "build" not in script.replace("--no-build", "")
+    assert "docker logs --tail 25" in script and "OOMKilled" in script

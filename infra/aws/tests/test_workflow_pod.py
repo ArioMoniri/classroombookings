@@ -125,3 +125,8 @@ def test_ci_upgrade_is_a_known_command_without_flags(tmp_path: Path) -> None:
     code, vals, log = resolve(tmp_path, "ci-upgrade pod=gracious 2026-10-19T12:00Z")
     assert code == 0, log
     assert vals["command"] == "ci-upgrade" and flags(tmp_path) == []
+
+
+def test_stack_restart_is_an_allowed_pod_action(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    code, vals, _log = resolve(tmp_path, "stack-restart pod=gracious 2026-10-20T11:10Z")
+    assert code == 0 and vals["command"] == "stack-restart" and flags(tmp_path) == []

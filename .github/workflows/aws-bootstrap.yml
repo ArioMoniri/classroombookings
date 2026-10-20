@@ -5,7 +5,7 @@
 # (smartsched/deploy/pod-ci); this job only calls AWS APIs: no builds, no tests, <= 10 minutes.
 #
 # Trigger: commit + push a change to infra/aws/POD_ACTION whose first line is
-#     up | status | logs | stop | start | cost | resize | ci-upgrade | down destroy
+#     up | status | logs | stop | start | cost | resize | ci-upgrade | stack-restart | down destroy
 #     (`resize type=<instance type> budget=<usd>` stops the pod, changes its type, starts it and sets the budget;
 #      `ci-upgrade` reinstalls pod CI on the pod from its deploy branch through SSM and restarts the worker)
 #     (optional: region=<aws-region>, pod=gracious|universal or branch=<deploy branch>; default pod gracious)
@@ -123,13 +123,13 @@ jobs:
             *) echo "::error::unknown pod '$pod' (gracious | universal, or their branches)"; exit 1 ;;
           esac
           case "$cmd" in
-            up|status|logs|stop|start|cost|resize|ci-upgrade) ;;
+            up|status|logs|stop|start|cost|resize|ci-upgrade|stack-restart) ;;
             down)
               if [ "$confirm" != "destroy" ]; then
                 echo "::error::'down' deletes the pod and its data; write 'down destroy' into infra/aws/POD_ACTION"
                 exit 1
               fi ;;
-            *) echo "::error::unknown command '$cmd' (up|status|logs|stop|start|cost|resize|ci-upgrade|down destroy)"; exit 1 ;;
+            *) echo "::error::unknown command '$cmd' (up|status|logs|stop|start|cost|resize|ci-upgrade|stack-restart|down destroy)"; exit 1 ;;
           esac
           region="${region:-${REGION_SECRET:-us-east-1}}"
           if ! [[ "$region" =~ ^[a-z0-9-]+$ ]]; then echo "::error::invalid region '$region'"; exit 1; fi

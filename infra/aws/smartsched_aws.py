@@ -1514,6 +1514,61 @@ def cmd_ci_upgrade(aws: Aws, s: Settings, sleep: Callable[[float], None] = time.
     raise BootstrapError("pod CI upgrade still running after 500 s; read `logs`")
 
 
+POD_STACK_RESTART = "\n".join([
+    # The app stack of the LAST GOOD deploy (deployed-sha: a commit that passed every gate) brought back up, the way
+    # smartsched-stack.service does at boot: `docker compose up -d --no-build` on the deploy checkout. It deploys
+    # nothing new. Before that, what happened to the app containers (state, exit code, last log lines; redacted).
+    "set -u",  # SSM runs the script with /bin/sh (dash)
+    "echo \"deployed-sha: $(cat /var/lib/smartsched-ci/deployed-sha 2>&1)\"",
+    "echo \"checkout: $(git -c safe.directory=* -C /opt/smartsched/src rev-parse --short HEAD 2>&1)\"",
+    "echo '==== app containers before'",
+    "docker ps -a --filter name=smartsched- --format '{{.Names}} {{.Status}}' 2>&1 | grep -v smartsched-ci- | head -20",
+    "for c in smartsched-backend-1 smartsched-frontend-1; do"
+    " echo \"==== $c\"; docker inspect -f '{{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}"
+    " finished={{.State.FinishedAt}} restarts={{.RestartCount}}' \"$c\" 2>&1 | head -3;"
+    " docker logs --tail 25 \"$c\" 2>&1 | tail -25; done",
+    "echo '==== docker events (app containers, last 30 min)'",
+    "timeout 5 docker events --since 30m --until 0s --filter type=container --filter container=smartsched-backend-1"
+    " --filter container=smartsched-frontend-1"
+    " --format '{{.Time}} {{.Action}} {{.Actor.Attributes.name}}' 2>&1 | tail -20",
+    "echo '==== restart smartsched-stack.service (last good deploy, no build)'",
+    "systemctl restart smartsched-stack.service; echo \"restart exit $?\"",
+    "journalctl -u smartsched-stack.service -n 25 --no-pager -o cat 2>&1 | tail -25",
+    "sleep 20",
+    "echo '==== app containers after'",
+    "docker ps -a --filter name=smartsched- --format '{{.Names}} {{.Status}}' 2>&1 | grep -v smartsched-ci- | head -20",
+    "echo \"local health: $(curl -s -m 10 http://127.0.0.1:8080/api/v1/health 2>&1 | head -c 200)\"",
+])
+
+
+def cmd_stack_restart(aws: Aws, s: Settings, sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+    """Bring the last good app stack back up (no build, no new code) and report why it was down."""
+    insts = [i for i in find_instances(aws) if i["State"]["Name"] == "running"]
+    if not insts:
+        raise BootstrapError("no running pod instance (start it first)")
+    iid = insts[0]["InstanceId"]
+    ssm = aws.client("ssm")
+    cmd = ssm.send_command(InstanceIds=[iid], DocumentName="AWS-RunShellScript", TimeoutSeconds=60,
+                           Parameters={"commands": [POD_STACK_RESTART], "executionTimeout": ["300"]},
+                           Comment="smartsched app stack restart (last good deploy)")
+    command_id = cmd["Command"]["CommandId"]
+    for _ in range(60):
+        sleep(5)
+        try:
+            inv = ssm.get_command_invocation(CommandId=command_id, InstanceId=iid)
+        except Exception as exc:  # InvocationDoesNotExist right after send_command
+            if error_code(exc) == "InvocationDoesNotExist":
+                continue
+            raise
+        if inv["Status"] in ("Pending", "InProgress", "Delayed"):
+            continue
+        text = (inv.get("StandardOutputContent") or "") + (inv.get("StandardErrorContent") or "")
+        lines = [LOG_REDACT.sub(lambda m: (m.group(1) + " [redacted]") if m.group(1) else "[redacted]", line)
+                 for line in text.splitlines()][-200:]
+        return {"instance_id": iid, "status": inv["Status"], "output": lines}
+    raise BootstrapError("stack restart still running after 300 s; read `logs`")
+
+
 def _delete_role(iam: Any, name: str, profile: str | None = None) -> None:
     if profile:
         try:
@@ -1688,7 +1743,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="smartsched_aws.py", description=__doc__.split("\n\n")[0],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["up", "status", "logs", "stop", "start", "down", "cost", "plan", "preflight",
-                                       "put-github-token", "render-user-data", "resize", "ci-upgrade"])
+                                       "put-github-token", "render-user-data", "resize", "ci-upgrade",
+                                       "stack-restart"])
     p.add_argument("--region", default=None,
                    help=f"AWS region, or 'auto' = cheaper of {'/'.join(NEAR_TURKIYE)} (default: $AWS_REGION, "
                         f"$AWS_DEFAULT_REGION, else {DEFAULT_REGION})")
@@ -1809,6 +1865,8 @@ def main(argv: list[str] | None = None) -> int:
             emit(cmd_resize(aws, s, ident["account"], set_budget=given), a)
         elif a.command == "ci-upgrade":
             emit(cmd_ci_upgrade(aws, s), a)
+        elif a.command == "stack-restart":
+            emit(cmd_stack_restart(aws, s), a)
         elif a.command == "stop":
             emit({"stopped": cmd_stop(aws)}, a)
         elif a.command == "start":
