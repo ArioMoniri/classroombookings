@@ -147,9 +147,10 @@ async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind:
     one draft (usability U2). The INSERT runs in a SAVEPOINT, so the loser rolls back only that INSERT and
     re-reads the winner's row; a full session rollback expired the request's other rows (the ``User`` of
     PUT /terms/{id}/studio -> MissingGreenlet -> 500, pod CI e2e 2026-10-17)."""
+    from sqlalchemy import Select
     from sqlalchemy.exc import IntegrityError, OperationalError
 
-    def _find():
+    def _find() -> Select[StudioDraft]:
         return select(StudioDraft).where(
             StudioDraft.term_id == term_id, StudioDraft.user_id == user_id, StudioDraft.kind == kind
         )
@@ -157,7 +158,7 @@ async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind:
     try:
         return await _insert_draft(session, term_id, user_id, kind)
     except IntegrityError:
-        return (await session.execute(_find())).scalar_one()
+        return (await session.scalars(_find())).one()
     except OperationalError as exc:
         # The Studio asks for the draft, its rules, classes and summary at once; on a first visit each request tries
         # to create the draft. Seen in the e2e stack (2026-10-19): the classes request's INSERT answered "database
@@ -166,7 +167,7 @@ async def _create_draft(session: AsyncSession, term_id: int, user_id: int, kind:
         if "locked" not in str(exc).lower():
             raise
         await session.rollback()
-        found = (await session.execute(_find())).scalar_one_or_none()
+        found = (await session.scalars(_find())).one_or_none()
         if found is None:
             raise
         return found
