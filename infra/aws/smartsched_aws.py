@@ -1131,30 +1131,7 @@ def e2e_lines(lines):
     return (picked + details)[:tail] if (picked or details) else lines[-tail:]
 
 
-for name, st, code, log_path in steps:
-    head = f"==== {name}: {st} (exit {code}) {log_path}"
-    print(head)
-    used += len(head) + 1
-    try:
-        with open(log_path, encoding="utf-8", errors="replace") as fh:
-            lines = fh.read().splitlines()
-    except OSError as exc:
-        print(f"(log unreadable: {exc})")
-        continue
-    # Playwright: failing titles + summary first, then each failure's Error / Expected / Received / locator / spec
-    # lines; any other gate: the end of its log (the pytest / ruff / mypy summary)
-    chosen = e2e_lines(lines) if name.startswith("e2e-real") else lines[-tail:]
-    spent = 0
-    for line in chosen:
-        line = line[:240]
-        if spent + len(line) + 1 > gate_cap:
-            print(f"... ({name}: cut at {gate_cap} chars)")
-            break
-        print(line)
-        spent += len(line) + 1
-    used += spent
-# part 2: the Playwright error-context.md excerpts the run kept (gates/e2e-real.sh -> logs/<run>/artifacts), only
-# after every gate had its part, shared across the gates (<= 3 files and 10 lines per file each), redacted here
+# redaction of everything taken from the app (backend errors, error-context.md), done here on the pod
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 PHONE = re.compile(r"(?<![\w:.-])\+?\d[\d ()/-]{7,}\d(?![\w:.-])")
 HEADINGS = {"# Test info", "# Error details", "# Page snapshot", "# Test source"}
@@ -1189,6 +1166,43 @@ def redact(line, snapshot):
 
 
 art = os.path.join(state, "logs", str(run[0]), "artifacts")
+
+
+for name, st, code, log_path in steps:
+    head = f"==== {name}: {st} (exit {code}) {log_path}"
+    print(head)
+    used += len(head) + 1
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+    except OSError as exc:
+        print(f"(log unreadable: {exc})")
+        continue
+    # Playwright: failing titles + summary first, then each failure's Error / Expected / Received / locator / spec
+    # lines; any other gate: the end of its log (the pytest / ruff / mypy summary)
+    chosen = e2e_lines(lines) if name.startswith("e2e-real") else lines[-tail:]
+    if name.startswith("e2e-real-"):
+        # the shard's backend side of the failure (gates/e2e-real.sh: 500s, tracebacks, "database is locked")
+        bpath = os.path.join(art, "backend-errors-" + name.rsplit("-", 1)[-1] + ".log")
+        try:
+            with open(bpath, encoding="utf-8", errors="replace") as fh:
+                berr = [ln for ln in fh.read().splitlines() if ln.strip()]
+        except OSError:
+            berr = []
+        if berr:
+            chosen = chosen + [f"---- backend errors ({len(berr)} lines kept, first 20)"] + [
+                "  " + redact(ln, False) for ln in berr[:20]]
+    spent = 0
+    for line in chosen:
+        line = line[:240]
+        if spent + len(line) + 1 > gate_cap:
+            print(f"... ({name}: cut at {gate_cap} chars)")
+            break
+        print(line)
+        spent += len(line) + 1
+    used += spent
+# part 2: the Playwright error-context.md excerpts the run kept (gates/e2e-real.sh -> logs/<run>/artifacts), only
+# after every gate had its part, shared across the gates (<= 3 files and 10 lines per file each), redacted here
 per_gate = []
 for name, *_ in steps:
     if name.startswith("e2e-real-"):
@@ -1213,13 +1227,21 @@ for n, (name, files) in enumerate(per_gate):
         rel = "-- " + os.path.relpath(path, art)[:140]
         print(rel)
         spent += len(rel) + 1
+        # the page snapshot from its `main` landmark on (the sidebar / navigation lines before it say little)
+        snap_at = next((k for k, ln in enumerate(raw) if ln.startswith("# Page snapshot")), None)
+        main_at = None if snap_at is None else next(
+            (k for k in range(snap_at, len(raw)) if re.match(r"^\s*- main\b", raw[k])), None)
         snapshot, shown = False, 0
-        for ln in raw:
+        for k, ln in enumerate(raw):
             if not ln.strip() or ln.strip().startswith("```"):
+                continue
+            if snapshot and main_at is not None and k < main_at:
                 continue
             if ln.startswith("# "):
                 snapshot = ln.startswith("# Page snapshot")
                 out = ln.strip() if ln.strip() in HEADINGS else "# [heading]"
+                if snapshot and main_at is not None:
+                    out += " (from the main region)"
             else:
                 out = redact(ln, snapshot)
             out = "  " + out[:200]
