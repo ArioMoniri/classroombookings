@@ -149,6 +149,7 @@ def test_docx_room_table_matches_the_room_master():
 
 def test_fast_path_records_carry_the_importer_results():
     recs, _ = fastpath.records_for("room-master", ROOM_MASTER, ROOM_MASTER.name, 2026)
-    assert len(recs) == 87 and recs[0]["code"] == "A101" and recs[0]["capacity"] == 58
+    # 86 rows since 2026-11-02 (B 407 merged into B 406; D 107 listed as retired)
+    assert len(recs) == 86 and recs[0]["code"] == "A101" and recs[0]["capacity"] == 58
     recs, _ = fastpath.records_for("exam-list", EXAM_LIST, EXAM_LIST.name, 2026)
     assert len(recs) == len(parse_exam_list(EXAM_LIST).rows)

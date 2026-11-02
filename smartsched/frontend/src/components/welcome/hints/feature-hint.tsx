@@ -7,7 +7,7 @@
  */
 import { computePosition, flip, offset, shift, autoUpdate } from "@floating-ui/dom";
 import { motion } from "motion/react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { useMediaQuery } from "@/components/ui/use-media-query";
@@ -55,7 +55,9 @@ export function FeatureHintPopover() {
     });
   }, [anchor]);
 
-  useEffect(() => {
+  // at commit, not in a passive effect: the popover is on screen from this commit, and an Esc or outside click that
+  // lands before deferred effects run (a loaded machine, a fast user) was lost (pod run #155, hints.test.tsx:105)
+  useLayoutEffect(() => {
     if (!anchor || !hint) return;
     const key = hint.def.key;
     const onKey = (e: KeyboardEvent) => {

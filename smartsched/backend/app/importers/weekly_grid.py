@@ -91,6 +91,10 @@ class ParsedGrid:
         return [e for s in self.sheets for e in s.entries]
 
 
+#: a sheet's header repeats a room with another capacity (``parse_weekly_grid``)
+_CAP_DISAGREE = re.compile(r"room \S+ has capacity \d+ and \d+ in sheet ")
+
+
 def sheet_kind(name: str, default: str = "LECTURE") -> str:
     low = n.tr_casefold(name)
     if "final" in low:
@@ -415,7 +419,17 @@ async def import_weekly_grid(
     term = await cat.term(term_code, name=term_name, kind=inferred_kind)
     exam_term = (term_kind or term.kind) in {"FINAL", "BUT"}
     parsed = await run_isolated(parse_weekly_grid, path, year, default_kind="EXAM" if exam_term else "LECTURE")
-    report.warnings.extend(parsed.warnings)
+    # owner report 2026-11-02 item 5: a header copy that repeats a room with another number ("A 103 (47)" on Monday,
+    # "(33)" later) is expected in these workbooks and resolved by the first-copy rule (and the room master): info,
+    # with one summary line, so the real problems stand out among the warnings
+    cap_lines = [w for w in parsed.warnings if _CAP_DISAGREE.search(w)]
+    report.warnings.extend(w for w in parsed.warnings if not _CAP_DISAGREE.search(w))
+    if cap_lines:
+        report.note(
+            f"{len(cap_lines)} header cell(s) repeat a room with another capacity; the room's first (Monday) header "
+            "copy is used, the room master overrides it"
+        )
+        report.info.extend(cap_lines)
     lecture_weeks = [s.week_index for s in parsed.sheets if s.kind in {"LECTURE"}]
     if lecture_weeks and max(lecture_weeks) > term.week_count:
         term.week_count = max(lecture_weeks)
@@ -644,6 +658,10 @@ async def import_weekly_grid(
             b.archived = True
             report.updated["blocks_archived"] += 1
     report.rows_total = len(parsed.entries)
+    # owner report 2026-11-02 item 5: every course code the board names is in the catalog (87 codes of the 2026
+    # boards were in no planning list: EMED 14, ADB 501 ...); the name comes from a later planning list
+    for code in sorted({c for e in parsed.entries if e.cell.kind == "COURSE" for c in e.cell.codes}):
+        await cat.course(code)
     await cat.finalize_rooms(lecture_side=not exam_workbook)
     report.extra.update(
         missing_weeks=missing_weeks,

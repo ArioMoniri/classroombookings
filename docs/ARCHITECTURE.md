@@ -104,7 +104,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 
 <!-- AUTO:migrations -->
 
-44 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0048_helper_feedback`**. A new migration goes on top of it (`alembic heads` must print one line).
+45 migrations in [`alembic/versions`](../smartsched/backend/alembic/versions); single head **`0049_room_owner_faculty`**. A new migration goes on top of it (`alembic heads` must print one line).
 
 | # | Revision | Revises | Summary (first line of the docstring) |
 |---:|---|---|---|
@@ -152,6 +152,7 @@ Generated from `smartsched/backend/alembic/versions` by `scripts/docs/sync_docs.
 | 42 | `0046_ai_quota_units` | `0045_user_sessions` | AI quota chain and shared reservations (HB-10; docs/research/2026-10-17-ai-helper-architecture.md §5.9) |
 | 43 | `0047_rf_import_safety` | `0046_ai_quota_units` | Re-import safety and import history (RF-06 / RF-08 / RF-09; audit… |
 | 44 | `0048_helper_feedback` | `0047_rf_import_safety` | Helper feedback and unanswered queries (HB-14; docs/research/2026-10-17-ai-helper-architecture.md §5.7) |
+| 45 | `0049_room_owner_faculty` | `0048_helper_feedback` | Room owner faculty (owner report 2026-11-02 item 2: Tıp classrooms are reserved for Tıp academicians) |
 
 <!-- /AUTO:migrations -->
 

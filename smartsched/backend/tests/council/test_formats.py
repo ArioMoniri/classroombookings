@@ -28,7 +28,8 @@ def _key(r: dict) -> tuple:
 def xlsx_meetings() -> Counter:
     recs, _ = fastpath.planning_records(BAHAR_LIST, BAHAR_LIST.name)
     meetings = [r for r in recs if r["type"] == "meeting"]
-    assert len(meetings) == 1524  # the real list: 1 529 rows, 5 without a course code
+    # the real list: 1 529 rows, 4 without a (readable) course code ("MDF-516" is read as MDF 516 since 2026-11-02)
+    assert len(meetings) == 1525
     return Counter(_key(r) for r in meetings)
 
 
@@ -204,10 +205,10 @@ def test_bahar_saved_as_xls_and_ods_gives_the_xlsx_records(libreoffice_copies, f
     base, _ = fastpath.planning_records(BAHAR_LIST, BAHAR_LIST.name)
     meetings = [r for r in recs if r["type"] == "meeting"]
     expected = [r for r in base if r["type"] == "meeting"]
-    assert len(meetings) == len(expected) == 1524
+    assert len(meetings) == len(expected) == 1525
     same = sum(_strip(a) == _strip(b) for a, b in zip(expected, meetings, strict=True))
     # .ods: every record; .xls: LibreOffice writes row 219's course name and start as 0 (its own conversion)
-    assert same >= (1524 if fmt == "ods" else 1523), same
+    assert same >= (1525 if fmt == "ods" else 1524), same
     rooms = [_strip(r) for r in recs if r["type"] == "room"]
     assert rooms == [_strip(r) for r in base if r["type"] == "room"] and len(rooms) == 54  # Sayfa2 buckets
 

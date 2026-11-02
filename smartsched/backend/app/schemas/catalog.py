@@ -194,6 +194,8 @@ class RoomOut(ORMModel):
     legacy_crbs_room_id: int | None
     room_group: str | None
     custom_fields: dict[str, Any]
+    #: owner report 2026-11-02 item 2: the faculty that alone may book the room (null = every faculty)
+    owner_faculty_id: int | None = None
 
 
 class FacultyOut(ORMModel):

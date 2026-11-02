@@ -1546,8 +1546,9 @@ def check_post(
             (q for q in day if rest and posts[q].start <= p.end + rest and p.start <= posts[q].end + rest), None
         )
         day_cap = person.max_per_day if person.max_per_day is not None else inp.max_per_day
-        if clash is not None or near is not None:
-            other = posts[clash if clash is not None else near]
+        hit = clash if clash is not None else near
+        if hit is not None:
+            other = posts[hit]
             out[i] = PostCheck(
                 "on_duty" if clash is not None else "rest", f"{person.id}: {other.key} and {p.key} at once", other.key
             )

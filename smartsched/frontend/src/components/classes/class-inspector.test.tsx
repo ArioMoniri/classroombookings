@@ -44,6 +44,19 @@ describe("ClassInspector", () => {
     expect(screen.getByRole("link", { name: "Dr. Kaya" })).toHaveAttribute("href", "/timetable?lens=week&subject=instructor:77&run=5");
   });
 
+  // owner report 2026-11-02 (Çizelge item 3): the room's own capacity and its exam capacity, side by side
+  it("shows the room's capacity and exam capacity when the calendar passes them", () => {
+    const roomSeats = vi.fn(() => ({ capacity: 156, exam: 74 }));
+    wrap(<ClassInspector {...base({ roomSeats })} />);
+    expect(roomSeats).toHaveBeenCalledWith([4]);
+    expect(screen.getByTestId("inspector-room-seats")).toHaveTextContent("Capacity 156 · Exam capacity 74");
+  });
+
+  it("without room seats (the classes page) there is no capacity line", () => {
+    wrap(<ClassInspector {...base()} />);
+    expect(screen.queryByTestId("inspector-room-seats")).toBeNull();
+  });
+
   it("lock shows Saving… then Saved; a failed save says Not saved", async () => {
     const user = userEvent.setup();
     let resolve: (v: boolean) => void = () => undefined;

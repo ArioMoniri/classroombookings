@@ -34,7 +34,10 @@ from app.models.catalog import Room
 from app.services import bookings as svc
 from app.services import bookings_calendar as cal
 from app.services import bookings_export as export
-from app.services import bookings_notify  # noqa: F401  (registers the notification event handlers)
+from app.services import (
+    bookings_notify,  # noqa: F401  (registers the notification event handlers)
+    room_faculty,
+)
 from app.services import rooms_features as features
 from app.services import settings_service as runtime_settings
 from app.services.bookings_calendar import date_infos, fgcol, term_info
@@ -392,6 +395,9 @@ async def _room_info(db: DB, room: Room) -> dict[str, Any]:
         "capacity": room.capacity,
         # reservation panel room details: exam seating, building and floor (rooms master data)
         "exam_capacity": room.exam_capacity,
+        # owner report 2026-11-02 item 2: the faculty that alone may book the room (app/services/room_faculty.py)
+        "owner_faculty_id": room.owner_faculty_id,
+        "owner_faculty": await room_faculty.faculty_name(db, room.owner_faculty_id),
         "building": building.name if building else None,
         "building_code": building.code if building else None,
         "floor": room.floor,

@@ -5,15 +5,20 @@
  *
  * - header row required, any column order, `;` `,` or tab separated, UTF-8 (BOM allowed); `#` lines are comments;
  * - an empty cell leaves the stored value unchanged; `tags` replaces the list (`-` clears it, `|` `;` `/` or
- *   spaces separate); `bookable` is 1/0, yes/no, true/false, evet/hayır, or empty = bookable when it has a capacity.
+ *   spaces separate); `bookable` is 1/0, yes/no, true/false, evet/hayır, retired (the backend retires the room), or
+ *   empty = bookable when it has a capacity.
  *
  * The backend also reads alias spellings ("B Blok Bilg. Lab." is B 207) and creates rooms it does not know; the
  * preview matches plain codes only, so it marks other rows "not matched" and lets the server decide.
  */
 
-export const COLUMNS = ["code", "capacity", "exam_capacity", "tags", "building", "floor", "bookable", "notes"] as const;
+/** `owner_faculty` and `merged_from` (owner report 2026-11-02) are recognised here and applied by the backend, which
+ * lists the retired rooms, the moved bookings and the owner changes in its import report */
+export const COLUMNS = ["code", "capacity", "exam_capacity", "tags", "building", "floor", "bookable", "notes", "owner_faculty", "merged_from"] as const;
 const TRUE = new Set(["1", "yes", "y", "true", "evet", "e", "x"]);
 const FALSE = new Set(["0", "no", "n", "false", "hayır", "hayir", "h"]);
+/** owner report 2026-11-02: `retired` retires the room (D 107); in the preview it reads as "not bookable" */
+const RETIRED = new Set(["retired", "removed", "kaldırıldı", "kaldirildi", "kaldır", "kaldir"]);
 
 export interface MasterRow {
   line: number;
@@ -79,7 +84,7 @@ function bool(v: string | undefined): boolean | null {
   const s = fold(v ?? "");
   if (!s) return null;
   if (TRUE.has(s)) return true;
-  if (FALSE.has(s)) return false;
+  if (FALSE.has(s) || RETIRED.has(s)) return false;
   throw new Error(`not a yes/no value: '${(v ?? "").trim()}'`);
 }
 

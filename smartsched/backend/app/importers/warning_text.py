@@ -47,6 +47,17 @@ CODE_LABELS: dict[str, tuple[str, str]] = {
     "course_code_placeholder": ("Numarası olmayan ders kodu", "Course code without a number"),
     "course_code_repaired": ("Düzeltilen ders kodu", "Course code repaired"),
     "enrolment_ignored": ("Kullanılmayan öğrenci sayısı", "Enrolment not used"),
+    "exam_time_partial": (
+        "Ders saatleriyle örtüşmeyen sınav saati (beklenen)",
+        "Exam time not aligned with the periods (expected)",
+    ),
+    "room_capacity_differs": (
+        "Başlıkta farklı kapasiteyle yinelenen derslik",
+        "Room repeated in a header with another capacity",
+    ),
+    "room_retired": ("Kullanımdan kaldırılan derslik", "Room retired"),
+    "bookings_moved": ("Birleştirilen dersliğe taşınan rezervasyon", "Booking moved into the merged room"),
+    "bookings_in_retired_room": ("Kaldırılan derslikte kalan rezervasyon", "Booking left in a retired room"),
     "other": ("Diğer uyarılar", "Other warnings"),
 }
 
@@ -221,6 +232,71 @@ _RULES: list[Rule] = [
         re.compile(r"^unrecognised course code (.+)$"),
         "course_code_unreadable",
         lambda m: f"Ders kodu anlaşılamadı ({_q(m[1])})",
+    ),
+]
+
+_RULES += [
+    (
+        re.compile(
+            r"^time (\d{1,2}:\d{2})-(\d{1,2}:\d{2}) covers (.+) partly; the exam occupies P(\d+)-P(\d+) \(not moved\)$"
+        ),
+        "exam_time_partial",
+        lambda m: (
+            f"Sınav saati {m[1]}–{m[2]} {m[3]} ders saatini kısmen kapsıyor; sınav P{m[4]}–P{m[5]} saatlerini tutar "
+            "(taşınmadı)"
+        ),
+    ),
+    (
+        re.compile(r"^(\d+) exam time\(s\) do not align with the period grid; .*$"),
+        "exam_time_partial",
+        lambda m: (
+            f"{m[1]} sınavın saati ders saatleriyle örtüşmüyor; her sınav yazılı saatini korur ve değdiği her ders "
+            "saatini tutar (taşınmaz). Sınav listelerinde beklenen bir durumdur"
+        ),
+    ),
+    (
+        re.compile(r"^(?:\[(.+?)\] )?room (\S+) has capacity (\d+) and (\d+) in sheet (.+)$"),
+        "room_capacity_differs",
+        lambda m: (
+            f"{m[2]} dersliği {_q(m[5])} sayfasının başlığında {m[3]} ve {m[4]} kapasiteyle yazılmış; ilk "
+            "(pazartesi) başlık kullanıldı"
+        ),
+    ),
+    (
+        re.compile(r"^(\d+) header cell\(s\) repeat a room with another capacity; .*$"),
+        "room_capacity_differs",
+        lambda m: (
+            f"{m[1]} başlık hücresinde derslik farklı bir kapasiteyle yineleniyor; dersliğin ilk (pazartesi) "
+            "başlığı kullanıldı, derslik listesi (room master) önceliklidir"
+        ),
+    ),
+    (
+        re.compile(r"^(\d+) room\(s\) retired \(no longer bookable, history kept\): (.+)$"),
+        "room_retired",
+        lambda m: f"{m[1]} derslik kullanımdan kaldırıldı (artık rezerve edilemez, geçmişi korunur): {m[2]}",
+    ),
+    (
+        re.compile(r"^room (\S+) was retired; listed again, back in service$"),
+        "room_retired",
+        lambda m: f"{m[1]} dersliği kullanımdan kaldırılmıştı; listede yeniden yer aldığı için yeniden kullanımda",
+    ),
+    (
+        re.compile(r"^(\S+) is merged into (\S+) but still listed; not retired$"),
+        "room_retired",
+        lambda m: f"{m[1]} dersliği {m[2]} ile birleştirilmiş görünüyor ama listede hâlâ var; kaldırılmadı",
+    ),
+    (
+        re.compile(r"^(\d+) future booking\(s\) moved into the room they were merged into$"),
+        "bookings_moved",
+        lambda m: f"{m[1]} ileri tarihli rezervasyon birleştirildiği dersliğe taşındı",
+    ),
+    (
+        re.compile(r"^(\d+) future booking\(s\) remain in retired rooms; move or cancel them: (.+)$"),
+        "bookings_in_retired_room",
+        lambda m: (
+            f"{m[1]} ileri tarihli rezervasyon kullanımdan kaldırılan dersliklerde kaldı; taşıyın ya da iptal edin: "
+            f"{m[2]}"
+        ),
     ),
 ]
 

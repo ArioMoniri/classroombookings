@@ -59,7 +59,7 @@ async def test_cp1254_csv_export_commits_like_the_workbook(client):
     f = job["files"][0]
     assert f["status"] == "DONE" and f["route"] == "fast:planning-list", f
     assert f["format"] == "csv" and f["route_kind"] == "structured"
-    assert f["counts"]["meeting"] == 1524  # = the xlsx (tests/council/test_formats.py)
+    assert f["counts"]["meeting"] == 1525  # = the xlsx (tests/council/test_formats.py)
     r = await client.post(
         f"/api/v1/council/jobs/{job['id']}/commit",
         headers=h,

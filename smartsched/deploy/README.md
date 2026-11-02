@@ -99,7 +99,7 @@ Both branches carry the same code; `profile.env` decides what a one-click deploy
 
 | Branch | `SEED_PROFILE` | First deploy |
 |---|---|---|
-| `claude/gracious-cerf-w1598m` | `institution` | imports the owner's Bahar / Güz / Final workbooks and the room master (`smartsched/backend/tests/fixtures`, the files the e2e / record stacks use), the soft preference rules the planning / exam importers derive from their free-text columns, then the learning extraction |
+| `claude/gracious-cerf-w1598m` | `institution` | imports the owner's Bahar / Güz / Final workbooks and the room master (`smartsched/backend/tests/fixtures`, the files the e2e / record stacks use), the soft preference rules the planning / exam importers derive from their free-text columns, publishes each term's imported board where nothing is published yet (`publish-boards`), then the learning extraction |
 | `claude/smartsched-universal` | `empty` | nothing: the setup wizard + `/onboarding` |
 
 `deploy.sh` runs `seed/seed.py` after the stack is healthy (`up` and `--update`), in the backend image with
@@ -107,6 +107,17 @@ the files mounted read-only. Each finished step is recorded in the settings row 
 deploys skip it and a failed seed resumes where it stopped (`./deploy.sh --no-build`). A database that already
 has terms but no marker is not touched (`SEED_FORCE=1` overrides). A missing `profile.env` means `empty`;
 `SEED_PROFILE=empty ./deploy.sh` overrides the file for one run. `validate.sh` plans both profiles.
+
+The room-master step is an idempotent upsert and is marked `rerun_on_change`: the marker also records the
+SHA-256 of `room_master.csv` (`hashes`), and a deploy whose `room_master.csv` differs runs that step again (no
+workbook is re-imported). That is how a room change (owner 2026-11-02: B 406 + B 407 merged, D 107 removed, D 106
+60 / 30) reaches an existing database: rooms the master no longer lists are retired (not bookable, never deleted),
+a merged room's future bookings move into the room it was merged into when the slot is free (the others are
+listed in the import report), and every bookable room is filed into its building's room group.
+
+The `publish-boards` step (`python -m app.cli publish-imported-boards`) publishes each term's imported weekly board
+(COURSE and EXAM) where the term has no published run; a term a planner already published is kept. Without it the
+occupancy heatmap and the booking occupancy had no timetable (owner 2026-11-02).
 
 The learning step calls `python -m app.cli learning-refresh`; until that command exists the step is
 skipped and retried on the next deploy.

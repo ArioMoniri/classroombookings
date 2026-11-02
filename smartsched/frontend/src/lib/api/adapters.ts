@@ -138,7 +138,8 @@ const countOf = (v: unknown): number | null => (isRec(v) ? Object.values(v).redu
 /**
  * `ImportJobOut` (app/schemas/runs.py): `summary` is `ImportReport.to_dict()` (rows_total, per-entity
  * created/updated counts, rows_skipped [{row, reason, detail}], warnings as "row N: …" strings) and is
- * empty while the job is QUEUED/RUNNING. Skipped rows are listed as errors next to the warnings.
+ * empty while the job is QUEUED/RUNNING. Skipped rows are listed next to the warnings with their severity (an error
+ * unless the backend says info / warning), and `info` (expected findings) as info.
  */
 export function importJob(v: unknown): unknown {
   if (!isRec(v)) return v;
@@ -155,11 +156,23 @@ export function importJob(v: unknown): unknown {
       updated: countOf(summary.updated) ?? 0,
       skipped: skipped ?? 0,
       warnings: [
-        ...skippedRows.map((r) => ({ row: num(r.row, 0), field: "", value: str(r.detail), message: str(r.reason) ?? "", severity: "error" })),
+        // owner report 2026-11-02 item 5: a row without any course code (a meeting, UZEM, staj) is info, an unreadable
+        // code a warning (`rows_skipped[].severity`); older backends: every skipped row is an error
+        ...skippedRows.map((r) => {
+          const sev = str(r.severity);
+          return { row: num(r.row, 0), field: "", value: str(r.detail), message: str(r.reason) ?? "", severity: sev === "info" || sev === "warning" ? sev : "error" };
+        }),
         // PER-F05: `warning_items[i]` is the code and the sentences of `warnings[i]` (same order, newer backends)
         ...arr(summary.warnings).map((w, i) => {
           const base = warning(w) as Record<string, unknown>;
           const item = arr(summary.warning_items)[i];
+          if (!isRec(item)) return base;
+          return { ...base, ...(str(item.code) ? { code: str(item.code) } : {}), ...(str(item.message_tr) ? { message_tr: str(item.message_tr) } : {}), ...(str(item.message_en) ? { message_en: str(item.message_en) } : {}) };
+        }),
+        // expected findings (exam times off the period grid, repeated header capacities): info, not warnings
+        ...arr(summary.info).map((w, i) => {
+          const base = { ...(warning(w) as Record<string, unknown>), severity: "info" };
+          const item = arr(summary.info_items)[i];
           if (!isRec(item)) return base;
           return { ...base, ...(str(item.code) ? { code: str(item.code) } : {}), ...(str(item.message_tr) ? { message_tr: str(item.message_tr) } : {}), ...(str(item.message_en) ? { message_en: str(item.message_en) } : {}) };
         }),

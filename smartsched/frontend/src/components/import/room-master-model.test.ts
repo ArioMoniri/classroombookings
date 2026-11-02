@@ -14,6 +14,11 @@ describe("parseRoomMaster (mirrors app/importers/room_master.py)", () => {
     expect(rows.length).toBeGreaterThan(80);
     expect(rows[0]).toEqual({ line: 2, code: "A 101", capacity: 58, exam_capacity: 30, tags: null, building: "A", floor: "1", bookable: true });
     expect(rows.find((r) => r.code === "A 103")?.tags).toEqual(["PC"]);
+    // owner report 2026-11-02: B 407 merged into B 406 (gone), D 107 retired, D 106 60 / 30
+    expect(rows.find((r) => r.code === "B 407")).toBeUndefined();
+    expect(rows.find((r) => r.code === "D 107")?.bookable).toBe(false);
+    expect(rows.find((r) => r.code === "B 406")).toMatchObject({ capacity: 80, exam_capacity: 40 });
+    expect(rows.find((r) => r.code === "D 106")).toMatchObject({ capacity: 60, exam_capacity: 30 });
   });
 
   it("accepts ; and tabs, quoted cells, a BOM, - to clear tags and Turkish yes/no", () => {

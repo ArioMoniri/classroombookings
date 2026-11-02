@@ -54,6 +54,17 @@ export function isBoardRun(r: Pick<ScheduleRun, "params" | "label"> & { stats?: 
   return r.stats !== undefined && r.stats.solver === undefined && r.stats.events === undefined && !r.prompt_text && !(r.diagnosis?.length ?? 0) && /^grid import/i.test(r.label ?? "");
 }
 
+/**
+ * The exam runs an imported board's notice offers instead (owner report 2026-11-02): solved runs whose rows link to
+ * the exam list (not boards), the board's own term first and newest first inside each term. `sameTerm` empty = the term
+ * has none yet, so the notice offers Oluştur › Sınav for that term.
+ */
+export function linkedExamRuns<R extends Pick<ScheduleRun, "id" | "term_id" | "params" | "label"> & { stats?: ScheduleRun["stats"]; prompt_text?: string | null; diagnosis?: unknown[] }>(exams: readonly R[], board: Pick<ScheduleRun, "id" | "term_id">, limit = 5): { sameTerm: R[]; others: R[] } {
+  const linked = exams.filter((r) => r.id !== board.id && !isBoardRun(r)).sort((a, b) => b.id - a.id);
+  const sameTerm = linked.filter((r) => r.term_id === board.term_id);
+  return { sameTerm: sameTerm.slice(0, limit), others: linked.filter((r) => r.term_id !== board.term_id).slice(0, Math.max(0, limit - sameTerm.length)) };
+}
+
 export interface DiagGroup {
   code: string;
   severity: Diagnosis["severity"];

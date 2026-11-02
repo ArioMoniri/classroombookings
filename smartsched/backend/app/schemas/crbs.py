@@ -208,8 +208,12 @@ class RoomBookingUpdate(BaseModel):
     notes: str | None = Field(default=None, max_length=255)
     is_bookable: bool | None = None
     display_name: str | None = Field(default=None, max_length=64)
+    #: owner report 2026-11-02: exam seating ("Sınav kapasitesi") is edited next to the capacity
+    exam_capacity: int | None = None
+    #: owner report 2026-11-02 item 2: the faculty that alone may book the room (null = every faculty)
+    owner_faculty_id: int | None = None
 
-    @field_validator("capacity")
+    @field_validator("capacity", "exam_capacity")
     @classmethod
     def _capacity(cls, v: int | None) -> int | None:
         if v is not None and v < 0:
@@ -240,6 +244,10 @@ class RoomAdminOut(BaseModel):
     building_id: int | None = None
     building_code: str | None = None
     building_name: str | None = None
+    exam_capacity: int = 0
+    #: owner report 2026-11-02 item 2 (app/services/room_faculty.py)
+    owner_faculty_id: int | None = None
+    owner_faculty_name: str | None = None
 
 
 class CustomFieldIn(BaseModel):
