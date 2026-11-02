@@ -126,6 +126,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     async with get_session_factory()() as session:
         await period_grid.refresh(session)  # RF-09: the admins' period grid, before the first request
+    try:  # owner 2026-11-02: a key saved before the activation rule switches the AI on once (app/ai/activation.py)
+        from app.ai import activation
+
+        async with get_session_factory()() as session:
+            await activation.activate_once(session)
+    except Exception as exc:  # noqa: BLE001 - never blocks start-up; the next start retries
+        log.warning("AI activation at start-up skipped: %s", type(exc).__name__)
 
     from app.ai.helper import files as helper_files
 

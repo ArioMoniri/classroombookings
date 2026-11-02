@@ -26,7 +26,10 @@ Groups and their variables (a group is written when its required variable is set
 Idempotent, and the panel wins (the seed marker pattern of seed.py): the settings row ``deploy.bootstrap_settings``
 records each group once it was written ("applied") or found already configured in the panel ("kept"). A recorded
 group is never written again, whatever a later deploy passes, unless BOOTSTRAP_FORCE=1. The marker holds group
-names and times only, never values. KVKK acknowledgements (AI transfer records, council AI, an abroad mail
+names and times only, never values. Writing the ``ai`` key goes through ``PUT /ai/admin/providers/{p}``, which also
+routes the in-app helper when it has no route yet (backend ``app/ai/activation.py``, owner 2026-11-02: one stored key
+switches the AI on for every user; an admin's own helper route is kept); a key already set in the panel ("kept") is
+activated by the backend once at start-up. KVKK acknowledgements (AI transfer records, council AI, an abroad mail
 provider, calendar sync sign-off) are never given here: they stay an administrator's decision in the panel.
 
 Exit codes: 0 done (or nothing to do), 1 cannot run (no administrator yet, bad input), 3 some groups refused

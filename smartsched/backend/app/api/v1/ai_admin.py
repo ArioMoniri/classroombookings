@@ -320,6 +320,12 @@ async def put_provider(provider: str, body: ProviderIn, db: DB, user: AIAdmin) -
         t.update(recorded_by=user.id, recorded_at=datetime.now(UTC).isoformat(timespec="seconds"))
         await gw.put_json(db, f"ai.provider.{p}.transfer", {k: v for k, v in t.items() if v not in (None, "")})
         changed.append("transfer")
+    if any(c.startswith("set:") for c in changed):
+        # owner 2026-11-02: a saved key switches the AI on for every user (app/ai/activation.py; an existing helper
+        # route is kept). Audited as ``ai.routes``.
+        from app.ai import activation
+
+        await activation.activate(db, actor=user, reason=f"key saved for {p} in Admin > AI")
     after = await _provider_out(db, p)
     await audit.record(
         db,
