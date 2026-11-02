@@ -109,7 +109,10 @@ def parse_exam_row(
 
     code, code_warning = n.canon_course_code_loose(g("code"), g("name"))
     if code is None:
-        return ("no course code", n.clean_text(g("code")))
+        # an empty code cell is a meeting, a UZEM / staj note or an exam without a course (info); a written but
+        # unreadable code a warning (owner report 2026-11-02 item 5)
+        raw_code = n.clean_text(g("code"))
+        return ("unreadable course code" if raw_code else "no course code", raw_code or n.clean_text(g("name")))
     warnings: list[str] = [code_warning] if code_warning else []
     d, d_end = n.parse_date_range(g("date"))
     start = n.parse_time(g("start"))
@@ -233,15 +236,28 @@ async def import_exam_list(
     merge_groups: dict[str, int] = {}
     venue_rows = 0
     text_rows: list[tuple[ExamRequest, ExamRow]] = []
+    partial_rows = 0
     for r in parsed.rows:
         for w in r.warnings:
-            report.warn(w, r.row)
+            # owner report 2026-11-02 item 5: an exam's written time that covers a period only partly is expected
+            # (exam lists are not on the period grid; the exam keeps its time and occupies every period it touches):
+            # info, summed up in one line, not a warning
+            if w in r.periods.warnings and r.periods.partial:
+                report.note(w, r.row)
+                partial_rows += 1
+            else:
+                report.warn(w, r.row)
         if r.definitive.venue:
             venue_rows += 1
             report.warn(n.venue_warning(r.definitive), r.row)
         faculty = await cat.faculty(r.faculty)
         program = await cat.program(r.program, faculty)
         await cat.course(r.course_code or "", name=r.course_name)
+        # owner report 2026-11-02 item 5: the exam's instructors join the catalog (as the planning list's do; the
+        # exam row keeps its text). A value that names no person ("UZEM") is not an instructor. Names never logged.
+        for person in n.split_person_names(r.instructor):
+            if n.non_person_reason(person) is None:
+                await cat.instructor(person)
         occ = seen_fp.get(r.fingerprint, 0)
         seen_fp[r.fingerprint] = occ + 1
         key = f"EX:{term_code}:{r.fingerprint}#{occ}"
@@ -368,6 +384,12 @@ async def import_exam_list(
         session, term, cat, cells, origin="exam-list", kind="exam", filename=report.filename, sheet=parsed.sheet_name
     )
     await cat.finalize_rooms(lecture_side=False)
+    if partial_rows:
+        report.info.insert(
+            0,
+            f"{partial_rows} exam time(s) do not align with the period grid; each exam keeps its written time and "
+            "occupies every period it overlaps (not moved): expected for exam lists",
+        )
     report.extra["non_room_venues"] = venue_rows
     report.extra["merge_groups"] = len(merge_groups)
     report.extra["merged_rows"] = sum(c for c in merge_groups.values() if c > 1)

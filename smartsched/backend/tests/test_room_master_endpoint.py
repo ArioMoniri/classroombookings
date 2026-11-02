@@ -35,7 +35,8 @@ async def _job(client, headers, r):  # type: ignore[no-untyped-def]
 async def test_room_master_csv_through_the_api(client) -> None:
     h = await login(client)
     job = await _job(client, h, await _upload(client, h, ROOM_MASTER))
-    assert job["summary"]["rows_imported"] == 87 and job["summary"]["extra"]["rooms"] == 87
+    # 86 rows since 2026-11-02 (B 407 merged into B 406; D 107 listed as retired)
+    assert job["summary"]["rows_imported"] == 86 and job["summary"]["extra"]["rooms"] == 86
     rooms = {r["code"]: r for r in (await client.get("/api/v1/rooms", headers=h)).json()}
     assert rooms["A204"]["capacity"] == 156 and rooms["A204"]["exam_capacity"] == 74
     assert "TIP" in rooms["A203"]["tags"] and "PC" in rooms["B207"]["tags"]
@@ -55,7 +56,7 @@ async def test_room_master_xlsx_and_turkish_excel_csv(client, tmp_path) -> None:
         ws.append([int(v) if v.isdigit() else v for v in row])
     wb.save(tmp_path / "derslikler.xlsx")
     job = await _job(client, h, await _upload(client, h, tmp_path / "derslikler.xlsx"))
-    assert job["summary"]["rows_imported"] == 87
+    assert job["summary"]["rows_imported"] == 86  # room_master.csv: 86 rows since 2026-11-02
     # Excel's Turkish "CSV (virgülle ayrılmış)" export: Windows-1254, semicolons, Turkish note text
     cp = tmp_path / "derslik_listesi.csv"
     cp.write_bytes("code;capacity;notes\nD 106;82;Güz panosu 60 diyor, Bahar 82\n".encode("cp1254"))
@@ -83,7 +84,7 @@ async def test_room_master_permission(env) -> None:  # noqa: F811
     _, teacher = await env.user("ogretmen.master@uni.edu.tr")
     assert (await _upload(env.client, teacher, ROOM_MASTER)).status_code == 403
     job = await _job(env.client, clerk, await _upload(env.client, clerk, ROOM_MASTER))
-    assert job["summary"]["rows_imported"] == 87
+    assert job["summary"]["rows_imported"] == 86  # room_master.csv: 86 rows since 2026-11-02
 
 
 async def test_import_jobs_list_by_kind_for_the_room_wizard(env) -> None:  # noqa: F811

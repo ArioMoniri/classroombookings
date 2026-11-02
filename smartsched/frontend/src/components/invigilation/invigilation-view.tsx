@@ -28,7 +28,8 @@ import type { MessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
-import { isBoardRun, knownPhase, planStatusKey, planTone, progressView } from "./invigilation-model";
+import { isBoardRun, knownPhase, linkedExamRuns, planStatusKey, planTone, progressView } from "./invigilation-model";
+import { useUiStore } from "@/stores/ui";
 import { PlanDetailView } from "./plan-detail";
 import { PlanFormDialog } from "./plan-form";
 import { PoolView } from "./pool-view";
@@ -117,9 +118,7 @@ export function InvigilationView() {
       {runs.isError ? <Alert tone="error">{errorText(runs.error, lang)}</Alert> : null}
       {/* F-MB-1 (CLS 0.12 at 390): the board-run notice comes with the panel, so it never lands above the placeholder */}
       {!panelLoading && run && tab === "plans" && isBoardRun(run) ? (
-        <Alert tone="warning" title={t("invigilation.boardRunTitle")} data-testid="invig-board-run">
-          {t("invigilation.boardRunBody")}
-        </Alert>
+        <BoardRunNotice run={run} exams={exams} canEdit={canEdit} termName={term?.id === run.term_id ? term.name : (run.term_code ?? "")} onSwitch={(id) => go({ run: String(id), plan: null, person: null })} />
       ) : null}
       {panelLoading ? (
         // mobile-b phase 2 (CLS 0.39–0.56): one placeholder of the panel's height until the runs and the plans are in,
@@ -171,6 +170,61 @@ export function InvigilationView() {
       )}
       {run ? <PlanFormDialog open={form !== null} mode={form ?? "new"} onOpenChange={(o) => !o && setForm(null)} examRunId={run.id} parent={planId !== null ? (plans.data?.find((p) => p.id === planId) ?? null) : null} onStarted={(id) => go({ plan: String(id), person: null })} /> : null}
     </div>
+  );
+}
+
+/**
+ * The imported-board notice made actionable (owner report 2026-11-02): the exam runs that do link the exam list, one
+ * tap to switch to each; with none in the board's term, a planner starts Oluştur › Sınav on that term.
+ */
+function BoardRunNotice({ run, exams, canEdit, termName, onSwitch }: { run: ScheduleRun; exams: readonly ScheduleRun[]; canEdit: boolean; termName: string; onSwitch: (id: number) => void }) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const runText = useRunText();
+  const setTermId = useUiStore((s) => s.setTermId);
+  const { sameTerm, others } = linkedExamRuns(exams, run);
+  const linked = [...sameTerm, ...others];
+  const term = termName || run.term_code || "";
+  const startExam = () => {
+    // Studio reads the shell's term: put the board's term there, then open the exam flow
+    setTermId(run.term_id);
+    router.push("/generate?kind=EXAM");
+  };
+  return (
+    <Alert tone="warning" title={t("invigilation.boardRunTitle")} data-testid="invig-board-run">
+      <p>{t("invigilation.boardRunBody")}</p>
+      {linked.length ? (
+        <div className="mt-2 flex flex-col gap-1.5">
+          <p className="type-footnote font-semibold text-label-1">{t("invigBoard.linked")}</p>
+          <ul className="flex flex-col gap-1.5" data-testid="invig-linked-runs">
+            {linked.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="min-w-0 type-callout text-label-1">{`${r.term_code ?? ""} · ${runText(r)}`}</span>
+                <Button size="sm" variant="secondary" onClick={() => onSwitch(r.id)} aria-label={t("invigBoard.switchName", { run: `${r.term_code ?? ""} ${runText(r)}`.trim() })} data-testid="invig-switch-run" data-run-id={r.id}>
+                  {t("invigBoard.switch")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {sameTerm.length === 0 ? (
+        <div className="mt-2 flex flex-col gap-1.5" data-testid="invig-no-linked">
+          <p className="type-footnote text-label-2">{t("invigBoard.none", { term })}</p>
+          {canEdit ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Button size="sm" onClick={startExam} data-testid="invig-start-exam">
+                <Plus aria-hidden />
+                {t("invigBoard.start")}
+              </Button>
+              <span className="type-footnote text-label-2">{t("invigBoard.startHint", { term })}</span>
+            </div>
+          ) : (
+            <p className="type-footnote text-label-2">{t("invigBoard.viewer")}</p>
+          )}
+        </div>
+      ) : null}
+    </Alert>
   );
 }
 

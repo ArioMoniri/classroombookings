@@ -19,7 +19,7 @@ import { SubjectPicker } from "./capsule-toolbar";
 import { MonthHeat, TermHeat } from "./heat-lenses";
 import { MoveDialog } from "./move-dialog";
 import { TimeGrid, type GridColumn } from "./time-grid";
-import { eventsOf, blocksOf, roomCap, type CalEvent, type CalendarModel } from "./model/index-model";
+import { eventsOf, blocksOf, roomCap, roomSeats, type CalEvent, type CalendarModel } from "./model/index-model";
 import type { HeatMetric, HeatValue } from "./model/heat";
 import { rowHeightFor } from "./model/geometry";
 import type { Lens, Subject } from "./model/view-state";
@@ -194,6 +194,7 @@ export function MobileCalendar(p: MobileCalendarProps) {
               assignment={open.a}
               roomName={(id) => p.model.roomById.get(id)?.name ?? `#${id}`}
               roomCap={(ids) => ids.reduce((s, id) => s + roomCap(p.model, p.model.roomById.get(id)), 0)}
+              roomSeats={(ids) => roomSeats(p.model, ids)}
               allWeeks={p.model.weeks.filter((w) => w <= 16)}
               readOnly={p.readOnly}
               onClose={() => setOpen(null)}

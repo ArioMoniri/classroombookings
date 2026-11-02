@@ -3,8 +3,8 @@ path), then dry-run the list again and its English CSV export (general path) as 
 
 The export holds the same requests read by another reader: the general writer matches them against the term's
 committed rows (same section, days and times), takes only what a row lacks, and skips a file's second identical
-row. What is left is the one row the planning-list importer refuses ('MDF-516', an unrecognised course code) and
-the general reader accepts: a request the term really does not have yet."""
+row. Since the planning-list importer reads 'MDF-516' as MDF 516 too (owner report 2026-11-02 item 5; it used to refuse
+it as an unrecognised course code), both readers agree and the export plans nothing new."""
 
 from __future__ import annotations
 
@@ -42,10 +42,10 @@ async def test_reupload_of_the_list_and_its_export_plans_nothing_new(client):
     export = await _dry(client, h, (await upload(client, h, (EN_CSV.name, EN_CSV.read_bytes()), ai="false"))["id"])
     c = export["counts"]
     created = [row for row in export["rows"] if row["change"] == "create"]
-    # only the MDF-516 request the importer refused: its course, section, request and its one teacher
-    assert [row["key"] for row in created if row["entity"] == "courses"] == ["MDF516"]
-    assert _n(c, "meeting_requests", "create") == 1 and _n(c, "sections", "create") == 1
-    assert _n(c, "instructors", "create") <= 1
+    # the MDF-516 request is committed by the importer now: nothing is new (it used to be the one request planned)
+    assert [row["key"] for row in created if row["entity"] == "courses"] == []
+    assert _n(c, "meeting_requests", "create") == 0 and _n(c, "sections", "create") == 0
+    assert _n(c, "instructors", "create") == 0
     # the export does not rewrite what the importer read (weeks, flags, notes): at most a filled-in gap
     assert _n(c, "meeting_requests", "update") <= 1 and _n(c, "meeting_requests", "unchanged") > 1300
 
@@ -89,11 +89,11 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
     real_a = r.json()
     # I4: the dry run predicts the commit, entity by entity
     assert real_a["changes"] == dry_a["counts"], (real_a["changes"], dry_a["counts"])
-    # I5 / D14: the workbook's 1,511 requests, never a second copy of the rows the CSV already wrote
+    # I5 / D14: the workbook's 1,512 requests, never a second copy of the rows the CSV already wrote
     total = await _active_meetings()
-    # the general reader also accepts two rows the importer refuses (MDF-516: an unrecognised course code; PET 593: no
-    # day): the term holds them once, from Job B
-    assert 1511 <= total <= 1513, total
+    # the general reader also accepts a row the importer refuses (PET 593: no day); MDF-516 both read since 2026-11-02
+    # (owner report item 5): the term holds each once, from Job B
+    assert 1512 <= total <= 1513, total
     # the workbook alone against this term: everything it knows is there and unchanged; it only archives the two
     probe = await _dry(
         client, h, (await upload(client, h, (BAHAR_LIST.name, BAHAR_LIST.read_bytes()), ai="false"))["id"]
@@ -102,7 +102,7 @@ async def test_general_then_fast_path_share_one_key_and_the_dry_run_predicts_the
         _n(probe["counts"], "meeting_requests", "create") == 0
         and _n(probe["counts"], "meeting_requests", "unchanged") >= 1500
     )
-    assert _n(probe["counts"], "meeting_requests", "update") <= total - 1511, probe["counts"]["meeting_requests"]
+    assert _n(probe["counts"], "meeting_requests", "update") <= total - 1512, probe["counts"]["meeting_requests"]
     assert _n(dry_a["counts"], "meeting_requests", "create") <= total - n_b + 1, dry_a["counts"]["meeting_requests"]
 
     # Job D: the same CSV once more: every row is there already

@@ -9,6 +9,8 @@ text, it answers every room the caller may view with a status and the reasons, f
   their slot (``app.services.bookings.booking_occupancy``), loaded once for all rooms and dates;
 * holidays, dates outside the term, dates without a timetable week and weekdays the rooms' schedules do not offer
   (BUG-01: Sunday on a Monday-Friday schedule, reason ``closed_day``) are closed (the count and a label show them);
+* faculty-owned rooms (owner report 2026-11-02, ``app.services.room_faculty``): a room another faculty owns (the Tıp
+  rooms for a non-Tıp academician) is left out; ``summary.faculty_hidden`` counts them (admins see every room);
 * room ACL: only rooms with ``room.view`` (role or room ACL); ``action`` says whether the caller can book,
   must request approval (P1) or can only look;
 * score = wasted seats ``(capacity - headcount) / capacity`` + 0.15 per solver tag the room has but the search
@@ -407,6 +409,11 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
 
     # candidates: rooms the caller may view (role or ACL), bookable, CRBS ungrouped rule, filters
     rooms = await bsvc.visible_rooms(session, access, q.room_group_id)
+    # owner report 2026-11-02 item 2: rooms another faculty owns (Tıp) are left out for this user (admins see all)
+    from app.services import room_faculty
+
+    faculty_hidden = await room_faculty.restricted_room_ids(session, access, rooms)
+    rooms = [r for r in rooms if r.id not in faculty_hidden]
     # BUG-01: a weekday none of the rooms' schedules offers (Sunday on a Monday-Friday schedule) is a closed day, like
     # a holiday: no slot, no "Boş" room, a reason in the closed dates (the booking check refuses it as "closed_day")
     slot_periods = _SlotPeriods(session, info)
@@ -700,6 +707,8 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
             "open_dates": len(open_dates),
             "text_tr": f"{free_count} boş oda · {len(open_dates)}/{len(dates)} tarih açık",
             "text_en": f"{free_count} free rooms · {len(open_dates)}/{len(dates)} dates open",
+            #: rooms left out because another faculty owns them (room_faculty)
+            "faculty_hidden": len(faculty_hidden),
         },
         "results": results,
         "alternatives": alternatives,

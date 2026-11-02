@@ -4,9 +4,10 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Diagnosis, PlanBrief, PlanDetail } from "@/lib/api/invigilation";
+import type { ScheduleRun } from "@/lib/api/schemas";
 import fixture from "./__fixtures__/plan-final-pool-none.json";
 import addFx from "./__fixtures__/add-duty-final.json";
-import { allInstructorsParams, bySession, diagCounts, filterPosts, fromRows, groupDiagnoses, isBoardRun, knownPhase, newRow, parsePostKey, planTone, poolEmptyDiag, postDates, progressView, rowProblem, suggestionSummary, toRows } from "./invigilation-model";
+import { allInstructorsParams, bySession, diagCounts, filterPosts, fromRows, groupDiagnoses, isBoardRun, knownPhase, linkedExamRuns, newRow, parsePostKey, planTone, poolEmptyDiag, postDates, progressView, rowProblem, suggestionSummary, toRows } from "./invigilation-model";
 
 const plan = fixture as unknown as PlanDetail;
 
@@ -100,5 +101,29 @@ describe("pool (round-1 T-R1-42)", () => {
     expect(isBoardRun({ params: { time_limit_s: 30, seed: 0, workers: 2, stability: true, weights: {} }, label: "Final", stats: { placed: 603 }, prompt_text: null, diagnosis: [] } as never)).toBe(false);
     // an older backend without params.source: the board shape (no solver stats, no prompt, grid label)
     expect(isBoardRun({ params: { time_limit_s: 60, seed: 0, workers: 8, stability: true, weights: {} }, label: "Grid import: guz.xlsx", stats: { progress: 100 }, prompt_text: null, diagnosis: [] } as never)).toBe(true);
+  });
+});
+
+// owner report 2026-11-02: the imported-board notice offers the exam runs that link the exam list
+describe("linkedExamRuns", () => {
+  const run = (id: number, term_id: number, source?: string) => ({ id, term_id, label: source ? "Grid import: x.xlsx" : `Final ${id}`, params: (source ? { source } : {}) as ScheduleRun["params"] });
+  const board = run(6, 3, "GRID_IMPORT");
+  it("lists solved exam runs of the board's term first, newest first, never boards", () => {
+    const exams = [board, run(4, 2, "GRID_IMPORT"), run(10, 3), run(12, 3), run(11, 2)];
+    const out = linkedExamRuns(exams, board);
+    expect(out.sameTerm.map((r) => r.id)).toEqual([12, 10]);
+    expect(out.others.map((r) => r.id)).toEqual([11]);
+  });
+  it("a term with only its board: no same-term run (the notice offers Oluştur › Sınav), other terms still listed", () => {
+    const guz = run(4, 2, "GRID_IMPORT");
+    const out = linkedExamRuns([guz, board, run(10, 3)], guz);
+    expect(out.sameTerm).toEqual([]);
+    expect(out.others.map((r) => r.id)).toEqual([10]);
+  });
+  it("caps the list", () => {
+    const exams = [board, ...Array.from({ length: 8 }, (_, i) => run(20 + i, 3))];
+    const out = linkedExamRuns(exams, board, 5);
+    expect(out.sameTerm).toHaveLength(5);
+    expect(out.others).toHaveLength(0);
   });
 });

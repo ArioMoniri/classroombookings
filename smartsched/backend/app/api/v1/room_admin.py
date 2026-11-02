@@ -27,7 +27,7 @@ from app.models import (
     RoomGroup,
     User,
 )
-from app.models.catalog import Room
+from app.models.catalog import Faculty, Room
 from app.schemas import messages
 from app.schemas.crbs import (
     AclIn,
@@ -42,6 +42,7 @@ from app.schemas.crbs import (
     RoomGroupOut,
     RoomGroupUpdate,
 )
+from app.services import room_faculty
 from app.services import rooms_features as features
 from app.services.bookings_collation import tr_sort_key
 from app.services.bookings_perms import BOOKING_SCOPE_GROUPS, perm_group
@@ -112,23 +113,9 @@ async def create_group(body: RoomGroupIn, db: DB, _: RoomsAdmin) -> RoomGroupOut
 @router.post("/groups/from-buildings", response_model=list[RoomGroupOut])
 async def groups_from_buildings(db: DB, _: RoomsAdmin) -> list[RoomGroupOut]:
     """One group per building (A, B, C, D blocks) holding that building's ungrouped rooms."""
-    out = []
-    for b in (await db.execute(select(Building).order_by(Building.code))).scalars():
-        rooms = list(
-            (await db.execute(select(Room).where(Room.building_id == b.id, Room.room_group_id.is_(None)))).scalars()
-        )
-        if not rooms:
-            continue
-        name = (n.clean_text(b.name) or b.code)[:32]
-        g = (await db.execute(select(RoomGroup).where(RoomGroup.name == name))).scalar_one_or_none()
-        if g is None:
-            pos = (await db.execute(select(func.max(RoomGroup.pos)))).scalar() or 0
-            g = RoomGroup(name=name, pos=pos + 1)
-            db.add(g)
-            await db.flush()
-        for r in rooms:
-            r.room_group_id, r.room_group = g.id, g.name
-        out.append(g)
+    from app.services.room_groups import groups_from_buildings as make_groups
+
+    out = await make_groups(db)
     await db.commit()
     return [await _group_out(db, g) for g in out]
 
@@ -200,6 +187,9 @@ async def _room_out(db: DB, r: Room) -> RoomAdminOut:
         building_id=r.building_id,
         building_code=b.code if b else None,
         building_name=b.name if b else None,
+        exam_capacity=r.exam_capacity or 0,
+        owner_faculty_id=r.owner_faculty_id,
+        owner_faculty_name=await room_faculty.faculty_name(db, r.owner_faculty_id),
     )
 
 
@@ -303,20 +293,32 @@ async def update_room(room_id: int, body: RoomBookingUpdate, db: DB, _: RoomsAdm
         if data["owner_user_id"] is not None and await db.get(User, data["owner_user_id"]) is None:
             raise HTTPException(422, f"user {data['owner_user_id']} not found")
         await _owner_acl(db, r, data["owner_user_id"], r.owner_user_id)
+    if data.get("owner_faculty_id") is not None and await db.get(Faculty, data["owner_faculty_id"]) is None:
+        raise messages.problem(
+            422, "faculty_not_found", "Fakülte bulunamadı.", f"faculty {data['owner_faculty_id']} not found"
+        )
     for k in ("location", "icon", "notes", "display_name"):
         if k in data:
             data[k] = n.clean_text(data[k]) if data[k] is not None else None
     edited_capacity = data.get("capacity") is not None and data["capacity"] != r.capacity
+    edited_exam = data.get("exam_capacity") is not None and data["exam_capacity"] != r.exam_capacity
+    edited_owner = "owner_faculty_id" in data and data["owner_faculty_id"] != r.owner_faculty_id
     for k, v in data.items():
         if k == "display_name" and not v:
             continue
-        if k == "is_bookable" and v is None:
+        if k in ("is_bookable", "exam_capacity") and v is None:
             continue
         setattr(r, k, v)
     if edited_capacity:
         from app.importers.catalog import mark_master
 
         mark_master(r, "capacity")  # RF-06: the next workbook import keeps the admin's capacity
+    if edited_exam or edited_owner:
+        from app.importers.catalog import mark_master
+
+        for attr, edited in (("exam_capacity", edited_exam), ("owner_faculty", edited_owner)):
+            if edited:
+                mark_master(r, attr)
     await db.commit()
     await db.refresh(r)
     return await _room_out(db, r)

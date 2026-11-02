@@ -91,6 +91,19 @@ export function roomCap(model: Pick<CalendarModel, "exam">, room: IndexRoom | un
   return model.exam ? room.exam_capacity || room.capacity : room.capacity;
 }
 
+/** The rooms' own seats and exam seats, summed (a multi-room exam): the inspector shows both (owner report 2026-11-02). */
+export function roomSeats(model: Pick<CalendarModel, "roomById">, ids: readonly number[]): { capacity: number; exam: number } {
+  let capacity = 0;
+  let exam = 0;
+  for (const id of ids) {
+    const r = model.roomById.get(id);
+    if (!r) continue;
+    capacity += r.capacity;
+    exam += r.exam_capacity;
+  }
+  return { capacity, exam };
+}
+
 export function isConflictReason(r: string): boolean {
   return r.startsWith("room overlap") || r.startsWith("block") || r.startsWith("seats");
 }

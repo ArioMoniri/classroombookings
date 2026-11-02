@@ -663,11 +663,17 @@ export const AdminRoom = z.object({
   /** "T 101" for the stored "T101" and the building it sits in (T-R1-34) */
   code_label: z.string().nullish(),
   building_code: z.string().nullish(),
+  /** owner report 2026-11-02: exam seating and the faculty that alone may book the room (room_faculty) */
+  exam_capacity: z.number().nullish(),
+  owner_faculty_id: z.number().nullish(),
+  owner_faculty_name: z.string().nullish(),
 });
 export type AdminRoom = z.infer<typeof AdminRoom>;
 export interface AdminRoomIn {
   room_group_id?: number | null;
   owner_user_id?: number | null;
+  exam_capacity?: number;
+  owner_faculty_id?: number | null;
   location?: string | null;
   icon?: string | null;
   notes?: string | null;
@@ -1317,6 +1323,8 @@ export type TermUsage = z.infer<typeof TermUsage>;
 export interface TermCreateIn {
   code: string;
   name?: string | null;
+  /** REGULAR (ders dönemi) by default; FINAL / BUT for exam periods (`TermIn.kind`) */
+  kind?: "REGULAR" | "FINAL" | "BUT" | "SUMMER";
   start_date: string;
   end_date: string;
   week_count?: number;

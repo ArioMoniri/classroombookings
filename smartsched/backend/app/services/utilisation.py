@@ -288,6 +288,25 @@ async def published_runs(session: AsyncSession, term_id: int) -> list[ScheduleRu
     return sorted(rows, key=lambda r: (r.kind != "COURSE", r.id))
 
 
+async def unpublished_board(session: AsyncSession, term_id: int) -> list[ScheduleRun]:
+    """A term without a published run: per kind, its newest finished grid-import run (the imported board), else its
+    newest finished run; course first. Empty when the term has no finished run."""
+    rows = list(
+        (
+            await session.execute(
+                select(ScheduleRun).where(ScheduleRun.term_id == term_id, ScheduleRun.status.in_(USABLE[:3]))
+            )
+        ).scalars()
+    )
+    out: list[ScheduleRun] = []
+    for kind in ("COURSE", "EXAM"):
+        mine = sorted((r for r in rows if r.kind == kind), key=lambda r: r.id)
+        grid = [r for r in mine if (r.params or {}).get("source") == "GRID_IMPORT"]
+        pick = (grid or mine)[-1:] if mine else []
+        out += pick
+    return out
+
+
 def _weeks_present(rows: Iterable[Assignment]) -> list[int]:
     out: set[int] = set()
     for a in rows:
@@ -348,6 +367,13 @@ async def build_scope(
             raise UtilisationError(404, f"term {term_id} not found")
         runs, source = await published_runs(session, term.id), "board"
     assert term is not None
+    fallback = False
+    if source == "board" and not runs:
+        # owner report 2026-11-02 item 4: a term whose imported board was never published (the deploy seed did not
+        # publish it) showed an all-empty heatmap; the board then is the term's imported grid (else its newest
+        # finished run) per kind, and a note says so
+        runs = await unpublished_board(session, term.id)
+        fallback = bool(runs)
     exam = bool(runs) and all(r.kind == "EXAM" for r in runs)
     weeks_rows = await _weeks_rows(session, term)
     rows_by_run = {r.id: await _rows(session, r) for r in runs}
@@ -375,6 +401,19 @@ async def build_scope(
                     count[w] += 1
         weeks = [min(count, key=lambda w: (-count[w], w))] if count else horizon[:1]
     occ = Occupancy()
+    if fallback:
+        occ.notes.append(
+            {
+                "code": "board_unpublished",
+                "run_ids": [r.id for r in runs],
+                "text": _t(
+                    "Bu dönemin yayımlanmış programı yok; içe aktarılan / son tamamlanan program gösteriliyor "
+                    f"({', '.join(f'#{r.id}' for r in runs)}). Yayımlamak için Çalışmalar sayfasını kullanın.",
+                    "This term has no published timetable; showing the imported / latest finished plan "
+                    f"({', '.join(f'#{r.id}' for r in runs)}). Publish it from the Runs page.",
+                ),
+            }
+        )
     holidays = list((await session.execute(select(Holiday).where(Holiday.term_id == term.id))).scalars())
     occ.closed = closed_days(term, weeks_rows, holidays)
     for r in runs:

@@ -99,9 +99,9 @@ One sheet per week (`2 - 8 Şubat Bahar Dönem Açılış`, `9 - 15 Şubat`, …
 | 64 seats | A 305, B 202, B 203, B 204, B 205, B 206 |
 | 58 seats | A 101, A 106, A 107, A 108, A 109 |
 | 38–45 seats | A 306 (38), A 308 (42), C 303, C 403, C 503, C 603 (45), C 304, C 404, C 504, C 604 (40) |
-| 30–32 seats | B 201, B 406, B 407, C z01, C 205, C 306, C 406, C 506, C 606 (30), C 305, C 405, C 505, C 605 (32) |
+| 30–32 seats | B 201, B 406, B 407, C z01, C 205, C 306, C 406, C 506, C 606 (30), C 305, C 405, C 505, C 605 (32) — 2026-11-02: B 406 + B 407 merged into B 406 (80 seats, exam 40) |
 | Computer labs | A 103 (47 / 33 in some sheets), A 104 (41 / 28), A 105 (60), B 207 (PC, 60 exam), "B BİLGİ LAB" |
-| Unknown capacity | D 107 (10 in exam sheet) |
+| Unknown capacity | D 107 (10 in exam sheet) — removed 2026-11-02 (retired in the room master) |
 
 **Importer rules (2026-10-08, F2)**: lecture capacity = the most frequent value of a room's *first
 (Monday) header copy* over the lecture-week sheets (Bahar writes `A 103 (47)` on Mon/Tue and a stale
@@ -115,6 +115,13 @@ computer-lab phrase tags it, e.g. C 202). Rooms with no capacity anywhere are re
 `smartsched/backend/tests/fixtures/room_master.csv`) is the planner's authoritative correction and is
 never overwritten by later workbook imports. B 207 has no lecture number in any Bahar source: 60 (Güz
 lecture header = Final exam sheet) is used and flagged.
+
+**Owner changes 2026-11-02** (room master, `smartsched/backend/tests/fixtures/room_master.csv`): B 406 and B 407
+are one room, B 406 (80 seats, exam 40; column `merged_from`); D 107 is removed; D 106 is 60 seats, exam 30. The
+master is an idempotent upsert: a room an earlier master listed and this one does not is retired (not bookable,
+never deleted, `custom_fields.retired`), a merged room's future bookings move into B 406 when the slot is free
+(else they are listed in the import report). New column `owner_faculty`: A 201–A 203 belong to the Tıp Fakültesi;
+only its academicians (and administrators) may book them (`app/services/room_faculty.py`).
 
 Buildings: **A** (floors 1–3), **B** (2nd & 4th floors), **C** (z=ground, 2–6), **D**. TIP rooms (A 201–203) are reserved for the Faculty of Medicine and need the medicine planner's approval (comment: "Planlama için Gözde Ayrancıgil 4073").
 

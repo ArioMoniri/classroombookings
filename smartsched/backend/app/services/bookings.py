@@ -667,6 +667,17 @@ async def visible_room(session: AsyncSession, access: Access, room_id: int) -> R
     return room
 
 
+async def check_room_faculty(session: AsyncSession, access: Access, room: Room) -> None:
+    """Owner report 2026-11-02 item 2: a room owned by a faculty (Tıp) is booked only by that faculty's members;
+    administrators keep full access (app/services/room_faculty.py). 403 ``room_faculty``."""
+    from app.services import room_faculty
+
+    detail = await room_faculty.refusal(session, access, room)
+    if detail is not None:
+        code, message = detail.pop("code"), detail.pop("message")
+        raise BookingError(403, code, message, **detail)
+
+
 async def _who_and_department(
     session: AsyncSession, access: Access, room: Room, kind: str, body: SingleIn, *, multi_recurring: bool = False
 ) -> tuple[int | None, int | None]:
@@ -846,6 +857,7 @@ async def create_single(session: AsyncSession, access: Access, body: SingleIn, *
     from app.services import approvals
 
     room = await visible_room(session, access, body.room_id)
+    await check_room_faculty(session, access, room)
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
     except CalendarError as exc:
@@ -987,6 +999,7 @@ async def plan_recurring(session: AsyncSession, access: Access, body: RecurIn) -
     from app.services import approvals
 
     room = await visible_room(session, access, body.room_id)
+    await check_room_faculty(session, access, room)
     try:
         info = await resolve_term(session, body.date, body.term_id, view_all=access.can("system.view_all_sessions"))
     except CalendarError as exc:
@@ -1476,6 +1489,8 @@ async def update(
     before = {t.id: snap(t) for t in targets}
     if moving:
         new_room = await visible_room(session, access, data.get("room_id", b.room_id))
+        if new_room.id != b.room_id:  # moving into another faculty's room; editing a booking in place is not refused
+            await check_room_faculty(session, access, new_room)
         new_date = data.get("date", b.date)
         term = await session.get(Term, b.term_id)
         assert term is not None
@@ -1607,6 +1622,7 @@ async def create_selection(session: AsyncSession, access: Access, slots: list[di
         if not (info.start <= s["date"] <= info.end):
             raise _conflict("calendar", f"{s['date']:%d.%m.%Y} is outside term {info.term.code}")
         room = await visible_room(session, access, s["room_id"])
+        await check_room_faculty(session, access, room)
         if await session.get(BookingPeriod, s["period_id"]) is None:
             raise BookingError(422, "period", f"period {s['period_id']} not found")
         mb.slots.append(MultiBookingSlot(date=s["date"], period_id=s["period_id"], room_id=room.id))
@@ -1965,6 +1981,9 @@ async def grid(
         rooms = [room] if room else []
         monday = target - timedelta(days=target.isoweekday() - 1)
         dates = [monday + timedelta(days=i) for i in range(7)]
+    from app.services import room_faculty
+
+    faculty_blocked = await room_faculty.restricted_room_ids(session, access, rooms)
     # audit B13: every room uses its own applied schedule (rooms of several groups share the grid when room
     # groups are off); the period columns are the union, a period outside a room's schedule is "schedule"
     by_group: dict[int, BookingSchedule | None] = {}
@@ -2043,8 +2062,10 @@ async def grid(
                 elif not di.open:
                     status, reason = "unavailable", di.reason
                 else:
-                    single = access.can("book_single.create", r)
-                    recur = access.can("book_recur.create", r)
+                    # owner report item 2: another faculty's room (Tıp) is not bookable for this user
+                    faculty_ok = r.id not in faculty_blocked
+                    single = faculty_ok and access.can("book_single.create", r)
+                    recur = faculty_ok and access.can("book_recur.create", r)
                     slot["allow_single"], slot["allow_recur"] = single, recur
                     if left is not None and left < 1:
                         status, reason = "unavailable", "limit"

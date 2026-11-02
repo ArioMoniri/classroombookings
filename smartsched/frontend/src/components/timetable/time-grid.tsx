@@ -14,6 +14,7 @@
  *   cell cursor, Enter opens or creates, N creates, Space picks up (arrows move, Space/Enter drop, Esc cancel),
  *   ⇧↑↓ / ⌥↑↓ resize, X toggles selection.
  */
+import { Plus } from "lucide-react";
 import { animate, motion, useMotionValue } from "motion/react";
 import {
   forwardRef,
@@ -71,6 +72,8 @@ export interface CreateIntent {
   sp: number;
   ep: number;
   anchor: { x: number; y: number };
+  /** "click": the free slot's "+" (opens on Rezervasyon); a drag or N follows the lens */
+  via?: "click" | "drag" | "key";
 }
 
 export interface TimeGridHandle {
@@ -297,6 +300,12 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
     (col: number, p: number) => events.find((e) => colOf(e) === col && e.sp <= p && p <= e.ep) ?? null,
     [events, colOf],
   );
+  /** the slot is free for a booking / class here (the cells' `data-free`): room columns ask the model, others the chips */
+  const freeAt = (col: number, period: number): boolean => {
+    const c = columns[col];
+    if (!c) return false;
+    return c.room !== null ? slotFree(model, c.room, c.day, period, period, mask) : !eventAt(col, period);
+  };
 
   // ------------------------------------------------------------------ live check (once per slot change)
   const dragAids = drag?.aids;
@@ -494,6 +503,20 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
         }
       } else if (!pt.mod.shift) {
         props.onSelect(null, "replace");
+        // a plain click (or tap) on a free slot opens quick-create there: the "+" a free cell shows on hover promises
+        // it. Before, only a drag across empty slots created, so the "+" did nothing (owner report 2026-11-02)
+        if (!cancelled && !readOnly && !pt.mod.meta && pt.type === "create") {
+          const at = toContent(pt.x, pt.y);
+          const col = Math.floor(at.x / colW);
+          const column = columns[col];
+          // not on the sticky header or time gutter (they stay put while the content scrolls under them)
+          const box = scroller.current?.getBoundingClientRect();
+          const onChrome = !box || pt.x - box.left < GUTTER_W || pt.y - box.top < headerH;
+          if (column && !onChrome && at.y >= 0) {
+            const period = periodAt(rows, at.y);
+            if (freeAt(col, period)) props.onCreate({ column, sp: period, ep: period, anchor: { x: e.clientX, y: e.clientY }, via: "click" });
+          }
+        }
       }
       return;
     }
@@ -849,7 +872,7 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
             <div key={`cells-${c.key}`} role="row" className="contents">
               {PERIODS.map((p, j) => {
                 const room = c.room;
-                const free = room !== null ? slotFree(model, room, c.day, p.index, p.index, mask) : !eventAt(col, p.index);
+                const free = freeAt(col, p.index);
                 return (
                   <div
                     key={p.index}
@@ -864,10 +887,14 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
                     data-day={c.day}
                     data-period={p.index}
                     data-free={free ? "true" : undefined}
-                    className={cn("group absolute", free && !readOnly && "hover:bg-fill-3")}
+                    className={cn("group absolute", free && !readOnly && "cursor-pointer hover:bg-fill-3")}
                     style={{ left: GUTTER_W + col * colW, top: headerH + rows.tops[j], width: colW, height: rows.heights[j] }}
                   >
-                    {free && !readOnly ? <span aria-hidden className="pointer-events-none absolute inset-0 hidden items-center justify-center text-label-4 group-hover:flex">+</span> : null}
+                    {free && !readOnly ? (
+                      <span aria-hidden className="pointer-events-none absolute inset-0 hidden items-center justify-center text-tint-text group-hover:flex" data-slot="free-plus">
+                        <Plus className="size-3.5 stroke-2" />
+                      </span>
+                    ) : null}
                   </div>
                 );
               })}

@@ -196,7 +196,8 @@ def parse_planning_row(
     code, code_warning = n.canon_course_code_loose(g("code"), g("name"))
     if code is None:
         raw_code = n.clean_text(g("code"))
-        return ("no course code", raw_code)
+        # an empty code cell is a meeting / elective placeholder (info); a written but unreadable one a warning
+        return ("unreadable course code" if raw_code else "no course code", raw_code or n.clean_text(g("name")))
     day = n.parse_day(g("day"))
     start = n.parse_time(g("start"))
     end = n.parse_time(g("end"))

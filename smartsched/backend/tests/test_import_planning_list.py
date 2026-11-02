@@ -41,8 +41,8 @@ def test_parse_counts_and_period_coverage(request, fixture_name, expected_rows):
     with_dt, with_p = _summary(parsed, fixture_name)
     assert len(with_dt) > 0.7 * parsed.rows_total
     assert len(with_p) >= 0.99 * len(with_dt)
-    # skipped rows are only those without a course code
-    assert all(s[1] == "no course code" for s in parsed.skipped)
+    # skipped rows are only those without a (readable) course code
+    assert all(s[1] in ("no course code", "unreadable course code") for s in parsed.skipped)
     assert len(parsed.skipped) < 0.01 * parsed.rows_total
 
 
@@ -90,7 +90,8 @@ async def test_import_bahar_into_db_is_idempotent(session, parsed_bahar_list):
     # owner decision 2026-10-15: rows identical except for the class year are taught once (one meeting)
     merged = rep1.extra["merged_class_years"]
     folded = merged["rows"] - merged["groups"]
-    assert folded == 13 and rep1.created["meeting_requests"] == rep1.rows_imported - folded == 1511
+    # 1512 since "MDF-516" (row 1406) is read as MDF 516 (owner report 2026-11-02 item 5)
+    assert folded == 13 and rep1.created["meeting_requests"] == rep1.rows_imported - folded == 1512
     assert rep1.created["sections"] > 900
     assert rep1.created["courses"] > 900 and rep1.created["programs"] > 80
     assert rep1.created["instructors"] > 400

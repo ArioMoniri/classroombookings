@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/common/page-header";
-import { NativeSelect } from "@/components/common/native-select";
+import { TermSelect } from "@/components/common/term-create";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Button } from "@/components/ui/button";
 import { BusyLabel, busyProps } from "@/components/ui/busy-label";
@@ -373,9 +373,7 @@ export function ImportWizard() {
           <CardContent className="space-y-4">
             <div className="grid gap-1.5 sm:max-w-xs">
               <Label htmlFor="term">{t("import.term")}</Label>
-              <NativeSelect id="term" value={String(effectiveTerm)} onChange={(e) => setTermId(Number(e.target.value))}>
-                {terms.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-              </NativeSelect>
+              <TermSelect id="term" terms={terms} value={effectiveTerm} onChange={setTermId} defaultKind={kind === "exam-list" ? "FINAL" : "REGULAR"} data-testid="import-term" />
             </div>
             {handedItem && detected ? (
               <div className="flex flex-col gap-1 rounded-xl bg-fill-3 px-3 py-2" data-testid="import-detected" role="status">

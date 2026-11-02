@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarRange, Check, ChevronsUpDown } from "lucide-react";
+import { CalendarRange, Check, ChevronsUpDown, Plus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui";
 import { currentTermByDate, useRememberedTermId } from "./workspace";
+import { CreateTermDialog, useCanCreateTerm } from "@/components/common/term-create";
 
 /**
  * The term every page works on: the one picked in this session, else the one this user last used
@@ -57,6 +58,9 @@ function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
   const kindLabel = useTermKindLabel();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  // "Yeni dönem oluştur…" (owner report 2026-11-02): the dialog lives outside the popover, which closes first
+  const canCreate = useCanCreateTerm();
+  const [creating, setCreating] = useState(false);
   const years = [...new Set(terms.map((x) => x.start_date.slice(0, 4)))].sort().reverse();
   const choose = (x: Term) => {
     setTermId(x.id);
@@ -130,7 +134,24 @@ function TermSwitcherInner({ collapsed }: { collapsed: boolean }) {
             </ul>
           </div>
         ))}
+        {canCreate ? (
+          <div className="mt-1 pt-1 hairline-t">
+            <Button
+              variant="ghost"
+              className="h-auto min-h-9 w-full justify-start gap-2 rounded-lg px-2.5 py-1.5 text-left font-normal text-tint-text pointer-coarse:min-h-11 focus-visible:-outline-offset-2"
+              onClick={() => {
+                setOpen(false);
+                setCreating(true);
+              }}
+              data-testid="term-switcher-create"
+            >
+              <Plus className="size-4" aria-hidden />
+              {t("termCreate.action")}
+            </Button>
+          </div>
+        ) : null}
       </PopoverContent>
+      {canCreate ? <CreateTermDialog open={creating} onOpenChange={setCreating} onCreated={choose} /> : null}
     </Popover>
   );
 }

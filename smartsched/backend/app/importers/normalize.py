@@ -79,8 +79,14 @@ def has_phrase(folded_text: str, phrase: str) -> bool:
 # ---------------------------------------------------------------------------
 
 _TR_LETTERS = "A-ZÇĞİÖŞÜ"
+#: owner report 2026-11-02 item 5: a hyphen between prefix and number is the same code (``BP-230`` = ``BP 230``,
+#: ``MDF-516``); the catalog stores it like any other code (``BP230``, displayed ``BP 230``). Only a 2-3 digit
+#: number ending the code: the placeholders :func:`canon_course_code_loose` makes (``ACU-8917``, ``ACU-B14F``:
+#: four hex characters) are never read as course numbers
 _COURSE_RX = re.compile(
-    rf"(?<![{_TR_LETTERS}])([{_TR_LETTERS}]{{2,5}})\s?(\d{{2,4}})(?!\d)([A-Z](?![{_TR_LETTERS}a-z]))?"
+    rf"(?<![{_TR_LETTERS}])([{_TR_LETTERS}]{{2,5}})"
+    rf"(?:\s?-\s?(?=\d{{2,3}}(?![\dA-Za-z{_TR_LETTERS}]))|\s?)"
+    rf"(\d{{2,4}})(?!\d)([A-Z](?![{_TR_LETTERS}a-z]))?"
 )
 _BARE_NUMBER_RX = re.compile(r"(?<![A-Za-z0-9.])(\d{2,4})(?![0-9.])")
 _COURSE_FULL_RX = re.compile(rf"^([{_TR_LETTERS}]{{2,5}})(\d{{2,4}})([A-Z]?)$")

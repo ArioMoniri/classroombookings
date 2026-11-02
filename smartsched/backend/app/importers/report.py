@@ -12,11 +12,18 @@ from app.importers.warning_text import warning_groups, warning_items
 WARNINGS_LISTED = 500
 
 
+#: skip reasons that are not a problem in the file (owner report 2026-11-02 item 5): a row without any course code
+#: is a meeting, a UZEM / staj note or an exam without a course (``4.SINIF STAJ PLANLAMA TOPLANTISI``), so it is
+#: listed as info; an unreadable code (``c``) stays a warning. Everything else skipped is an error.
+SKIP_SEVERITY = {"no course code": "info", "unreadable course code": "warning"}
+
+
 @dataclass
 class SkippedRow:
     row: int
     reason: str
     detail: str | None = None
+    severity: str = "error"
 
 
 @dataclass
@@ -28,15 +35,22 @@ class ImportReport:
     rows_imported: int = 0
     rows_skipped: list[SkippedRow] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    #: expected, informational findings (exam times that do not align with the period grid, a grid header that
+    #: repeats a room with another number): listed apart so that the warnings are the rows to look at
+    info: list[str] = field(default_factory=list)
     created: Counter[str] = field(default_factory=Counter)
     updated: Counter[str] = field(default_factory=Counter)
     extra: dict[str, Any] = field(default_factory=dict)
 
     def skip(self, row: int, reason: str, detail: str | None = None) -> None:
-        self.rows_skipped.append(SkippedRow(row, reason, detail))
+        self.rows_skipped.append(SkippedRow(row, reason, detail, SKIP_SEVERITY.get(reason, "error")))
 
     def warn(self, message: str, row: int | None = None) -> None:
         self.warnings.append(f"row {row}: {message}" if row is not None else message)
+
+    def note(self, message: str, row: int | None = None) -> None:
+        """An informational finding (not a warning): listed under ``info``."""
+        self.info.append(f"row {row}: {message}" if row is not None else message)
 
     @property
     def rows_skipped_count(self) -> int:
@@ -73,4 +87,9 @@ class ImportReport:
         # grouped by code (the strings above stay for older clients and the job history)
         d["warning_items"] = warning_items(d["warnings"])
         d["warning_groups"] = warning_groups(self.warnings)
+        d["info_count"] = len(self.info)
+        d["info"] = self.info[:WARNINGS_LISTED]
+        d["info_items"] = warning_items(d["info"])
+        d["info_groups"] = warning_groups(self.info)
+        d["skip_severity"] = dict(Counter(s.severity for s in self.rows_skipped))
         return d

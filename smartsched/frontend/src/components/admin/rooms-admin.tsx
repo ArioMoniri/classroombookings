@@ -56,6 +56,7 @@ import { Alert, ConfirmDialog, Field, Loading, PageTitle, SelectField, pageActio
 import { useErrorToast } from "./admin-gate";
 import { roomTitle } from "./rooms-model";
 import { problemText } from "@/lib/api/error-text";
+import { catalogApi } from "@/lib/api/catalog-admin";
 import { EntityIcon, IconPicker } from "./icons";
 import { permLabel } from "./roles-admin";
 import { SortableList } from "./sortable-list";
@@ -525,9 +526,13 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
   const fields = useCustomFields();
   const values = useRoomFieldValues(room.id);
   const users = useUserSearch({ limit: 500, enabled: true, sort: "displayname" }, can("setup.users"));
+  // owner report 2026-11-02 item 2: a faculty-owned room (Tıp) is booked only by that faculty's academicians
+  const faculties = useQuery({ queryKey: ["catalog", "faculties", "all"], queryFn: () => catalogApi.faculties(), retry: false });
   const [f, setF] = useState({
     display_name: room.display_name,
     capacity: String(room.capacity ?? 0),
+    exam_capacity: String(room.exam_capacity ?? 0),
+    owner_faculty_id: room.owner_faculty_id ? String(room.owner_faculty_id) : "",
     room_group_id: room.room_group_id ? String(room.room_group_id) : "",
     owner_user_id: room.owner_user_id ? String(room.owner_user_id) : "",
     location: room.location ?? "",
@@ -543,6 +548,8 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
     const body: AdminRoomIn & { capacity?: number } = {
       display_name: f.display_name.trim() || null,
       capacity: Math.max(0, Math.round(Number(f.capacity) || 0)),
+      exam_capacity: Math.max(0, Math.round(Number(f.exam_capacity) || 0)),
+      owner_faculty_id: f.owner_faculty_id ? Number(f.owner_faculty_id) : null,
       ...(f.room_group_id ? { room_group_id: Number(f.room_group_id) } : {}),
       owner_user_id: f.owner_user_id ? Number(f.owner_user_id) : null,
       location: f.location.trim() || null,
@@ -577,6 +584,20 @@ function RoomForm({ room, onClose }: { room: AdminRoom; onClose: () => void }) {
         </Field>
         <Field label={t("admingaps.rooms.capacity")} htmlFor="rm-capacity" hint={t("crbs.rooms.capacityHint")}>
           <Input id="rm-capacity" type="number" min={0} inputMode="numeric" value={f.capacity} onChange={(e) => set("capacity", e.target.value)} data-testid="room-capacity" />
+        </Field>
+        <Field label={t("crbs.rooms.examCapacity")} htmlFor="rm-exam-capacity" hint={t("crbs.rooms.examCapacityHint")}>
+          <Input id="rm-exam-capacity" type="number" min={0} inputMode="numeric" value={f.exam_capacity} onChange={(e) => set("exam_capacity", e.target.value)} data-testid="room-exam-capacity" />
+        </Field>
+        <Field label={t("crbs.rooms.ownerFaculty")} htmlFor="rm-owner-faculty" hint={t("crbs.rooms.ownerFacultyHint")}>
+          <SelectField id="rm-owner-faculty" value={f.owner_faculty_id} onChange={(e) => set("owner_faculty_id", e.target.value)} data-testid="room-owner-faculty">
+            <option value="">{t("crbs.rooms.anyFaculty")}</option>
+            {room.owner_faculty_id && !faculties.data ? <option value={room.owner_faculty_id}>{room.owner_faculty_name}</option> : null}
+            {(faculties.data?.items ?? []).map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </SelectField>
         </Field>
         <Field label={t("crbs.export.group")} htmlFor="rm-group" hint={t("crbs.rooms.groupHint")}>
           <SelectField id="rm-group" value={f.room_group_id} onChange={(e) => set("room_group_id", e.target.value)}>
