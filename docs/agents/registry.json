@@ -2908,7 +2908,9 @@
       "goal": "You are lane WG-F (welcome guide frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md and MEDIA.md (hard rules: NEVER commit or push, t…",
       "ledger": "WG-F: welcome guide frontend",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "focused-wright session ended 2026-10-20; its work is merged into gracious (7413bbe8)",
+      "finished_at": "2026-11-02 18:08"
     },
     {
       "id": "ad242099894553afa",
@@ -2933,7 +2935,9 @@
       "goal": "You are lane AS-B (adaptive scheduling backend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push, test-fi…",
       "ledger": "AS-B: adaptive scheduling backend",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "focused-wright session ended 2026-10-20; its work is merged into gracious (7413bbe8)",
+      "finished_at": "2026-11-02 18:08"
     },
     {
       "id": "aceed343f47091067",
@@ -2984,7 +2988,9 @@
       "goal": "You are lane VO-F (voice frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md, including the Simplicity principle. Hard rules: NEVER …",
       "ledger": "VO-F: voice UI (mic button)",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "focused-wright session ended 2026-10-20; its work is merged into gracious (7413bbe8)",
+      "finished_at": "2026-11-02 18:08"
     },
     {
       "id": "a7ef8ec57e932e231",
@@ -3035,7 +3041,9 @@
       "goal": "You are lane HB-A (AI helper backend, first slice) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read these first: - /tmp/claude-0/-home-user-classroombookings/46e08325-505b-5c43-93e9-784868588343/scratchpad/briefs/COMMON.md. Hard rules: NEVER commit or push…",
       "ledger": "HB-A: helper index, registry, guardrails",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "focused-wright session ended 2026-10-20; its work is merged into gracious (7413bbe8)",
+      "finished_at": "2026-11-02 18:08"
     },
     {
       "id": "a1a46db0d72906fcb",
@@ -3087,7 +3095,9 @@
       "goal": "You are lane AUX-F (sign-in, 2FA and passkeys frontend) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: /home/user/classroombookings/docs/agents/briefs/COMMON.md (Simplicity principle) and MEDIA.md (hard rules: NEVER commit or push, test-first, nev…",
       "ledger": "AUX-F: auth frontend (AUX-01/02 now)",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "focused-wright session ended 2026-10-20; its work is merged into gracious (7413bbe8)",
+      "finished_at": "2026-11-02 18:08"
     },
     {
       "id": "a539ec6281abcad6c",
@@ -3099,7 +3109,9 @@
       "goal": "You are lane AS-S (adaptive scheduling, solver part) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, Turkish …",
       "ledger": "AS-S: adaptive solver lane",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "focused-wright session ended 2026-10-20; its work is merged into gracious (7413bbe8)",
+      "finished_at": "2026-11-02 18:08"
     },
     {
       "id": "ab67ef430f74c8c50",
@@ -3111,7 +3123,9 @@
       "goal": "You are lane HB-B (AI helper second slice and AI governance) for SmartSched, repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss. Read first: - /home/user/classroombookings/docs/agents/briefs/COMMON.md. Hard rules: NEVER commit or push, test-first, never `pkill -f`, `nice -n 10`, …",
       "ledger": "HB-B: helper loop, local models, quotas",
       "resumed": false,
-      "status": "running"
+      "status": "stopped",
+      "left_off": "focused-wright session ended 2026-10-20; its work is merged into gracious (7413bbe8)",
+      "finished_at": "2026-11-02 18:08"
     },
     {
       "id": "ad8353049ba43c8f0",
