@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { NativeSelect } from "@/components/common/native-select";
+import { TermSelect } from "@/components/common/term-create";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -78,21 +78,17 @@ export function ScopeStep({ onKind }: { onKind: (k: "COURSE" | "EXAM") => void }
         {/* E2EB-F02: min-w-48 is 384 px at a 32 px root (page 417 px at 390); never wider than the row */}
         <div className="grid min-w-[min(12rem,100%)] max-w-full gap-1.5">
           <Label htmlFor="scope-term">{t("studio.scope.term")}</Label>
-          <NativeSelect
+          <TermSelect
             id="scope-term"
-            value={String(termId)}
-            onChange={(e) => {
-              const id = Number(e.target.value);
+            terms={terms}
+            value={termId}
+            defaultKind={kind === "EXAM" ? "FINAL" : "REGULAR"}
+            data-testid="scope-term"
+            onChange={(id) => {
               setTermId(id);
               toast(t("nav.switched", { term: terms.find((x) => x.id === id)?.name ?? "" }));
             }}
-          >
-            {terms.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.name}
-              </option>
-            ))}
-          </NativeSelect>
+          />
         </div>
         {/* 200 % text (mobile-b phase 2): min-w-0 / max-w-full let the segment fall back to its select instead of
             pushing the page sideways (the label row measured 391–477 px at 390) */}

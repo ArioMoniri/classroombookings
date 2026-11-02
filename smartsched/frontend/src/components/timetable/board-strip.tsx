@@ -130,7 +130,7 @@ function BoardStripImpl(p: BoardStripProps) {
           const evs = byRoom.get(room.id) ?? [];
           return (
             <div key={room.id} role="row" aria-rowindex={idx + 2} className="absolute left-0" style={{ top, width, height: p.rowH, boxShadow: "inset 0 -1px 0 var(--cal-line)" }}>
-              <BareButton role="rowheader" onClick={() => p.onPickRoom(room.id)} className="cal-canvas sticky left-0 z-10 flex h-full items-center justify-between gap-1 px-2 text-left hover:bg-fill-3" style={{ width: LABEL_W, boxShadow: "inset -1px 0 0 var(--cal-line-strong)" }} aria-label={t("calendar.roomAria", { room: room.name, cap: room.capacity })}>
+              <BareButton role="rowheader" onClick={() => p.onPickRoom(room.id)} className="cal-canvas sticky left-0 z-10 flex h-full items-center justify-between gap-1 px-2 text-left hover:bg-fill-3" style={{ width: LABEL_W, boxShadow: "inset -1px 0 0 var(--cal-line-strong)" }} aria-label={t("cizelge.roomAria", { room: room.name, cap: room.capacity, exam: room.exam_capacity })}>
                 <span className="truncate type-footnote font-semibold">{room.name}</span>
                 <span className="type-caption text-label-3 tabular-nums">{p.model.exam ? room.exam_capacity : room.capacity}</span>
               </BareButton>

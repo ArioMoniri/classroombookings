@@ -45,11 +45,13 @@ import { dateOf, minutesNow, rangeTitle, todayIso, weekDayOf, weekTypeKey } from
 import { EMPTY_FILTERS, activeFilterCount, eventFilter, eventPasses, queryMatchesRoom, roomPasses, type CalendarFilters } from "./model/filters";
 import { BAND_H, MINUTE_PX_STEPS, ROOM_COL, ROOM_HEADER_H, STRIP_SLOT_STEPS, clampZoom, periodAtMinute, rowHeightFor, type Density } from "./model/geometry";
 import { computeHeat, weeklyMean, type HeatMetric } from "./model/heat";
-import { blocksOf, bookingsOf, eventsOf, roomCap, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
+import { blocksOf, bookingsOf, eventsOf, roomCap, roomSeats, termLongBlocks, type CalEvent, type CalendarModel } from "./model/index-model";
 import { useUndoStore } from "./model/undo-store";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { useUiStore } from "@/stores/ui";
-import { useRememberedWeek } from "@/components/shell/workspace";
+import { useRememberedWeek, useWorkspaceUser } from "@/components/shell/workspace";
+import { NativeSelect } from "@/components/ui/native-select";
+import { DEFAULT_ROOM_SORT, ROOM_SORTS, isRoomSort, readRoomSort, sortRooms, writeRoomSort, type RoomSort } from "./model/room-sort";
 import { buildIcs, icsNow } from "./model/ics";
 import { densityFromPersonal, lensDirection, lensForKey, parseViewState, serializeViewState, weekInRun, type Lens, type Subject, type ViewState } from "./model/view-state";
 import { useCalendarActions } from "./use-calendar-actions";
@@ -60,6 +62,7 @@ import { BareButton } from "@/components/shell/bare-button";
 import { focusClassChip } from "./focus-chip";
 
 const ALLDAY_H = 22;
+const ROOM_SORT_LABEL = { "code-asc": "cizelge.roomSort.codeAsc", "code-desc": "cizelge.roomSort.codeDesc", "cap-desc": "cizelge.roomSort.capDesc", "cap-asc": "cizelge.roomSort.capAsc" } as const satisfies Record<RoomSort, string>;
 
 function useMedia(query: string): boolean {
   const [m, setM] = useState(false);
@@ -232,13 +235,26 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const compareIdx = useCalendarIndex(vs.compare);
   const compare = useMemo(() => (model && compareIdx.data ? compareRuns(model.index.assignments, compareIdx.data.assignments, model.weeks) : null), [model, compareIdx.data]);
 
+  // ------------------------------------------------------------------ room order (owner report 2026-11-02)
+  // per user in localStorage: natural code order by default ("A101, A102, … A110"), or capacity
+  const userKey = useWorkspaceUser((st) => st.userKey);
+  const [roomSort, setRoomSortState] = useState<RoomSort>(DEFAULT_ROOM_SORT);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage exists only on the client (no hydration mismatch)
+    setRoomSortState(readRoomSort(userKey));
+  }, [userKey]);
+  const setRoomSort = useCallback((v: RoomSort) => {
+    setRoomSortState(v);
+    writeRoomSort(userKey, v);
+  }, [userKey]);
+
   // ------------------------------------------------------------------ filtered view
   const rooms = useMemo(() => {
     if (!model) return [];
     const byQuery = filters.query.trim() ? model.rooms.filter((r) => queryMatchesRoom(filters.query, r)) : [];
     const list = (byQuery.length ? byQuery : model.rooms).filter((r) => roomPasses(filters, r) && (r.bookable || model.byRoomDay.has(`${r.id}:${day}`)));
-    return list;
-  }, [model, filters, day]);
+    return sortRooms(list, roomSort, model.exam);
+  }, [model, filters, day, roomSort]);
   const roomSet = useMemo(() => new Set(rooms.map((r) => r.id)), [rooms]);
   const roomQuery = useMemo(() => !!model && filters.query.trim() !== "" && model.rooms.some((r) => queryMatchesRoom(filters.query, r)), [model, filters.query]);
   const keep = useCallback((e: CalEvent) => eventPasses(roomQuery ? { ...filters, query: "" } : filters, e), [filters, roomQuery]);
@@ -590,7 +606,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     [model, lang, locale, t, selection],
   );
 
-  const gridColumnsBoard = useMemo<GridColumn[]>(() => rooms.map((r) => ({ key: `r${r.id}`, room: r.id, day, label: r.name, sub: model?.exam ? t("calendar.examCap", { n: r.exam_capacity }) : String(r.capacity), ariaLabel: t("calendar.roomAria", { room: r.name, cap: model?.exam ? r.exam_capacity : r.capacity }), building: r.building, tag: r.tags.includes("TIP") ? "TIP" : r.tags.includes("PC") ? "PC" : undefined })), [rooms, day, model, t]);
+  const gridColumnsBoard = useMemo<GridColumn[]>(() => rooms.map((r) => ({ key: `r${r.id}`, room: r.id, day, label: r.name, sub: t(model?.exam ? "cizelge.colSeatsExam" : "cizelge.colSeats", { cap: r.capacity, exam: r.exam_capacity }), ariaLabel: t("cizelge.roomAria", { room: r.name, cap: r.capacity, exam: r.exam_capacity }), building: r.building, tag: r.tags.includes("TIP") ? "TIP" : r.tags.includes("PC") ? "PC" : undefined })), [rooms, day, model, t]);
   const boardIndex = useMemo(() => new Map(rooms.map((r, i) => [r.id, i])), [rooms]);
 
   const subjectFilter = subjectKeep(vs.subject);
@@ -614,7 +630,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
   const boardHeader = useMemo(() => {
     if (!model) return null;
     const bands: { b: string; start: number; count: number }[] = [];
-    rooms.forEach((r, i) => {
+    // a capacity order mixes buildings: one band per room would only repeat the letter
+    if (roomSort === "code-asc" || roomSort === "code-desc") rooms.forEach((r, i) => {
       const last = bands[bands.length - 1];
       if (last && last.b === r.building) last.count++;
       else bands.push({ b: r.building, start: i, count: 1 });
@@ -646,7 +663,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
         </div>
       </>
     );
-  }, [model, rooms, vs.density, termLong, t, weekInfo]);
+  }, [model, rooms, vs.density, termLong, t, weekInfo, roomSort]);
 
   const pendingList = pending && model
     ? [{ ev: pending.ev, col: vs.lens === "week" ? (dayIndex.get(pending.target.day) ?? -1) : (boardIndex.get(pending.target.room) ?? -1), sp: pending.target.sp, ep: pending.target.ep }].filter((x) => x.col >= 0)
@@ -657,7 +674,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
     const s = vs.subject;
     if (s.kind === "room") {
       const r = model.roomById.get(Number(s.id));
-      return r ? t("calendar.subject.roomHeader", { room: r.name, cap: model.exam ? r.exam_capacity : r.capacity }) + (r.tags.length ? ` · ${r.tags.join(" ")}` : "") : null;
+      return r ? t("cizelge.roomHeader", { room: r.name, cap: r.capacity, exam: r.exam_capacity }) + (r.tags.length ? ` · ${r.tags.join(" ")}` : "") : null;
     }
     const evs = model.events.filter(subjectKeep(s) ?? (() => false));
     const ids = new Set(evs.map((e) => e.a.id));
@@ -977,8 +994,16 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               <Button size="xs" variant="ghost" onClick={() => update({ compare: null })}>{t("calendar.compare.close")}</Button>
             </p>
           ) : null}
+          {model && (vs.lens === "board" || vs.lens === "day") ? (
+            <label className="ml-auto flex items-center gap-1.5 type-footnote text-label-2">
+              <span>{t("cizelge.roomSort.label")}</span>
+              <NativeSelect size="sm" className="w-auto" value={roomSort} onChange={(e) => isRoomSort(e.target.value) && setRoomSort(e.target.value)} data-testid="room-sort">
+                {ROOM_SORTS.map((v) => <option key={v} value={v}>{t(ROOM_SORT_LABEL[v])}</option>)}
+              </NativeSelect>
+            </label>
+          ) : null}
           {dayLens && model ? (
-            <div className="ml-auto">
+            <div>
               <SegmentedControl size="sm" aria-label={t("calendar.lens.day")} options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: String(d), label: `${dayName(d, locale, "short")} ${liveDates[d - 1]?.slice(8) ?? ""}` }))} value={String(liveDay)} onValueChange={(v) => update({ day: Number(v) })} />
             </div>
           ) : null}
@@ -1036,6 +1061,7 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
               assignment={selected.a}
               roomName={(id) => model.roomById.get(id)?.name ?? `#${id}`}
               roomCap={(ids) => ids.reduce((s, id) => s + roomCap(model, model.roomById.get(id)), 0)}
+              roomSeats={(ids) => roomSeats(model, ids)}
               allWeeks={model.weeks.filter((w) => w <= 16)}
               readOnly={readOnly}
               onClose={() => {

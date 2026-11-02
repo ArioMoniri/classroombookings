@@ -19,7 +19,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Button, IconButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NativeSelect } from "@/components/ui/native-select";
+import { TermSelect } from "@/components/common/term-create";
 import { Progress } from "@/components/ui/progress";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -198,9 +198,7 @@ function Landing() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="flex flex-col gap-1 type-callout">
             {t("programWizard.term.label")}
-            <NativeSelect className="sm:w-56" value={chosen} onChange={(e) => setTermId(e.target.value)} data-testid="wizard-term">
-              {sorted.map((x) => <option key={x.id} value={x.id}>{x.code}{x.name && x.name !== x.code ? ` · ${x.name}` : ""}</option>)}
-            </NativeSelect>
+            <TermSelect className="sm:w-56" terms={sorted} value={chosen} onChange={(id) => setTermId(String(id))} optionLabel={(x) => `${x.code}${x.name && x.name !== x.code ? ` · ${x.name}` : ""}`} data-testid="wizard-term" />
           </label>
           {/* MOBILE M-05 (mobile B fix 12): with no draft to continue, starting is the page's one action, so below lg it
               sits in the page-actions capsule above the tab bar; with drafts, the capsule continues the newest one */}

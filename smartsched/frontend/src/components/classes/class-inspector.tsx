@@ -30,6 +30,8 @@ export interface InspectorProps {
   assignment?: IndexAssignment | null;
   roomName?: (id: number) => string;
   roomCap?: (ids: number[]) => number;
+  /** the rooms' own seats and exam seats (Çizelge shows both, owner report 2026-11-02) */
+  roomSeats?: (ids: number[]) => { capacity: number; exam: number };
   allWeeks?: number[];
   /** classes: the selected row */
   row?: ClassRow | null;
@@ -162,6 +164,7 @@ export function ClassInspector(p: InspectorProps) {
   const ep = a?.ep ?? placement?.end_period ?? row?.req.end_period ?? null;
   const rooms = a ? a.rooms.map((r) => p.roomName?.(r) ?? String(r)) : (placement?.room_codes ?? []);
   const cap = a ? (p.roomCap?.(a.rooms) ?? a.cap ?? 0) : (placement?.capacity ?? 0);
+  const seats = a && a.rooms.length ? (p.roomSeats?.(a.rooms) ?? null) : null;
   const size = a?.size ?? row?.enrolment ?? 0;
   const locked = a?.locked ?? placement?.locked ?? false;
   const conflictText = row?.issues.find((i) => i.severity === "hard")?.text[lang] ?? (a?.reasons.length ? a.reasons[0] : null);
@@ -261,6 +264,11 @@ export function ClassInspector(p: InspectorProps) {
             <span aria-hidden className="relative h-1 w-full max-w-[220px] overflow-hidden rounded-full bg-fill-2" data-testid="inspector-fit">
               <span className={cn("absolute inset-y-0 left-0 rounded-full", fit > 100 ? "bg-status-infeasible-fg" : fit < 35 ? "bg-status-warning-fg" : "bg-status-feasible-fg")} style={{ width: `${Math.min(100, fit)}%` }} />
             </span>
+          ) : null}
+          {seats ? (
+            <p className="type-footnote text-label-2 tabular-nums" data-testid="inspector-room-seats">
+              {t("cizelge.roomSeats", { cap: seats.capacity, exam: seats.exam })}
+            </p>
           ) : null}
           {origin && rooms.length ? (
             <p className="type-footnote text-label-2">{t("calendar.insp.originLine", { origin: t(`calendar.insp.origin.${(origin in ORIGINS ? origin : "SOLVER") as keyof typeof ORIGINS}`) })}{locked ? ` · ${t("calendar.state.locked")}` : ""}</p>

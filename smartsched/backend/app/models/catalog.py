@@ -80,6 +80,11 @@ class Room(TimestampMixin, Base):
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     location: Mapped[str | None] = mapped_column(String(64), nullable=True)
     icon: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: the faculty that owns the room (alembic 0049): only its members (and administrators) may book it; ``None`` =
+    #: open to every faculty (app/services/room_faculty.py)
+    owner_faculty_id: Mapped[int | None] = mapped_column(
+        ForeignKey("faculties.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     building: Mapped[Building | None] = relationship(back_populates="rooms")
 

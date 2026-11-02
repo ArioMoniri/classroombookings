@@ -15,15 +15,19 @@ Run by deploy.sh inside the backend image (same Python, same DATABASE_URL), afte
     python seed.py plan --profile institution --files-dir smartsched/backend/tests/fixtures   # validate.sh
 
 Idempotent: every finished step is recorded in the settings row ``deploy.seed_profile`` (JSON). A later deploy runs
-only the steps not recorded yet (e.g. the learning step once its CLI exists) and never re-imports a file. A
-database that already holds terms but has no marker (someone imported by hand) is left alone unless
-SEED_FORCE=1. Only existing CLI commands are used (``python -m app.cli ...``); a missing command is reported and
+only the steps not recorded yet (e.g. the learning step once its CLI exists) and never re-imports a workbook. A
+step marked ``rerun_on_change`` (the room master: an idempotent upsert) also runs again when the SHA-256 of its
+seed files differs from the one recorded (``hashes`` in the marker; a step recorded before hashes existed counts
+as changed), so an edited room_master.csv reaches an existing database on the next deploy (owner report
+2026-11-02 item 1). A database that already holds terms but has no marker (someone imported by hand) is left alone
+unless SEED_FORCE=1. Only existing CLI commands are used (``python -m app.cli ...``); a missing command is reported and
 retried on the next deploy, it does not fail the deploy.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -46,6 +50,7 @@ class Step:
     argv: tuple[str, ...]  # app.cli arguments; "{files}" is replaced by the files directory
     files: tuple[str, ...] = ()  # seed files the step reads (checked by `plan`)
     optional_cli: bool = False  # the CLI command may not exist yet: skip + retry later instead of failing
+    rerun_on_change: bool = False  # run again when its files' content changed (an idempotent upsert only)
 
 
 # The owner's policy for the institution (2026-10-15): every booking request goes to the administrators first.
@@ -74,7 +79,13 @@ INSTITUTION: tuple[Step, ...] = (
     Step("final-exams", ("import", "exam-list", "{files}/final_planlama_listesi_2026_v2.xlsx", "--term", "2026-FINAL",
                          *SEED_SOURCE),
          ("final_planlama_listesi_2026_v2.xlsx",)),
-    Step("room-master", ("import", "room-master", "{files}/room_master.csv", *SEED_SOURCE), ("room_master.csv",)),
+    # an idempotent upsert (retires rooms it no longer lists, files rooms into building groups): re-run whenever
+    # room_master.csv changes (owner report 2026-11-02 item 1)
+    Step("room-master", ("import", "room-master", "{files}/room_master.csv", *SEED_SOURCE), ("room_master.csv",),
+         rerun_on_change=True),
+    # the imported boards become the published timetable where a term has none (owner report 2026-11-02 item 4: the
+    # heatmap and the booking occupancy read published runs only; the e2e / record stacks always did this)
+    Step("publish-boards", ("publish-imported-boards",), optional_cli=True),
     # app.services.learning.refresh over every term (app.cli learning-refresh)
     Step("learning", ("learning-refresh",), optional_cli=True),
 )
@@ -163,7 +174,18 @@ class Outcome:
     ran: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)  # optional CLI missing: retried on the next deploy
     already: list[str] = field(default_factory=list)
+    rerun: list[str] = field(default_factory=list)  # rerun_on_change steps whose files changed (also in ran)
     note: str = ""
+
+
+def files_hash(step: Step, files_dir: str) -> str:
+    """SHA-256 over the step's seed files (name + content), so a changed file re-runs a ``rerun_on_change`` step."""
+    h = hashlib.sha256()
+    for name in step.files:
+        path = Path(files_dir) / name
+        h.update(name.encode("utf-8") + b"\0")
+        h.update(path.read_bytes() if path.is_file() else b"<missing>")
+    return h.hexdigest()
 
 
 def run(profile: str, store: Store, runner: Runner, files_dir: str, *, force: bool = False,
@@ -185,10 +207,15 @@ def run(profile: str, store: Store, runner: Runner, files_dir: str, *, force: bo
         log(f"[seed] {out.note}")
         return out
     done: dict[str, str] = marker.setdefault("steps", {})
+    hashes: dict[str, str] = marker.setdefault("hashes", {})
     for step in steps:
-        if step.name in done:
+        digest = files_hash(step, files_dir) if step.rerun_on_change else None
+        if step.name in done and (digest is None or hashes.get(step.name) == digest):
             out.already.append(step.name)
             continue
+        if step.name in done:
+            log(f"[seed] {step.name}: its seed files changed since {done[step.name]}; running it again")
+            out.rerun.append(step.name)
         if step.optional_cli and not cli_has(runner, step.argv[0]):
             out.skipped.append(step.name)
             log(f"[seed] {step.name}: `app.cli {step.argv[0]}` does not exist yet; skipped (retried next deploy)")
@@ -199,9 +226,12 @@ def run(profile: str, store: Store, runner: Runner, files_dir: str, *, force: bo
         if code != 0:
             raise RuntimeError(f"seed step {step.name} failed (exit {code}); finished steps are kept, rerun deploy")
         done[step.name] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if digest is not None:
+            hashes[step.name] = digest
         store.put(marker)  # after every step: a failed deploy resumes where it stopped
         out.ran.append(step.name)
-    log(f"[seed] profile {profile}: ran {out.ran or '-'}, already {out.already or '-'}, skipped {out.skipped or '-'}")
+    log(f"[seed] profile {profile}: ran {out.ran or '-'} (re-run: {out.rerun or '-'}), already {out.already or '-'}, "
+        f"skipped {out.skipped or '-'}")
     return out
 
 

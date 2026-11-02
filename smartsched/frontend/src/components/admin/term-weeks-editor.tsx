@@ -10,6 +10,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { NativeSelect } from "@/components/common/native-select";
+import { TermSelect, useCanCreateTerm } from "@/components/common/term-create";
 import { useActiveTerm } from "@/components/shell/term-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function TermWeeksEditor() {
   const weeks = useTermWeeks(termId);
   const [advanced, setAdvanced] = useState(false);
   const id = useId();
+  const canCreateTerm = useCanCreateTerm();
   // no planning access (GET /terms/{id}/weeks refused): the section is left out, like AS-F's profiles on 403
   if (!termId || weeks.isError) return null;
   return (
@@ -46,15 +48,9 @@ export function TermWeeksEditor() {
             </h2>
             <p className="type-callout text-label-2">{t("rf.weeks.lead")}</p>
           </div>
-          {terms.length > 1 ? (
+          {terms.length > 1 || canCreateTerm ? (
             <Field label={t("rf.weeks.term")} htmlFor={`${id}-term`} className="w-full sm:w-64">
-              <NativeSelect id={`${id}-term`} value={String(termId)} onChange={(e) => setPick(Number(e.target.value))}>
-                {terms.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.name}
-                  </option>
-                ))}
-              </NativeSelect>
+              <TermSelect id={`${id}-term`} terms={terms} value={termId} onChange={setPick} data-testid="weeks-term" />
             </Field>
           ) : null}
         </div>

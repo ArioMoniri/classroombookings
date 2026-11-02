@@ -1317,6 +1317,8 @@ export type TermUsage = z.infer<typeof TermUsage>;
 export interface TermCreateIn {
   code: string;
   name?: string | null;
+  /** REGULAR (ders dönemi) by default; FINAL / BUT for exam periods (`TermIn.kind`) */
+  kind?: "REGULAR" | "FINAL" | "BUT" | "SUMMER";
   start_date: string;
   end_date: string;
   week_count?: number;

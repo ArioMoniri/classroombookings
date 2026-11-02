@@ -115,7 +115,7 @@ class FakeCli:
 def test_institution_seed_runs_once_and_resumes_only_missing_steps() -> None:
     store, cli = FakeStore(), FakeCli(CLI)
     out = seed.run("institution", store, cli, "/seed/files", log=lambda _m: None)
-    assert out.ran == IMPORTS and out.skipped == ["learning"]
+    assert out.ran == IMPORTS and out.skipped == ["publish-boards", "learning"]
     assert len(cli.imports()) == 7 and cli.imports()[0][2] == "/seed/files/bahar_derslikler_takvimi_2026.xlsx"
     assert store.marker and set(store.marker["steps"]) == set(IMPORTS) and store.marker["profile"] == "institution"
     # a second deploy: nothing is imported again
@@ -123,10 +123,61 @@ def test_institution_seed_runs_once_and_resumes_only_missing_steps() -> None:
     out2 = seed.run("institution", store, cli2, "/seed/files", log=lambda _m: None)
     assert out2.ran == [] and out2.already == IMPORTS and cli2.imports() == []
     assert not [c for c in cli2.calls if c[0] == "set-setting"]
-    # the learning CLI lands later: only that step runs
-    cli3 = FakeCli(CLI | {"learning-refresh"})
+    # the learning and publish CLIs land later: only those steps run
+    cli3 = FakeCli(CLI | {"learning-refresh", "publish-imported-boards"})
     out3 = seed.run("institution", store, cli3, "/seed/files", log=lambda _m: None)
-    assert out3.ran == ["learning"] and cli3.imports() == [] and set(store.marker["steps"]) == set(ALL)
+    assert out3.ran == ["publish-boards", "learning"] and cli3.imports() == []
+    assert set(store.marker["steps"]) == set(ALL)
+
+
+# ---- owner report 2026-11-02 item 1: an edited room_master.csv reaches an existing database ----------------------
+def _files(tmp_path: Path, master: str) -> Path:
+    for s in seed.INSTITUTION:
+        for f in s.files:
+            (tmp_path / f).write_text(master if f == "room_master.csv" else "workbook", encoding="utf-8")
+    return tmp_path
+
+
+def test_room_master_reruns_when_its_file_changes_and_only_then(tmp_path: Path) -> None:
+    files = _files(tmp_path, "code,capacity\nB 406,30\n")
+    every = CLI | {"learning-refresh", "publish-imported-boards"}
+    store = FakeStore()
+    seed.run("institution", store, FakeCli(every), str(files), log=lambda _m: None)
+    assert store.marker and set(store.marker["hashes"]) == {"room-master"}
+    # unchanged file: nothing runs
+    cli = FakeCli(every)
+    out = seed.run("institution", store, cli, str(files), log=lambda _m: None)
+    assert out.ran == [] and cli.calls == []
+    # the owner edits the master: only the room-master step runs again (no workbook is re-imported)
+    (files / "room_master.csv").write_text("code,capacity\nB 406,80\n", encoding="utf-8")
+    cli2 = FakeCli(every)
+    out2 = seed.run("institution", store, cli2, str(files), log=lambda _m: None)
+    assert out2.ran == ["room-master"] and out2.rerun == ["room-master"]
+    assert [c[1] for c in cli2.imports()] == ["room-master"]
+    # and once only
+    out3 = seed.run("institution", store, FakeCli(every), str(files), log=lambda _m: None)
+    assert out3.ran == []
+
+
+def test_marker_without_hashes_reruns_the_room_master_once(tmp_path: Path) -> None:
+    """A database seeded before hashes existed (the live pod): the room master runs once more, then never again."""
+    files = _files(tmp_path, "code,capacity\nD 106,60\n")
+    legacy = {"profile": "institution", "version": 1, "steps": {s.name: "2026-10-20T00:00:00Z"
+                                                                  for s in seed.INSTITUTION
+                                                                  if s.name != "publish-boards"}}
+    store = FakeStore(legacy)
+    every = CLI | {"learning-refresh", "publish-imported-boards"}
+    cli = FakeCli(every)
+    out = seed.run("institution", store, cli, str(files), log=lambda _m: None)
+    assert out.ran == ["room-master", "publish-boards"] and [c[1] for c in cli.imports()] == ["room-master"]
+    assert seed.run("institution", store, FakeCli(every), str(files), log=lambda _m: None).ran == []
+
+
+def test_empty_profile_never_runs_the_room_master(tmp_path: Path) -> None:
+    files = _files(tmp_path, "code\nA 101\n")
+    store, cli = FakeStore(), FakeCli(CLI | {"learning-refresh", "publish-imported-boards"})
+    assert seed.run("empty", store, cli, str(files), log=lambda _m: None).ran == [] and cli.calls == []
+    assert store.marker is None
 
 
 def test_failed_step_keeps_finished_steps_for_the_next_deploy() -> None:
@@ -163,7 +214,9 @@ def test_institution_sets_approval_mode_all_first_and_once() -> None:
     assert [c for c in cli.calls if c[0] == "set-setting"] == [["set-setting", "bookings.approval_mode", "all"]]
     assert store.marker and "approval-mode" in store.marker["steps"]
     # a database seeded before this step existed gets only the new step on the next deploy
-    old = FakeStore({"profile": "institution", "version": 1, "steps": dict.fromkeys(ALL[1:], "2026-10-15T20:00:00Z")})
+    master = next(s for s in seed.INSTITUTION if s.name == "room-master")
+    old = FakeStore({"profile": "institution", "version": 1, "steps": dict.fromkeys(ALL[1:], "2026-10-15T20:00:00Z"),
+                     "hashes": {"room-master": seed.files_hash(master, "/seed/files")}})
     cli2 = FakeCli(CLI)
     out = seed.run("institution", old, cli2, "/seed/files", log=lambda _m: None)
     assert out.ran == ["approval-mode"] and cli2.calls == [["set-setting", "bookings.approval_mode", "all"]]

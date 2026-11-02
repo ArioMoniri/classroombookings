@@ -3,7 +3,7 @@
 
 Columns (header row required, order free, ``;`` or ``,`` delimited, UTF-8 with or without BOM):
 
-``code, capacity, exam_capacity, tags, building, floor, bookable[, notes]``
+``code, capacity, exam_capacity, tags, building, floor, bookable[, notes, owner_faculty, merged_from]``
 
 * ``code``: any spelling the importers understand (``A 101``, ``C z01``, ``B Blok Bilg. Lab.``).
 * ``capacity`` / ``exam_capacity``: integers; an empty cell leaves the stored value unchanged.
@@ -12,10 +12,24 @@ Columns (header row required, order free, ``;`` or ``,`` delimited, UTF-8 with o
 * ``building``: building code (``A``); ``floor``: free text (``0`` = ground floor).
 * ``bookable``: ``1/0``, ``yes/no``, ``true/false``, ``evet/hayır``; empty = derived (bookable when the
   room has a capacity).
+* ``owner_faculty`` (optional): the faculty that owns the room (``Tıp Fakültesi``); only its members (and
+  administrators) may book it (app/services/room_faculty.py). ``-`` clears it; empty = unchanged.
+* ``merged_from`` (optional): codes of rooms merged into this one (``B 407``), separated like tags. Those rooms are
+  retired and their future bookings move here when the slot is free (else they are reported).
 * Lines starting with ``#`` are comments.
 
 Values set here are marked in ``custom_fields.master`` and are never overwritten by a later workbook
 import (the workbook value is reported as a warning instead).
+
+The master is the authoritative room list (owner report 2026-11-02 item 1), applied as an idempotent upsert:
+
+* a room an earlier master listed (``custom_fields.master`` set) that this file no longer lists, or a room named in
+  ``merged_from``, is **retired**: not bookable, ``custom_fields.retired`` says why and since when. It is never
+  deleted: bookings, runs and the import history keep pointing at it. Its future bookings are reported (merged
+  rooms: moved first); a later master that lists it again brings it back;
+* rooms only the workbooks know (never in a master) are left alone;
+* every ungrouped bookable room joins its building's room group (``A Blok`` ...), so the booking grid and
+  "Boş derslik bul" show it (``app/services/room_groups.py``).
 """
 
 from __future__ import annotations
@@ -25,14 +39,28 @@ import io
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.safe_files import Limits, UnsafeFileError, is_zip_container, open_workbook, run_isolated
 from app.importers import normalize as n
 from app.importers.catalog import Catalog
 from app.importers.report import ImportReport
+from app.models.booking import BOOKED, PENDING, Booking, BookingSlot
+from app.models.catalog import Room
 
-COLUMNS = ("code", "capacity", "exam_capacity", "tags", "building", "floor", "bookable", "notes")
+COLUMNS = (
+    "code",
+    "capacity",
+    "exam_capacity",
+    "tags",
+    "building",
+    "floor",
+    "bookable",
+    "notes",
+    "owner_faculty",
+    "merged_from",
+)
 _TRUE = {"1", "yes", "y", "true", "evet", "e", "x"}
 _FALSE = {"0", "no", "n", "false", "hayır", "hayir", "h"}
 
@@ -68,6 +96,22 @@ def _tags(value: str | None) -> list[str] | None:
     return list(dict.fromkeys(p for p in parts if p))
 
 
+def _codes(value: str | None, line: int) -> list[str]:
+    v = (value or "").strip()
+    if not v:
+        return []
+    out: list[str] = []
+    for part in v.replace("|", ";").replace("/", ";").split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        codes = n.parse_room_codes(part)
+        if len(codes) != 1:
+            raise ValueError(f"cannot read merged room code {part!r}")
+        out.append(codes[0])
+    return list(dict.fromkeys(out))
+
+
 def parse_room_master(text: str) -> tuple[list[dict[str, Any]], list[str]]:
     """Parse the CSV text into row dicts (typed values, ``None`` = unchanged) and error strings."""
     lines = [ln for ln in text.lstrip("﻿").splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
@@ -99,6 +143,8 @@ def parse_room_master(text: str) -> tuple[list[dict[str, Any]], list[str]]:
                     "floor": (raw.get("floor") or "").strip() or None,
                     "bookable": _bool(raw.get("bookable")),
                     "notes": (raw.get("notes") or "").strip() or None,
+                    "owner_faculty": (raw.get("owner_faculty") or "").strip() or None,
+                    "merged_from": _codes(raw.get("merged_from"), i),
                 }
             )
         except ValueError as exc:
@@ -185,6 +231,16 @@ async def import_room_master(session: AsyncSession, path: str | Path, *, filenam
         if r["notes"] and room.notes != r["notes"]:
             room.notes = r["notes"]
             changed = True
+        if r["owner_faculty"] is not None:
+            master.add("owner_faculty")
+            owner = None if r["owner_faculty"] == "-" else await cat.faculty(r["owner_faculty"])
+            owner_id = owner.id if owner is not None else None
+            if room.owner_faculty_id != owner_id:
+                room.owner_faculty_id = owner_id
+                changed = True
+        if fields.pop("retired", None) is not None:  # listed again: back in service
+            report.warn(f"line {r['line']}: room {r['code']} was retired; listed again, back in service")
+            changed = True
         bookable = r["bookable"]
         if bookable is None:
             bookable = bool(room.capacity or room.exam_capacity)
@@ -200,12 +256,119 @@ async def import_room_master(session: AsyncSession, path: str | Path, *, filenam
         if changed:
             report.updated["rooms"] += 1
         report.rows_imported += 1
+    await _retire(session, report, rows, seen)
+    from app.services.room_groups import groups_from_buildings
+
+    groups = await groups_from_buildings(session, bookable_only=True)
+    report.extra["room_groups"] = sorted(g.name for g in groups)
     no_cap = sorted(r["code"] for r in rows if r["code"] in cat.touched_rooms and not _has_capacity(cat, r["code"]))
     if no_cap:
         report.warn(f"{len(no_cap)} room(s) in the master still have no capacity: {', '.join(no_cap)}")
     report.extra["rooms"] = len(seen)
     await session.commit()
     return report
+
+
+async def _retire(session: AsyncSession, report: ImportReport, rows: list[dict[str, Any]], listed: set[str]) -> None:
+    """Retire the rooms the master no longer lists (and the rooms merged into a listed one); move or report their
+    future bookings. Idempotent: an already retired room is not touched again."""
+    from app.services import bookings as bsvc
+
+    merged_into: dict[str, str] = {}
+    for r in rows:
+        for src in r["merged_from"]:
+            if src in listed:
+                report.warn(f"line {r['line']}: {src} is merged into {r['code']} but still listed; not retired")
+                continue
+            merged_into[src] = r["code"]
+    rooms = {room.code: room for room in (await session.execute(select(Room))).scalars()}
+    today = await bsvc.today(session)
+    retired: list[str] = []
+    moved: list[dict[str, Any]] = []
+    left: list[dict[str, Any]] = []
+    for code, room in sorted(rooms.items()):
+        if code in listed:
+            continue
+        fields = dict(room.custom_fields or {})
+        into = merged_into.get(code)
+        if into is None and "master" not in fields:
+            continue  # never in a master: a workbook-only room, left alone
+        already = fields.get("retired")
+        if not already:
+            fields["retired"] = {
+                "reason": "merged" if into else "not_listed",
+                "into": into,
+                "since": today.isoformat(),
+                "source": report.filename,
+            }
+            fields.pop("auto_unbookable", None)
+            room.custom_fields = fields
+            room.is_bookable = False
+            retired.append(code)
+            report.updated["rooms_retired"] += 1
+        target = rooms.get(into) if into else None
+        for b in await _future_bookings(session, room.id, today):
+            item = {
+                "booking_id": b.id,
+                "room": room.display_name,
+                "date": b.date.isoformat(),
+                "periods": f"P{b.start_period}-P{b.end_period}",
+                "status": b.status,
+            }
+            if target is not None and await _move(session, b, room, target):
+                moved.append({**item, "to": target.display_name})
+            else:
+                left.append(item)
+    if retired:
+        report.warn(f"{len(retired)} room(s) retired (no longer bookable, history kept): {', '.join(retired)}")
+    if moved:
+        report.warn(f"{len(moved)} future booking(s) moved into the room they were merged into")
+    if left:
+        report.warn(
+            f"{len(left)} future booking(s) remain in retired rooms; move or cancel them: "
+            + ", ".join(f"#{x['booking_id']} {x['room']} {x['date']}" for x in left[:20])
+        )
+    report.extra["rooms_retired"] = retired
+    report.extra["merged"] = merged_into
+    report.extra["bookings_moved"] = moved
+    report.extra["bookings_in_retired_rooms"] = left
+
+
+async def _future_bookings(session: AsyncSession, room_id: int, today: Any) -> list[Booking]:
+    q = (
+        select(Booking)
+        .where(Booking.room_id == room_id, Booking.date >= today, Booking.status.in_((BOOKED, PENDING)))
+        .order_by(Booking.date, Booking.start_period, Booking.id)
+    )
+    return list((await session.execute(q)).scalars())
+
+
+async def _move(session: AsyncSession, b: Booking, room: Room, target: Room) -> bool:
+    """Move one booking of a merged room into the room it was merged into when that slot is free there; audited
+    (``booking.move``, actor system). ``False`` = not moved (the slot is taken), reported by the caller."""
+    from app.services import bookings as bsvc
+    from app.services.events import publish_event
+
+    if not target.is_bookable:
+        return False
+    held = await bsvc.find_conflict(session, target.id, b.date, b.start_period, b.end_period)
+    if held is not None:
+        return False
+    before = bsvc.snap(b)
+    b.room_id = target.id
+    await session.execute(update(BookingSlot).where(BookingSlot.booking_id == b.id).values(room_id=target.id))
+    await session.flush()
+    await publish_event(
+        session,
+        "booking.move",
+        "booking",
+        b.id,
+        before=before,
+        after=bsvc.snap(b),
+        reason=f"{room.display_name} merged into {target.display_name} (room master)",
+        term_id=b.term_id,
+    )
+    return True
 
 
 def _has_capacity(cat: Catalog, code: str) -> bool:

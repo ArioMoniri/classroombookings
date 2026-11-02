@@ -98,6 +98,26 @@ describe("backend adapters", () => {
     expect(queued.summary).toEqual({ rows: 0, created: 0, updated: 0, skipped: 0, warnings: [] });
   });
 
+  it("keeps the backend's skip severity and lists expected findings as info (owner report 2026-11-02 item 5)", () => {
+    const job = ImportJob.parse(
+      adapt.importJob({
+        id: 3, kind: "exam-list", filename: "final.xlsx", term_code: "2026-FINAL", status: "DONE", error: null, created_at: "2026-11-02T18:00:00",
+        summary: {
+          rows_total: 3, rows_imported: 1, rows_skipped_count: 2,
+          rows_skipped: [{ row: 9, reason: "no course code", detail: "STAJ PLANLAMA TOPLANTISI", severity: "info" }, { row: 12, reason: "unreadable course code", detail: "c", severity: "warning" }],
+          warnings: ["row 20: unparseable exam date 'YOK'"],
+          warning_items: [{ row: 20, code: "exam_date", message_tr: "Sınav tarihi okunamadı", message_en: "unparseable exam date 'YOK'" }],
+          info: ["row 568: time 13:00-15:00 covers P6 partly; the exam occupies P6-P8 (not moved)"],
+          info_items: [{ row: 568, code: "exam_time_partial", message_tr: "Sınav saati 13:00–15:00 P6 ders saatini kısmen kapsıyor", message_en: "time 13:00-15:00 covers P6 partly; the exam occupies P6-P8 (not moved)" }],
+          info_count: 1, warnings_count: 1, created: {}, updated: {},
+        },
+      }),
+    );
+    expect(job.summary.warnings.map((w) => [w.row, w.severity])).toEqual([[9, "info"], [12, "warning"], [20, "warning"], [568, "info"]]);
+    expect(job.summary.warnings[3]).toMatchObject({ code: "exam_time_partial", message_tr: "Sınav saati 13:00–15:00 P6 ders saatini kısmen kapsıyor" });
+    expect(job.summary.warnings_count).toBe(1);
+  });
+
   it("lists room-master jobs and survives an unknown kind (admin persona M-13)", () => {
     // GET /imports after POST /imports/room-master (room_master.csv, 87 rooms)
     const rooms = ImportJob.parse(

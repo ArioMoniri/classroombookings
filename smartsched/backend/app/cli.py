@@ -185,6 +185,20 @@ async def _learning_refresh(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _publish_boards(args: argparse.Namespace) -> int:
+    """Owner report 2026-11-02 item 4: publish each term's imported weekly board where nothing is published yet
+    (app/services/board_publish.py); the deploy seed's ``publish-boards`` step."""
+    from app.services.board_publish import publish_imported_boards
+
+    configure_engine(args.database_url or get_settings().database_url)
+    await create_all()
+    async with get_session_factory()() as session:
+        rows = await publish_imported_boards(session, args.term)
+        await session.commit()
+    print(json.dumps(rows, indent=2, ensure_ascii=False))
+    return 0
+
+
 class SettingError(Exception):
     """A ``set-setting`` key or value that ``PUT /org/settings`` would refuse (the message never holds the value)."""
 
@@ -302,7 +316,9 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("--year", type=int, required=True)
             sp.add_argument("--term-kind", default=None, help="REGULAR|FINAL|BUT (default: inferred)")
     rm = imp_sub.add_parser(
-        "room-master", help="room master CSV: code,capacity,exam_capacity,tags,building,floor,bookable[,notes]"
+        "room-master",
+        help="room master CSV: code,capacity,exam_capacity,tags,building,floor,bookable[,notes,owner_faculty,"
+        "merged_from]",
     )
     rm.add_argument("file")
     cr = imp_sub.add_parser("crbs")
@@ -333,6 +349,11 @@ def build_parser() -> argparse.ArgumentParser:
     upg.add_argument("--fingerprint", default=None, help="the fingerprint printed by the dry run")
     lr = sub.add_parser("learning-refresh", help="extract learning evidence and recompute suggestions (all terms)")
     lr.add_argument("--term", default=None, help="only this term code, e.g. 2026-BAHAR")
+    pb = sub.add_parser(
+        "publish-imported-boards",
+        help="publish each term's imported weekly board (COURSE / EXAM) where the term has no published run yet",
+    )
+    pb.add_argument("--term", default=None, help="only this term code, e.g. 2026-GUZ")
     ss = sub.add_parser(
         "set-setting",
         help="write one organisation setting through the PUT /org/settings validation, e.g. bookings.approval_mode all",
@@ -358,6 +379,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_set_setting(args))
     if args.cmd == "learning-refresh":
         return asyncio.run(_learning_refresh(args))
+    if args.cmd == "publish-imported-boards":
+        return asyncio.run(_publish_boards(args))
     if args.cmd == "import":
         return asyncio.run(_run_import(args))
     if args.cmd == "solve":

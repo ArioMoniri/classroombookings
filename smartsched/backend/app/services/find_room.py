@@ -407,6 +407,11 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
 
     # candidates: rooms the caller may view (role or ACL), bookable, CRBS ungrouped rule, filters
     rooms = await bsvc.visible_rooms(session, access, q.room_group_id)
+    # owner report 2026-11-02 item 2: rooms another faculty owns (Tıp) are left out for this user (admins see all)
+    from app.services import room_faculty
+
+    faculty_hidden = await room_faculty.restricted_room_ids(session, access, rooms)
+    rooms = [r for r in rooms if r.id not in faculty_hidden]
     # BUG-01: a weekday none of the rooms' schedules offers (Sunday on a Monday-Friday schedule) is a closed day, like
     # a holiday: no slot, no "Boş" room, a reason in the closed dates (the booking check refuses it as "closed_day")
     slot_periods = _SlotPeriods(session, info)
@@ -700,6 +705,8 @@ async def find_rooms(session: AsyncSession, access: Access, q: FindQuery, *, led
             "open_dates": len(open_dates),
             "text_tr": f"{free_count} boş oda · {len(open_dates)}/{len(dates)} tarih açık",
             "text_en": f"{free_count} free rooms · {len(open_dates)}/{len(dates)} dates open",
+            #: rooms left out because another faculty owns them (room_faculty)
+            "faculty_hidden": len(faculty_hidden),
         },
         "results": results,
         "alternatives": alternatives,

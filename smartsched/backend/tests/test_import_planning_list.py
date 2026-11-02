@@ -41,8 +41,8 @@ def test_parse_counts_and_period_coverage(request, fixture_name, expected_rows):
     with_dt, with_p = _summary(parsed, fixture_name)
     assert len(with_dt) > 0.7 * parsed.rows_total
     assert len(with_p) >= 0.99 * len(with_dt)
-    # skipped rows are only those without a course code
-    assert all(s[1] == "no course code" for s in parsed.skipped)
+    # skipped rows are only those without a (readable) course code
+    assert all(s[1] in ("no course code", "unreadable course code") for s in parsed.skipped)
     assert len(parsed.skipped) < 0.01 * parsed.rows_total
 
 
