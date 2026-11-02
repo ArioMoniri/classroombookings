@@ -394,7 +394,8 @@ export function CalendarView({ embedded = false, runId: fixedRun, initialWeek, c
       if (readOnly) return;
       const room = c.column.room ?? (vs.subject?.kind === "room" ? Number(vs.subject.id) : null);
       if (room === null) return;
-      setCreateReq({ column: c.column, room, sp: c.sp, ep: c.ep, anchor: c.anchor, defaultTab: vs.lens === "day" ? "booking" : "request" });
+      // the free slot's "+" is "reserve here" (owner report 2026-11-02); a drag on the board places a class
+      setCreateReq({ column: c.column, room, sp: c.sp, ep: c.ep, anchor: c.anchor, defaultTab: c.via === "click" || vs.lens === "day" ? "booking" : "request" });
     },
     [readOnly, vs.subject, vs.lens],
   );
