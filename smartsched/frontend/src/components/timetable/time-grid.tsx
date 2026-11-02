@@ -509,7 +509,10 @@ function TimeGridImpl(props: TimeGridProps, ref: React.Ref<TimeGridHandle>) {
           const at = toContent(pt.x, pt.y);
           const col = Math.floor(at.x / colW);
           const column = columns[col];
-          if (column && at.y >= 0) {
+          // not on the sticky header or time gutter (they stay put while the content scrolls under them)
+          const box = scroller.current?.getBoundingClientRect();
+          const onChrome = !box || pt.x - box.left < GUTTER_W || pt.y - box.top < headerH;
+          if (column && !onChrome && at.y >= 0) {
             const period = periodAt(rows, at.y);
             if (freeAt(col, period)) props.onCreate({ column, sp: period, ep: period, anchor: { x: e.clientX, y: e.clientY }, via: "click" });
           }

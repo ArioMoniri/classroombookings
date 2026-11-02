@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { fixtureIndex } from "@/test/fixtures/calendar-index";
+import { buildModel, roomSeats } from "./index-model";
 import { DEFAULT_ROOM_SORT, codeChunks, compareRoomCodes, readRoomSort, roomSortKey, sortRooms, writeRoomSort } from "./room-sort";
 
 const room = (id: number, code: string, capacity: number, exam_capacity = 0) => ({ id, code, name: code, capacity, exam_capacity });
@@ -59,5 +61,18 @@ describe("room sort (owner report: natural code order and capacity)", () => {
     const broken = { getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("quota"); }, removeItem: () => { throw new Error("denied"); } };
     expect(readRoomSort("7", broken)).toBe(DEFAULT_ROOM_SORT);
     expect(() => writeRoomSort("7", "cap-asc", broken)).not.toThrow();
+  });
+});
+
+describe("roomSeats (inspector: capacity and exam capacity)", () => {
+  it("sums the rooms' own seats and exam seats; unknown ids count nothing", () => {
+    const model = buildModel(fixtureIndex());
+    expect(roomSeats(model, [1])).toEqual({ capacity: 156, exam: 74 });
+    expect(roomSeats(model, [1, 2, 999])).toEqual({ capacity: 214, exam: 104 });
+  });
+  it("the fixture's rooms sort naturally by code", () => {
+    const model = buildModel(fixtureIndex());
+    expect(sortRooms(model.rooms, "code-asc").map((r) => r.code)).toEqual(["A101", "A104", "A204", "C201", "C202"]);
+    expect(sortRooms(model.rooms, "cap-asc", true).map((r) => r.code)).toEqual(["A101", "C202", "A104", "C201", "A204"]);
   });
 });

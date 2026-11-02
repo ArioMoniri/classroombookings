@@ -5,6 +5,7 @@
  * Drag across a free range creates (booking default); chips drag horizontally (period snap, 16 px magnet)
  * and vertically (room rows) with the same live check as the board.
  */
+import { Plus } from "lucide-react";
 import { animate, motion, useMotionValue } from "motion/react";
 import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { PERIODS, PERIODS_PER_DAY, usePeriodGridVersion } from "@/lib/time";
@@ -180,7 +181,22 @@ function DayTimelineImpl(p: DayTimelineProps) {
       if (pt.ev) {
         p.onSelect(pt.ev.a.id, pt.meta ? "toggle" : "replace");
         if (!pt.meta) p.onOpen(pt.ev);
-      } else p.onSelect(null, "replace");
+      } else {
+        p.onSelect(null, "replace");
+        // a click (or tap) on a free slot opens quick-create there, as on the board (owner report 2026-11-02)
+        const c0 = content(pt.x, pt.y);
+        // not on the sticky period header or room labels (they stay put while the content scrolls under them)
+        const box = ref.current?.getBoundingClientRect();
+        const onChrome = !box || pt.x - box.left < LABEL_W || pt.y - box.top < HEAD_H;
+        const room = !onChrome && c0.y >= 0 ? p.rooms[Math.floor(c0.y / ROW_H)] : undefined;
+        if (room && !pt.meta && !p.readOnly) {
+          const per = periodAtX(c0.x - LABEL_W, p.pxPerMin);
+          if (slotFree(p.model, room.id, p.day, per, per, p.mask)) {
+            const column: GridColumn = { key: `r${room.id}`, room: room.id, day: p.day, label: room.name, ariaLabel: room.name };
+            p.onCreate({ column, sp: per, ep: per, anchor: { x: e.clientX, y: e.clientY }, via: "click" });
+          }
+        }
+      }
       return;
     }
     if (drag) {
@@ -261,7 +277,13 @@ function DayTimelineImpl(p: DayTimelineProps) {
               {PERIODS.map((per) => {
                 const free = slotFree(p.model, room.id, p.day, per.index, per.index, p.mask);
                 return (
-                  <div key={per.index} role="gridcell" data-testid="grid-drop-cell" data-room-id={room.id} data-day={p.day} data-period={per.index} data-free={free ? "true" : undefined} className={cn("absolute inset-y-0", free && !p.readOnly && "hover:bg-fill-3")} style={{ left: xOf(per.index), width: wOf(per.index, per.index) + 1 }} aria-label={`${room.name} ${whenText(p.day, per.index, per.index)[lang]}`} />
+                  <div key={per.index} role="gridcell" data-testid="grid-drop-cell" data-room-id={room.id} data-day={p.day} data-period={per.index} data-free={free ? "true" : undefined} className={cn("group absolute inset-y-0", free && !p.readOnly && "cursor-pointer hover:bg-fill-3")} style={{ left: xOf(per.index), width: wOf(per.index, per.index) + 1 }} aria-label={`${room.name} ${whenText(p.day, per.index, per.index)[lang]}`}>
+                    {free && !p.readOnly ? (
+                      <span aria-hidden className="pointer-events-none absolute inset-0 hidden items-center justify-center text-tint-text group-hover:flex" data-slot="free-plus">
+                        <Plus className="size-3.5 stroke-2" />
+                      </span>
+                    ) : null}
+                  </div>
                 );
               })}
               {p.blocks.filter((b) => b.room === room.id).map((b) => (

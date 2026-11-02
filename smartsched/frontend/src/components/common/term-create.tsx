@@ -180,6 +180,8 @@ export function TermSelect({ terms, value, onChange, id, className, selectClassN
   const { t } = useI18n();
   const canCreate = useCanCreateTerm() && !noCreate;
   const [open, setOpen] = useState(false);
+  const current = value === null || value === undefined ? "" : String(value);
+  const known = terms.some((x) => String(x.id) === current);
   const onSelect = (e: ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value === NEW_TERM_VALUE) {
       setOpen(true);
@@ -190,8 +192,10 @@ export function TermSelect({ terms, value, onChange, id, className, selectClassN
   };
   return (
     <>
-      <NativeSelect id={id} className={className} selectClassName={selectClassName} disabled={disabled} aria-label={ariaLabel} value={value === null || value === undefined ? "" : String(value)} onChange={onSelect} data-testid={testId}>
-        {value === null || value === undefined || value === "" ? <option value="" disabled>{t("termCreate.pick")}</option> : null}
+      <NativeSelect id={id} className={className} selectClassName={selectClassName} disabled={disabled} aria-label={ariaLabel} value={current} onChange={onSelect} data-testid={testId}>
+        {/* a value the list does not hold (empty, or the terms still loading): a placeholder, so the select never shows
+            the create action as the chosen term */}
+        {!known ? <option value={current} disabled hidden>{t("termCreate.pick")}</option> : null}
         {terms.map((x) => (
           <option key={x.id} value={x.id}>{optionLabel ? optionLabel(x) : x.name}</option>
         ))}

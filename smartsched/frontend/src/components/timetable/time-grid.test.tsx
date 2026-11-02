@@ -93,6 +93,15 @@ describe("TimeGrid: a click on a free slot's + opens quick-create", () => {
     expect(p.onSelect).toHaveBeenCalledWith(null, "replace");
   });
 
+  it("a click on the sticky header after scrolling down never creates", () => {
+    const p = renderGrid();
+    const grid = screen.getByTestId("time-grid");
+    grid.scrollTop = 200; // the header stays at the top while the rows scroll under it
+    fireEvent.pointerDown(grid, { button: 0, pointerId: 1, clientX: 56 + 20, clientY: 20 });
+    fireEvent.pointerUp(grid, { button: 0, pointerId: 1, clientX: 56 + 20, clientY: 20 });
+    expect(p.onCreate).not.toHaveBeenCalled();
+  });
+
   it("read-only users never create", () => {
     const ro = renderGrid({ readOnly: true });
     click(0, 2);
