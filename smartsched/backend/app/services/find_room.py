@@ -9,6 +9,8 @@ text, it answers every room the caller may view with a status and the reasons, f
   their slot (``app.services.bookings.booking_occupancy``), loaded once for all rooms and dates;
 * holidays, dates outside the term, dates without a timetable week and weekdays the rooms' schedules do not offer
   (BUG-01: Sunday on a Monday-Friday schedule, reason ``closed_day``) are closed (the count and a label show them);
+* faculty-owned rooms (owner report 2026-11-02, ``app.services.room_faculty``): a room another faculty owns (the Tıp
+  rooms for a non-Tıp academician) is left out; ``summary.faculty_hidden`` counts them (admins see every room);
 * room ACL: only rooms with ``room.view`` (role or room ACL); ``action`` says whether the caller can book,
   must request approval (P1) or can only look;
 * score = wasted seats ``(capacity - headcount) / capacity`` + 0.15 per solver tag the room has but the search

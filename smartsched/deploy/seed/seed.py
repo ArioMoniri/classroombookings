@@ -79,10 +79,10 @@ INSTITUTION: tuple[Step, ...] = (
     Step("final-exams", ("import", "exam-list", "{files}/final_planlama_listesi_2026_v2.xlsx", "--term", "2026-FINAL",
                          *SEED_SOURCE),
          ("final_planlama_listesi_2026_v2.xlsx",)),
-    # an idempotent upsert (retires rooms it no longer lists, files rooms into building groups): re-run whenever
-    # room_master.csv changes (owner report 2026-11-02 item 1)
-    Step("room-master", ("import", "room-master", "{files}/room_master.csv", *SEED_SOURCE), ("room_master.csv",),
-         rerun_on_change=True),
+    # an idempotent upsert (the complete list: retires rooms it no longer lists, files rooms into building groups):
+    # re-run whenever room_master.csv changes (owner report 2026-11-02 item 1)
+    Step("room-master", ("import", "room-master", "{files}/room_master.csv", "--retire-unlisted", *SEED_SOURCE),
+         ("room_master.csv",), rerun_on_change=True),
     # the imported boards become the published timetable where a term has none (owner report 2026-11-02 item 4: the
     # heatmap and the booking occupancy read published runs only; the e2e / record stacks always did this)
     Step("publish-boards", ("publish-imported-boards",), optional_cli=True),

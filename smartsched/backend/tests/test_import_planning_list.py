@@ -90,7 +90,8 @@ async def test_import_bahar_into_db_is_idempotent(session, parsed_bahar_list):
     # owner decision 2026-10-15: rows identical except for the class year are taught once (one meeting)
     merged = rep1.extra["merged_class_years"]
     folded = merged["rows"] - merged["groups"]
-    assert folded == 13 and rep1.created["meeting_requests"] == rep1.rows_imported - folded == 1511
+    # 1512 since "MDF-516" (row 1406) is read as MDF 516 (owner report 2026-11-02 item 5)
+    assert folded == 13 and rep1.created["meeting_requests"] == rep1.rows_imported - folded == 1512
     assert rep1.created["sections"] > 900
     assert rep1.created["courses"] > 900 and rep1.created["programs"] > 80
     assert rep1.created["instructors"] > 400

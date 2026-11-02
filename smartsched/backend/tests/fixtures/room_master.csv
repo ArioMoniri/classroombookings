@@ -2,8 +2,8 @@
 # capacity: Bahar planning list Sayfa2 + Bahar lecture-week grid headers (Güz headers where Bahar has none);
 # exam_capacity: Final 2026 exam workbook headers. Import: python -m app.cli import room-master <file>
 # owner_faculty: the faculty that alone may book the room (A 201-A 203 = the TIP rooms of the grid headers: Tıp Fakültesi);
-# merged_from: rooms merged into this one (retired; their future bookings move here when free).
-# 2026-11-02 owner changes: B 406 + B 407 merged into B 406 (80 seats, exam 40); D 107 removed (retired);
+# merged_from: rooms merged into this one (retired; their future bookings move here when free); bookable=retired retires a room.
+# 2026-11-02 owner changes: B 406 + B 407 merged into B 406 (80 seats, exam 40); D 107 removed (bookable=retired);
 # D 106 is 60 seats, exam 30. Rooms an earlier master listed and this one does not are retired, never deleted.
 code,capacity,exam_capacity,tags,building,floor,bookable,notes,owner_faculty,merged_from
 A 101,58,30,,A,1,1,,,
@@ -88,6 +88,7 @@ C 606,30,15,,C,6,1,,,
 C z01,30,16,,C,0,1,,,
 C z02,,,,C,0,0,named in definitive rooms only (lab/office); no capacity in any source,,
 D 106,60,30,,D,1,1,"owner 2026-11-02: 60 seats, exam 30 (as the Güz 2026-27 grid header; the Bahar header said 82)",,
+D 107,,,,D,1,retired,"owner 2026-11-02: removed (retired: not bookable, its history is kept)",,
 D 201,,,,D,2,0,named in definitive rooms only (lab/office); no capacity in any source,,
 D 202,,,,D,2,0,named in definitive rooms only (lab/office); no capacity in any source,,
 D 302,,,,D,3,0,named in definitive rooms only (lab/office); no capacity in any source,,

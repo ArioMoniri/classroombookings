@@ -11,7 +11,7 @@ Columns (header row required, order free, ``;`` or ``,`` delimited, UTF-8 with o
   list (``-`` clears it); empty = unchanged.
 * ``building``: building code (``A``); ``floor``: free text (``0`` = ground floor).
 * ``bookable``: ``1/0``, ``yes/no``, ``true/false``, ``evet/hayır``; empty = derived (bookable when the
-  room has a capacity).
+  room has a capacity); ``retired`` (``removed``, ``kaldırıldı``) retires the room (see below).
 * ``owner_faculty`` (optional): the faculty that owns the room (``Tıp Fakültesi``); only its members (and
   administrators) may book it (app/services/room_faculty.py). ``-`` clears it; empty = unchanged.
 * ``merged_from`` (optional): codes of rooms merged into this one (``B 407``), separated like tags. Those rooms are
@@ -23,11 +23,13 @@ import (the workbook value is reported as a warning instead).
 
 The master is the authoritative room list (owner report 2026-11-02 item 1), applied as an idempotent upsert:
 
-* a room an earlier master listed (``custom_fields.master`` set) that this file no longer lists, or a room named in
-  ``merged_from``, is **retired**: not bookable, ``custom_fields.retired`` says why and since when. It is never
-  deleted: bookings, runs and the import history keep pointing at it. Its future bookings are reported (merged
-  rooms: moved first); a later master that lists it again brings it back;
-* rooms only the workbooks know (never in a master) are left alone;
+* a room named in ``merged_from`` or marked ``bookable = retired`` is **retired**: not bookable,
+  ``custom_fields.retired`` says why and since when. It is never deleted: bookings, runs and the import history
+  keep pointing at it. Its future bookings are reported (merged rooms: moved first); a later master that lists it
+  again brings it back;
+* with ``retire_unlisted`` (CLI ``--retire-unlisted``, the deploy seed: the file is the complete list) a room an
+  earlier master listed (``custom_fields.in_master``) that this file no longer lists is retired too; without it a
+  partial file (a one-row correction) retires nothing. Rooms only the workbooks know are always left alone;
 * every ungrouped bookable room joins its building's room group (``A Blok`` ...), so the booking grid and
   "Boş derslik bul" show it (``app/services/room_groups.py``).
 """
@@ -63,6 +65,9 @@ COLUMNS = (
 )
 _TRUE = {"1", "yes", "y", "true", "evet", "e", "x"}
 _FALSE = {"0", "no", "n", "false", "hayır", "hayir", "h"}
+#: ``bookable`` = retired: the room is retired (owner report 2026-11-02: D 107 removed), also on a fresh install where
+#: no earlier master listed it
+_RETIRED = {"retired", "removed", "kaldırıldı", "kaldirildi", "kaldır", "kaldir"}
 
 
 def _bool(value: str | None) -> bool | None:
@@ -141,7 +146,10 @@ def parse_room_master(text: str) -> tuple[list[dict[str, Any]], list[str]]:
                     "tags": _tags(raw.get("tags")),
                     "building": (raw.get("building") or "").strip().upper() or None,
                     "floor": (raw.get("floor") or "").strip() or None,
-                    "bookable": _bool(raw.get("bookable")),
+                    "retire": n.tr_casefold(raw.get("bookable") or "").strip() in _RETIRED,
+                    "bookable": None
+                    if n.tr_casefold(raw.get("bookable") or "").strip() in _RETIRED
+                    else _bool(raw.get("bookable")),
                     "notes": (raw.get("notes") or "").strip() or None,
                     "owner_faculty": (raw.get("owner_faculty") or "").strip() or None,
                     "merged_from": _codes(raw.get("merged_from"), i),
@@ -183,9 +191,13 @@ def read_room_master_text(path: str | Path) -> str:
         return data.decode("cp1254")
 
 
-async def import_room_master(session: AsyncSession, path: str | Path, *, filename: str | None = None) -> ImportReport:
+async def import_room_master(
+    session: AsyncSession, path: str | Path, *, filename: str | None = None, retire_unlisted: bool = False
+) -> ImportReport:
     """Apply a room master (CSV or xlsx, see the module doc) - the CLI ``import room-master`` and
-    ``POST /imports/room-master``."""
+    ``POST /imports/room-master``. ``retire_unlisted``: the file is the complete room list (the deploy seed's
+    ``--retire-unlisted``), so a room an earlier master listed and this one does not is retired; off by default, as a
+    one-row correction file must not retire the other rooms."""
     report = ImportReport(kind="room-master", filename=filename or Path(path).name)
     cap = Limits.from_settings().max_upload_bytes
     if Path(path).stat().st_size > cap:
@@ -204,6 +216,9 @@ async def import_room_master(session: AsyncSession, path: str | Path, *, filenam
         if r["code"] in seen:
             report.warn(f"line {r['line']}: duplicate room {r['code']}; last one wins")
         seen.add(r["code"])
+        if r["retire"]:  # retired below (_retire), never created
+            report.rows_imported += 1
+            continue
         room = await cat.room(r["code"])
         assert room is not None
         fields = dict(room.custom_fields or {})
@@ -249,6 +264,7 @@ async def import_room_master(session: AsyncSession, path: str | Path, *, filenam
             changed = True
         fields.pop("auto_unbookable", None)
         fields["master"] = sorted(master)
+        fields["in_master"] = True  # listed by a room master (retire_unlisted retires it when a later one does not)
         fields["capacity_source"] = f"room-master:{report.filename}"
         if fields != (room.custom_fields or {}):
             room.custom_fields = fields
@@ -256,7 +272,8 @@ async def import_room_master(session: AsyncSession, path: str | Path, *, filenam
         if changed:
             report.updated["rooms"] += 1
         report.rows_imported += 1
-    await _retire(session, report, rows, seen)
+    retire = {r["code"] for r in rows if r["retire"]}
+    await _retire(session, report, rows, seen - retire, retire, retire_unlisted)
     from app.services.room_groups import groups_from_buildings
 
     groups = await groups_from_buildings(session, bookable_only=True)
@@ -269,9 +286,17 @@ async def import_room_master(session: AsyncSession, path: str | Path, *, filenam
     return report
 
 
-async def _retire(session: AsyncSession, report: ImportReport, rows: list[dict[str, Any]], listed: set[str]) -> None:
-    """Retire the rooms the master no longer lists (and the rooms merged into a listed one); move or report their
-    future bookings. Idempotent: an already retired room is not touched again."""
+async def _retire(
+    session: AsyncSession,
+    report: ImportReport,
+    rows: list[dict[str, Any]],
+    listed: set[str],
+    removed: set[str],
+    unlisted: bool,
+) -> None:
+    """Retire the rooms the master no longer lists, the rooms it marks ``retired`` (``removed``) and the rooms merged
+    into a listed one; move or report their future bookings. Idempotent: an already retired room is not touched
+    again."""
     from app.services import bookings as bsvc
 
     merged_into: dict[str, str] = {}
@@ -291,12 +316,12 @@ async def _retire(session: AsyncSession, report: ImportReport, rows: list[dict[s
             continue
         fields = dict(room.custom_fields or {})
         into = merged_into.get(code)
-        if into is None and "master" not in fields:
-            continue  # never in a master: a workbook-only room, left alone
+        if into is None and code not in removed and not (unlisted and fields.get("in_master")):
+            continue  # not retired by this file (a workbook-only room, or a partial master)
         already = fields.get("retired")
         if not already:
             fields["retired"] = {
-                "reason": "merged" if into else "not_listed",
+                "reason": "merged" if into else "removed" if code in removed else "not_listed",
                 "into": into,
                 "since": today.isoformat(),
                 "source": report.filename,

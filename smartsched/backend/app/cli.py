@@ -85,7 +85,7 @@ async def _import(session: Any, args: argparse.Namespace, files: list[Path]) -> 
     if args.what == "room-master":
         from app.importers.room_master import import_room_master
 
-        return await import_room_master(session, args.file)
+        return await import_room_master(session, args.file, retire_unlisted=args.retire_unlisted)
     if args.what == "crbs":
         from app.importers.crbs_legacy import import_crbs
 
@@ -321,6 +321,11 @@ def build_parser() -> argparse.ArgumentParser:
         "merged_from]",
     )
     rm.add_argument("file")
+    rm.add_argument(
+        "--retire-unlisted",
+        action="store_true",
+        help="the file is the complete room list: retire rooms an earlier master listed and this one does not",
+    )
     cr = imp_sub.add_parser("crbs")
     cr.add_argument("files", nargs="*", help="SQL dump files (structure.sql data.sql …)")
     cr.add_argument("--dsn", default=None, help="mysql://user:pass@host/db")

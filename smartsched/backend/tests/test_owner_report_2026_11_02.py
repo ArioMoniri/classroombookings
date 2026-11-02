@@ -59,10 +59,12 @@ async def _free_period(env, codes: list[str], day: date) -> str:  # type: ignore
     return await _session_do(find)
 
 
-async def _apply_master(text: str, tmp_path: Path, name: str = "room_master.csv") -> ImportReport:
+async def _apply_master(
+    text: str, tmp_path: Path, name: str = "room_master.csv", *, retire_unlisted: bool = False
+) -> ImportReport:
     path = tmp_path / name
     path.write_text(text, encoding="utf-8")
-    return await _session_do(lambda s: import_room_master(s, path))
+    return await _session_do(lambda s: import_room_master(s, path, retire_unlisted=retire_unlisted))
 
 
 def _master_text(drop: tuple[str, ...] = (), merged: dict[str, str] | None = None) -> str:
@@ -83,7 +85,8 @@ def test_fixture_room_master_carries_the_owner_changes() -> None:
     rows, errors = parse_room_master(MASTER.read_text(encoding="utf-8"))
     assert errors == []
     by = {r["code"]: r for r in rows}
-    assert "B407" not in by and "D107" not in by  # merged / removed: not listed any more
+    assert "B407" not in by  # merged into B 406: not listed any more
+    assert by["D107"]["retire"] is True and by["D107"]["bookable"] is None  # removed: listed as retired
     assert (by["B406"]["capacity"], by["B406"]["exam_capacity"], by["B406"]["merged_from"]) == (80, 40, ["B407"])
     assert (by["D106"]["capacity"], by["D106"]["exam_capacity"]) == (60, 30)
     assert {c for c, r in by.items() if r["owner_faculty"]} == {"A201", "A202", "A203"}
@@ -97,7 +100,8 @@ async def test_room_master_upsert_retires_merges_and_is_idempotent(env, tmp_path
     every bookable room is in its building's group; Tıp owns A 201-A 203."""
     before = _master_text(drop=()).replace(",,B 407\n", ",,\n")  # the earlier master: no merge yet
     before = before.replace("B 406,80,40", "B 406,30,22").replace("D 106,60,30", "D 106,82,36")
-    before += "B 407,30,22,,B,4,1,,,\nD 107,20,10,,D,1,1,,,\n"
+    before = before.replace("D 107,,,,D,1,retired,", "D 107,20,10,,D,1,1,")
+    before += "B 407,30,22,,B,4,1,,,\n"
     first = await _apply_master(before, tmp_path, "earlier.csv")
     assert first.extra["rooms_retired"] == []
     _, teacher = await env.user("ogretim.elemani.b407@uni.edu.tr")
@@ -119,7 +123,7 @@ async def test_room_master_upsert_retires_merges_and_is_idempotent(env, tmp_path
         assert (rooms["D106"].capacity, rooms["D106"].exam_capacity) == (60, 30)
         for code in ("B407", "D107"):  # retired, kept
             assert rooms[code].is_bookable is False
-            assert rooms[code].custom_fields["retired"]["reason"] == ("merged" if code == "B407" else "not_listed")
+            assert rooms[code].custom_fields["retired"]["reason"] == ("merged" if code == "B407" else "removed")
         assert rooms["B407"].custom_fields["retired"]["into"] == "B406"
         b = await s.get(Booking, future.json()["id"])
         assert b.room_id == rooms["B406"].id
@@ -156,10 +160,45 @@ async def test_merge_reports_a_booking_it_cannot_move(env, tmp_path):  # noqa: F
     assert (await _session_do(lambda s: s.get(Room, env.rooms["A109"]))).is_bookable is True
 
 
+async def test_a_room_the_master_stops_listing_is_retired(env, tmp_path):  # noqa: F811
+    """The deploy seed's ``--retire-unlisted``: the file is the complete list, a room it stops listing is retired."""
+    await _apply_master(MASTER.read_text(encoding="utf-8"), tmp_path)
+    partial = await _apply_master(_master_text(drop=("C 606",)), tmp_path)  # without the flag: nothing retired
+    assert partial.extra["rooms_retired"] == []
+    report = await _apply_master(_master_text(drop=("C 606",)), tmp_path, retire_unlisted=True)
+    assert report.extra["rooms_retired"] == ["C606"]
+    room = await _session_do(lambda s: s.get(Room, env.rooms["C606"]))
+    assert room.is_bookable is False and room.custom_fields["retired"]["reason"] == "not_listed"
+
+
+async def test_fresh_install_retires_d107_from_the_master_row(env, tmp_path):  # noqa: F811
+    """A database where no earlier master listed D 107 (a fresh install; a workbook named it): the row's
+    bookable=retired retires it."""
+
+    async def workbook_room(s):  # type: ignore[no-untyped-def]
+        room = (await s.execute(select(Room).where(Room.code == "D107"))).scalar_one_or_none()
+        if room is None:
+            room = Room(code="D107", display_name="D 107", capacity=20, exam_capacity=10, custom_fields={})
+            s.add(room)
+            await s.flush()
+        assert "master" not in (room.custom_fields or {})
+        return room.id
+
+    rid = await _session_do(workbook_room)
+    report = await _apply_master(MASTER.read_text(encoding="utf-8"), tmp_path)
+    assert "D107" in report.extra["rooms_retired"]
+    room = await _session_do(lambda s: s.get(Room, rid))
+    assert room.is_bookable is False and room.custom_fields["retired"]["reason"] == "removed"
+
+
 async def test_workbook_only_rooms_are_not_retired(env, tmp_path):  # noqa: F811
     """A room no master ever listed (only a workbook names it) is left alone by a master that does not list it."""
-    report = await _apply_master("code,capacity\nA 101,58\n", tmp_path)
+    report = await _apply_master("code,capacity\nA 101,58\n", tmp_path, retire_unlisted=True)
     assert report.extra["rooms_retired"] == []
+    # a one-row correction file (no flag, the upload default) retires none of the master's other rooms
+    await _apply_master(MASTER.read_text(encoding="utf-8"), tmp_path)
+    one = await _apply_master("code;capacity\nD 106;60\n", tmp_path)
+    assert one.extra["rooms_retired"] == [] and one.warnings == []
     assert (await _session_do(lambda s: s.get(Room, env.rooms["A102"]))).is_bookable is True
 
 
