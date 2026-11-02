@@ -4821,6 +4821,26 @@
       "status": "finished",
       "finished_at": "2026-11-02 19:27",
       "left_off": "yes link the final pano automatically too"
+    },
+    {
+      "id": "a0154a5a8cd630afa",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-11-02 20:25",
+      "left_off": "yes do the final pano auto-link too"
+    },
+    {
+      "id": "a6b0d9d85a487cad5",
+      "description": "AI not working + admin reset",
+      "subagent_type": "ai-engineer",
+      "isolation": null,
+      "started_at": "2026-11-02 20:46",
+      "scope": "",
+      "goal": "Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (do NOT commit or push; I integrate). SmartSched backend in smartsched/backend (venv .venv), frontend smartsched/frontend. Live deploy is on an AWS pod at https://98-86-98-164.sslip.io (institution profile; deployed by pod CI fro…",
+      "ledger": "AI not working + admin reset",
+      "resumed": false,
+      "status": "running"
     }
   ]
 }
