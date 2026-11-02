@@ -4600,7 +4600,7 @@
       "description": "Read pod logs and summarize",
       "subagent_type": "general-purpose",
       "status": "finished",
-      "finished_at": "2026-11-02 18:03",
+      "finished_at": "2026-11-02 20:47",
       "isolation": null,
       "started_at": "2026-10-19 21:12",
       "scope": "",
