@@ -130,3 +130,25 @@ def test_ci_upgrade_is_a_known_command_without_flags(tmp_path: Path) -> None:
 def test_stack_restart_is_an_allowed_pod_action(tmp_path) -> None:  # type: ignore[no-untyped-def]
     code, vals, _log = resolve(tmp_path, "stack-restart pod=gracious 2026-10-20T11:10Z")
     assert code == 0 and vals["command"] == "stack-restart" and flags(tmp_path) == []
+
+
+def test_admin_reset_is_an_allowed_pod_action_without_flags(tmp_path: Path) -> None:
+    code, vals, log = resolve(tmp_path, "admin-reset pod=gracious 2026-11-02T18:00Z")
+    assert code == 0, log
+    assert vals["command"] == "admin-reset" and vals["pod"] == "gracious" and flags(tmp_path) == []
+
+
+def test_admin_reset_takes_only_the_account(tmp_path: Path) -> None:
+    code, _vals, log = resolve(tmp_path, "admin-reset admin=umutk@getvivax.com org=X 2026-11-02T18:00Z")
+    assert code == 0, log
+    assert flags(tmp_path) == ["--admin-email", "umutk@getvivax.com"]
+
+
+def test_admin_reset_refuses_a_strange_account(tmp_path: Path) -> None:
+    code, _, log = resolve(tmp_path, "admin-reset admin='a@b.c;reboot' 2026-11-02T18:00Z")
+    assert code == 1 and "plain e-mail" in log, log
+
+
+def test_admin_reset_flags_reach_the_command() -> None:
+    text = WORKFLOW.read_text()
+    assert '[ "$POD_COMMAND" = "admin-reset" ]' in text

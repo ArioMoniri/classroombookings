@@ -6,10 +6,12 @@ until an admin routes the ``helper`` feature to a model. First the admin's ``ai.
 ``enabled: false`` (the client hides the helper; ``reason`` ``disabled`` / ``audience_off``), and ``mode: index``
 gives ``reason: index_mode``. Then AI mode needs all of:
 
-1. an explicit ``helper`` route set by an admin (``ai.routes.features.helper``; the institution's default route does
-   not count, so a fresh install or an existing AI setup never starts sending helper turns by itself);
+1. an explicit ``helper`` route (``ai.routes.features.helper``; the institution's default route does not count). Since
+   2026-11-02 saving a key in the panel or at deploy time writes it when missing (:mod:`app.ai.activation`);
 2. the routed provider usable (enabled, credentials present);
-3. the person's ``ai_personal`` consent (the helper is a personal feature; withdrawing it also clears the notes);
+3. the person's ``ai_personal`` consent (the helper is a personal feature; withdrawing it also clears the notes); with
+   the admin's ``kvkk.ai_personal_default = included`` a person who never withdrew it counts too
+   (:func:`app.services.kvkk.ai_personal_ok`; the default ``excluded`` needs an active grant);
 4. the turn loop deployed (``POST /helper/turn``, HB-06, lane HB-B).
 
 Otherwise ``mode`` is ``index`` and ``reason`` says which step is missing. The provider name comes from the routing
@@ -113,7 +115,7 @@ async def helper_status(session: AsyncSession, user_id: int, *, turn_available: 
     reason = await routing_reason(session)
     if reason is not None:
         return off(reason)
-    if not await kvkk.has_consent(session, user_id, "ai_personal"):
+    if not await kvkk.ai_personal_ok(session, user_id):
         return off("consent_missing")
     if not turn_available:
         return off("turn_unavailable")

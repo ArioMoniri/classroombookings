@@ -934,3 +934,105 @@ def test_stack_restart_script_brings_back_the_last_good_deploy_without_building(
     assert "systemctl restart smartsched-stack.service" in script  # stack-up.sh: compose up -d --no-build
     assert "deploy.sh" not in script and "compose build" not in script and "docker build" not in script
     assert "docker logs --tail 25" in script and "OOMKilled" in script
+
+
+# ---- admin-reset (owner request 2026-11-02): the new password goes to SSM only -------------------------------------
+SECRET_PW = "Q7wErTy12345UiOpAsDf6789"
+
+
+def test_admin_reset_script_pipes_the_cli_into_ssm_and_never_echoes_the_value() -> None:
+    script = sa.pod_admin_reset_script("umutk@getvivax.com")
+    assert script.startswith("set -u")
+    assert "email=umutk@getvivax.com" in script
+    assert "docker exec smartsched-backend-1 python -m app.cli reset-admin-password --email \"$email\" |" in script
+    assert "PYTHONPATH=/opt/smartsched-ci" in script and f"{sa.SSM_PREFIX}" in script
+    assert "put_param(\"admin_password\", pw, True)" in script
+    assert "print(pw" not in script and "echo \"$pw" not in script and "set -x" not in script
+    assert subprocess.run(["sh", "-n", "-c", script]).returncode == 0  # dash / POSIX syntax
+
+
+def test_admin_reset_script_reads_the_account_from_ssm_by_default() -> None:
+    script = sa.pod_admin_reset_script()
+    assert "email=''" in script
+    assert "admin_email" in script and "decrypt=False" in script
+
+
+@pytest.mark.parametrize("bad", ["a@b.c;reboot", "$(id)@x.tr", "x y@z.tr", "no-at-sign", "a@b"])
+def test_admin_reset_refuses_an_odd_account(bad: str) -> None:
+    with pytest.raises(sa.BootstrapError, match="plain e-mail"):
+        sa.pod_admin_reset_script(bad)
+
+
+def _writer(tmp_path: Any, stdin: str, fail: bool = False) -> tuple[subprocess.CompletedProcess[str], Any]:
+    """Run the pod-side writer with a fake podci.cloud that records the put."""
+    import sys
+
+    pkg = tmp_path / "podci"
+    pkg.mkdir(exist_ok=True)
+    (pkg / "__init__.py").write_text("")
+    store = tmp_path / "stored.json"
+    (pkg / "cloud.py").write_text(
+        "import json\n"
+        "class Cloud:\n"
+        "    def __init__(self, prefix, alarm):\n"
+        "        self.prefix = prefix\n"
+        "    def put_param(self, name, value, secure):\n"
+        f"        {'raise RuntimeError()' if fail else 'pass'}\n"
+        f"        open({str(store)!r}, 'w').write(json.dumps([self.prefix, name, value, secure]))\n")
+    r = subprocess.run([sys.executable, "-c", sa._ADMIN_RESET_WRITER, "/smartsched"], input=stdin, text=True,
+                       capture_output=True, env={"PYTHONPATH": str(tmp_path), "PATH": "/usr/bin:/bin"})
+    return r, store
+
+
+def test_admin_reset_writer_stores_the_password_and_prints_only_where(tmp_path: Any) -> None:
+    r, store = _writer(tmp_path, SECRET_PW + "\n")
+    assert r.returncode == 0, r.stderr
+    assert json.loads(store.read_text()) == ["/smartsched", "admin_password", SECRET_PW, True]
+    assert SECRET_PW not in r.stdout + r.stderr and "/smartsched/admin_password" in r.stdout
+
+
+@pytest.mark.parametrize("stdin", ["", "\n", "not a password!\n"])
+def test_admin_reset_writer_refuses_an_empty_or_odd_input(tmp_path: Any, stdin: str) -> None:
+    r, store = _writer(tmp_path, stdin)
+    assert r.returncode == 1 and not store.exists() and "SSM not changed" in r.stdout
+
+
+def test_admin_reset_writer_reports_an_ssm_failure_without_the_value(tmp_path: Any) -> None:
+    r, _ = _writer(tmp_path, SECRET_PW + "\n", fail=True)
+    assert r.returncode == 1 and "run admin-reset again" in r.stdout and SECRET_PW not in r.stdout + r.stderr
+
+
+def test_admin_reset_runs_on_the_pod_and_points_to_ssm(aws: StubAws) -> None:
+    aws.stub("ec2").add_response("describe_instances", {"Reservations": [{"Instances": [instance("running")]}]})
+    ssm = aws.stub("ssm")
+    script = sa.pod_admin_reset_script("umutk@getvivax.com")
+    ssm.add_response("send_command", {"Command": {"CommandId": "0b7a3c1e-1f2d-4e5a-9b8c-7d6e5f4a3b21"}},
+                     {"InstanceIds": ["i-0123456789abcdef0"], "DocumentName": "AWS-RunShellScript",
+                      "TimeoutSeconds": 60, "Parameters": {"commands": [script], "executionTimeout": ["180"]},
+                      "Comment": ANY})
+    ssm.add_client_error("get_command_invocation", service_error_code="InvocationDoesNotExist")
+    ssm.add_response("get_command_invocation", {
+        "Status": "Success",
+        "StandardOutputContent": "admin-reset: account umutk@getvivax.com\n"
+                                 "admin-reset: stored in SSM /smartsched/admin_password (SecureString)\n",
+        "StandardErrorContent": "reset-admin-password: umutk@getvivax.com (user 1): new password set\n"})
+    out = sa.cmd_admin_reset(aws, sa.Settings(region="us-east-1"), "umutk@getvivax.com", sleep=lambda _s: None)
+    aws.assert_done()
+    assert out["status"] == "Success"
+    assert out["read_admin_password"] == sa.read_password_hint("us-east-1")
+    assert "--with-decryption" in out["read_admin_password"] and SECRET_PW not in json.dumps(out)
+
+
+def test_admin_reset_failure_is_an_error(aws: StubAws) -> None:
+    aws.stub("ec2").add_response("describe_instances", {"Reservations": [{"Instances": [instance("running")]}]})
+    ssm = aws.stub("ssm")
+    ssm.add_response("send_command", {"Command": {"CommandId": "0b7a3c1e-1f2d-4e5a-9b8c-7d6e5f4a3b21"}})
+    ssm.add_response("get_command_invocation", {"Status": "Failed", "StandardOutputContent":
+                                                "admin-reset: nothing received from the backend (see above); "
+                                                "SSM not changed\n", "StandardErrorContent": ""})
+    with pytest.raises(sa.BootstrapError, match="admin-reset Failed"):
+        sa.cmd_admin_reset(aws, sa.Settings(region="us-east-1"), sleep=lambda _s: None)
+
+
+def test_admin_reset_is_a_cli_command() -> None:
+    assert "admin-reset" in sa.build_parser()._actions[1].choices  # type: ignore[attr-defined]

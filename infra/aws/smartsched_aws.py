@@ -1569,6 +1569,89 @@ def cmd_stack_restart(aws: Aws, s: Settings, sleep: Callable[[float], None] = ti
     raise BootstrapError("stack restart still running after 300 s; read `logs`")
 
 
+#: an administrator e-mail allowed into the admin-reset script (it is quoted as well; this keeps it a plain address)
+ADMIN_EMAIL_RX = re.compile(r"^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})+$")
+
+#: reads stdin (the CLI's stdout: the new password alone), stores it as the SecureString {prefix}/admin_password with
+#: the pod's own code (podci.cloud, instance role) and prints only where it went (never the value).
+_ADMIN_RESET_WRITER = """\
+import re, sys
+from podci.cloud import Cloud
+lines = [x.strip() for x in sys.stdin.read().splitlines() if x.strip()]
+pw = lines[-1] if lines else ""
+if not re.fullmatch(r"[A-Za-z0-9]{16,128}", pw):
+    print("admin-reset: nothing received from the backend (see above); SSM not changed")
+    sys.exit(1)
+try:
+    Cloud(sys.argv[1], "").put_param("admin_password", pw, True)
+except Exception as exc:
+    print("admin-reset: the account WAS reset but SSM refused the new value (" + type(exc).__name__ + "); "
+          "run admin-reset again")
+    sys.exit(1)
+print("admin-reset: stored in SSM " + sys.argv[1] + "/admin_password (SecureString)")
+"""
+
+
+def pod_admin_reset_script(email: str | None = None) -> str:
+    """The SSM script of ``admin-reset``: ``python -m app.cli reset-admin-password`` inside the running backend
+    container, its stdout (the new password, nothing else) piped straight into SSM {prefix}/admin_password. The value
+    never reaches this script's output, the SSM command output or the GitHub log. ``email``: the account (default:
+    SSM {prefix}/admin_email, then the container's ADMIN_EMAIL)."""
+    if email is not None and not ADMIN_EMAIL_RX.fullmatch(email):
+        raise BootstrapError("admin-reset: admin= must be a plain e-mail address")
+    pyenv = "PYTHONPATH=/opt/smartsched-ci PYTHONDONTWRITEBYTECODE=1"
+    read_email = ("import sys; from podci.cloud import Cloud; "
+                  "print(Cloud(sys.argv[1], \"\").get_param(\"admin_email\", decrypt=False) or \"\")")
+    return "\n".join([
+        "set -u",  # SSM runs the script with /bin/sh (dash): no pipefail; the writer refuses an empty input
+        "umask 077",
+        f"email={shlex.quote(email or '')}",
+        f"if [ -z \"$email\" ]; then email=$(env {pyenv} python3 -c {shlex.quote(read_email)} "
+        f"{shlex.quote(SSM_PREFIX)} 2>/dev/null || true); fi",
+        "case \"$email\" in *@*) echo \"admin-reset: account $email\" ;; *) echo 'admin-reset: no admin e-mail "
+        f"(admin=<e-mail> on the POD_ACTION line, or SSM {SSM_PREFIX}/admin_email)'; exit 1 ;; esac",
+        "if [ \"$(docker inspect -f '{{.State.Running}}' smartsched-backend-1 2>/dev/null)\" != true ]; then"
+        " echo 'admin-reset: the backend container is not running (stack-restart first)'; exit 1; fi",
+        # stdout of the CLI = the password only -> the writer's stdin; its stderr (what was done) -> this output
+        "docker exec smartsched-backend-1 python -m app.cli reset-admin-password --email \"$email\""
+        f" | env {pyenv} python3 -c {shlex.quote(_ADMIN_RESET_WRITER)} {shlex.quote(SSM_PREFIX)}",
+    ])
+
+
+def cmd_admin_reset(aws: Aws, s: Settings, email: str | None = None,
+                    sleep: Callable[[float], None] = time.sleep) -> dict[str, Any]:
+    """Reset the main administrator's password on the pod; the new value lands in SSM {prefix}/admin_password only."""
+    script = pod_admin_reset_script(email)
+    insts = [i for i in find_instances(aws) if i["State"]["Name"] == "running"]
+    if not insts:
+        raise BootstrapError("no running pod instance (start it first)")
+    iid = insts[0]["InstanceId"]
+    ssm = aws.client("ssm")
+    cmd = ssm.send_command(InstanceIds=[iid], DocumentName="AWS-RunShellScript", TimeoutSeconds=60,
+                           Parameters={"commands": [script], "executionTimeout": ["180"]},
+                           Comment="smartsched admin password reset (value to SSM only)")
+    command_id = cmd["Command"]["CommandId"]
+    for _ in range(40):
+        sleep(5)
+        try:
+            inv = ssm.get_command_invocation(CommandId=command_id, InstanceId=iid)
+        except Exception as exc:  # InvocationDoesNotExist right after send_command
+            if error_code(exc) == "InvocationDoesNotExist":
+                continue
+            raise
+        if inv["Status"] in ("Pending", "InProgress", "Delayed"):
+            continue
+        text = (inv.get("StandardOutputContent") or "") + (inv.get("StandardErrorContent") or "")
+        lines = [LOG_REDACT.sub(lambda m: (m.group(1) + " [redacted]") if m.group(1) else "[redacted]", line)
+                 for line in text.splitlines()][-60:]
+        if inv["Status"] != "Success":
+            raise BootstrapError(f"admin-reset {inv['Status']}:\n" + "\n".join(lines))
+        hint = read_password_hint(s.region)
+        log(f"admin password reset; read it with: {hint}")
+        return {"instance_id": iid, "status": inv["Status"], "output": lines, "read_admin_password": hint}
+    raise BootstrapError("admin-reset still running after 200 s; read `logs`")
+
+
 def _delete_role(iam: Any, name: str, profile: str | None = None) -> None:
     if profile:
         try:
@@ -1744,7 +1827,7 @@ def build_parser() -> argparse.ArgumentParser:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["up", "status", "logs", "stop", "start", "down", "cost", "plan", "preflight",
                                        "put-github-token", "render-user-data", "resize", "ci-upgrade",
-                                       "stack-restart"])
+                                       "stack-restart", "admin-reset"])
     p.add_argument("--region", default=None,
                    help=f"AWS region, or 'auto' = cheaper of {'/'.join(NEAR_TURKIYE)} (default: $AWS_REGION, "
                         f"$AWS_DEFAULT_REGION, else {DEFAULT_REGION})")
@@ -1867,6 +1950,10 @@ def main(argv: list[str] | None = None) -> int:
             emit(cmd_ci_upgrade(aws, s), a)
         elif a.command == "stack-restart":
             emit(cmd_stack_restart(aws, s), a)
+        elif a.command == "admin-reset":
+            words = argv if argv is not None else sys.argv[1:]
+            given = any(x == "--admin-email" or x.startswith("--admin-email=") for x in words)
+            emit(cmd_admin_reset(aws, s, a.admin_email if given else None), a)
         elif a.command == "stop":
             emit({"stopped": cmd_stop(aws)}, a)
         elif a.command == "start":
