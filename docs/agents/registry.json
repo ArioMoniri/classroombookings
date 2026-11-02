@@ -4840,7 +4840,8 @@
       "goal": "Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (do NOT commit or push; I integrate). SmartSched backend in smartsched/backend (venv .venv), frontend smartsched/frontend. Live deploy is on an AWS pod at https://98-86-98-164.sslip.io (institution profile; deployed by pod CI fro…",
       "ledger": "AI not working + admin reset",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-11-02 21:13"
     },
     {
       "id": "a95477b4094b5e816",
@@ -4849,6 +4850,14 @@
       "status": "finished",
       "finished_at": "2026-11-02 20:47",
       "left_off": "it's the github repo secret AI_API_KEY"
+    },
+    {
+      "id": "a7a22e2e98811bd3b",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-11-02 20:52",
+      "left_off": "is deploy done now"
     }
   ]
 }

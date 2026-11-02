@@ -200,6 +200,12 @@ async def update_settings(body: SettingsUpdate, db: DB, user: Admin) -> dict[str
 
             value = json.dumps(value)
         await ss.set_value(db, key, value)
+    if data.get("anthropic_api_key"):
+        # owner 2026-11-02: a saved key switches the AI on for every user (app/ai/activation.py)
+        from app.ai import activation
+
+        await activation.activate(db, actor=user, reason="key saved in Settings > AI")
+        await db.commit()
     return await _view(db)
 
 

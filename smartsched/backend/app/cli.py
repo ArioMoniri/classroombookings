@@ -135,6 +135,42 @@ async def _seed(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _reset_admin_password(args: argparse.Namespace) -> int:
+    """Owner request 2026-11-02 (app/services/admin_password_reset.py): the new password is the ONLY thing written to
+    stdout (one line, for a pipe into SSM); everything else goes to stderr. Exit 2 when the account is refused."""
+    import os
+
+    from app.services.admin_password_reset import ResetRefused, reset_admin_password
+
+    email = (args.email or os.environ.get("ADMIN_EMAIL") or "").strip()
+    if not email:
+        print("reset-admin-password: pass --email (or set ADMIN_EMAIL)", file=sys.stderr)
+        return 2
+    configure_engine(args.database_url or get_settings().database_url)
+    async with get_session_factory()() as session:
+        try:
+            res = await reset_admin_password(session, email, force_change=not args.no_force_change)
+        except ResetRefused as exc:
+            print(f"reset-admin-password: refused: {exc}", file=sys.stderr)
+            return 2
+    print(
+        f"reset-admin-password: {res.email} (user {res.user_id}): new password set"
+        f"{', change required at the next sign-in' if res.force_change else ''}; {res.sessions_revoked} session(s) "
+        f"and {res.devices_revoked} remembered device(s) ended"
+        f"{'; second-factor lockout cleared' if res.mfa_lock_cleared else ''}; audited (auth.password_reset_cli)",
+        file=sys.stderr,
+    )
+    if res.auth_source != "local":
+        print(
+            f"reset-admin-password: note: the account signs in through {res.auth_source}; the local password "
+            "applies when that directory is off or unreachable",
+            file=sys.stderr,
+        )
+    sys.stdout.write(res.password + "\n")
+    sys.stdout.flush()
+    return 0
+
+
 async def _crbs_upgrade(args: argparse.Namespace) -> int:
     """P18-LEGACY: dry run (default) or ``--commit --fingerprint <dry run's>``; prints the JSON report."""
     from app.services import crbs_upgrade as up
@@ -345,6 +381,13 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--label", default=None)
     sv.add_argument("--solver", default="auto", choices=["auto", "cpsat"])
     sub.add_parser("seed-admin", help="create the admin user from ADMIN_EMAIL/ADMIN_PASSWORD")
+    rap = sub.add_parser(
+        "reset-admin-password",
+        help="set a new random password on an administrator account (printed on stdout only), end its sessions, "
+        "clear its lockout, require a change at the next sign-in",
+    )
+    rap.add_argument("--email", default=None, help="the administrator's e-mail (default: $ADMIN_EMAIL)")
+    rap.add_argument("--no-force-change", action="store_true", help="do not require a new password at the next sign-in")
     upg = sub.add_parser(
         "crbs-upgrade", help="upgrade a legacy classroombookings database: dry-run diff, then --commit --fingerprint"
     )
@@ -392,6 +435,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_run_solve(args))
     if args.cmd == "seed-admin":
         return asyncio.run(_seed(args))
+    if args.cmd == "reset-admin-password":
+        return asyncio.run(_reset_admin_password(args))
     if args.cmd == "crbs-upgrade":
         return asyncio.run(_crbs_upgrade(args))
     return 1

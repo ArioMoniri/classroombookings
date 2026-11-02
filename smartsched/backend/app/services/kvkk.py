@@ -843,6 +843,19 @@ async def has_consent(session: AsyncSession, user_id: int, purpose: str) -> bool
     return (await session.execute(q.limit(1))).first() is not None
 
 
+async def ai_personal_ok(session: AsyncSession, user_id: int) -> bool:
+    """May the person's own requests go to the AI (the helper's consent gate)? An active ``ai_personal`` grant, or,
+    with the admin's ``kvkk.ai_personal_default = included``, never having withdrawn it. With the default
+    ``excluded`` (owner decision 2026-10-17) only an active grant counts: silence is not consent."""
+    if await has_consent(session, user_id, "ai_personal"):
+        return True
+    if await ai_personal_default(session) != "included":
+        return False
+    q = select(Consent.withdrawn_at).where(Consent.user_id == user_id, Consent.purpose == "ai_personal")
+    latest = (await session.execute(q.order_by(Consent.id.desc()).limit(1))).first()
+    return latest is None or latest[0] is None
+
+
 def consent_required_error(purpose: str) -> KvkkError:
     tr, en = PURPOSES[purpose]
     return KvkkError(
