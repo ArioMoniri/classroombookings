@@ -4841,6 +4841,14 @@
       "ledger": "AI not working + admin reset",
       "resumed": false,
       "status": "running"
+    },
+    {
+      "id": "a95477b4094b5e816",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-11-02 20:47",
+      "left_off": "it's the github repo secret AI_API_KEY"
     }
   ]
 }
