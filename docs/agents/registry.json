@@ -4885,7 +4885,16 @@
       "goal": "Repo /home/user/classroombookings, branch claude/focused-wright-ktt0ss (HEAD includes the commits under test). Do NOT commit or push; I integrate. SmartSched: backend smartsched/backend (.venv), frontend smartsched/frontend (Playwright e2e in e2e/, helpers in e2e/helpers.ts; the pod's e2e stack is s…",
       "ledger": "Fix gracious #161 e2e failures",
       "resumed": false,
-      "status": "running"
+      "status": "finished",
+      "finished_at": "2026-11-03 00:49"
+    },
+    {
+      "id": "ac93f98f20587850e",
+      "description": "",
+      "subagent_type": "",
+      "status": "finished",
+      "finished_at": "2026-11-02 22:42",
+      "left_off": "is it deployed now"
     }
   ]
 }

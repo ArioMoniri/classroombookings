@@ -27,15 +27,18 @@ a department of a section they teach, or holders of ``calendar.department_feed``
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import insert, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
@@ -416,18 +419,55 @@ def _row_values(o: ClassOccurrence) -> dict[str, Any]:
     }
 
 
+#: tries of one refresh that lost a race to a concurrent one (the loser re-reads what the winner stored)
+REFRESH_TRIES = 3
+
+
+def lost_race(exc: Exception) -> bool:
+    """A concurrent refresh stored the same rows first: the unique ``uid`` (IntegrityError), or on SQLite the write of
+    a transaction whose read snapshot is older than the winner's commit ("database is locked" at once: WAL's
+    SQLITE_BUSY_SNAPSHOT, which the busy timeout does not wait out)."""
+    if isinstance(exc, IntegrityError):
+        return True
+    return isinstance(exc, OperationalError) and "locked" in str(exc.orig or exc).lower()
+
+
+async def retry_lost_race[T](session: AsyncSession, attempt: Callable[[], Awaitable[T]]) -> T:
+    """Run ``attempt`` (a refresh that may write and commit) and run it again after it lost a race (:func:`lost_race`).
+
+    The rollback in between expires every object of the session, also the caller's (the request's user, the term and
+    the run being refreshed), and an expired attribute cannot lazy-load under asyncio: the next ``term.id`` raised
+    ``MissingGreenlet`` from ``create_cursor`` and the request answered 500 (pod CI run #161, ``GET
+    /calendar/export/options`` while the calendar sheet asked twice). So the objects the session held before the
+    attempt are reloaded after the rollback; the rows the attempt itself loaded are not needed again."""
+    sync = session.sync_session
+    held = [o for o in sync.identity_map.values() if not isinstance(o, CalendarClassRevision)]
+    for n_try in range(1, REFRESH_TRIES + 1):
+        try:
+            return await attempt()
+        except (IntegrityError, OperationalError) as exc:
+            if not lost_race(exc):
+                raise
+            await session.rollback()
+            if n_try == REFRESH_TRIES:
+                raise
+            for obj in held:
+                state = sa_inspect(obj, raiseerr=False)
+                if state is not None and state.persistent:
+                    try:
+                        await session.refresh(obj)
+                    except InvalidRequestError:  # deleted meanwhile: the caller's own lookups decide
+                        sync.expunge(obj)
+            await asyncio.sleep(0.05 * n_try)
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 async def refresh_term(session: AsyncSession, term: Term, run: ScheduleRun) -> TermSnapshot:
     """Compare the published plan of ``term`` with its stored revisions and persist the differences (new rows at
     SEQUENCE 0, changed fingerprints +1, vanished occurrences ended +1, returning ones re-opened +1). Commits when
-    something changed; a concurrent refresh that stored the same rows first wins (the refresh then runs again)."""
-    for attempt in (1, 2):
-        try:
-            return await _refresh_term(session, term, run)
-        except IntegrityError:
-            await session.rollback()
-            if attempt == 2:
-                raise
-    raise AssertionError("unreachable")  # pragma: no cover
+    something changed; a concurrent refresh that stored the same rows first wins (the refresh then runs again,
+    :func:`retry_lost_race`)."""
+    return await retry_lost_race(session, lambda: _refresh_term(session, term, run))
 
 
 async def _refresh_term(session: AsyncSession, term: Term, run: ScheduleRun) -> TermSnapshot:

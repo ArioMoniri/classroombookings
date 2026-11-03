@@ -440,6 +440,24 @@ const sentence = (m: string) => {
   const s = m.trim().charAt(0).toLocaleUpperCase("tr-TR") + m.trim().slice(1);
   return /[.!?]$/.test(s) ? s : `${s}.`;
 };
+/**
+ * The first two-period window of `day` (then single periods) in which `token`'s user finds a room with the status
+ * "requestable" (`POST /rooms/find`, the search the page runs), as the "HH:MM" the form's clock fields take.
+ */
+async function requestableWindow(day: string, token: string): Promise<{ start: string; end: string }> {
+  const grid = await api<{ periods: { start_period: number; time_start: string; time_end: string }[] }>("GET", `/bookings/grid?display=day&date=${day}`, undefined, token);
+  const periods = [...grid.periods].sort((a, b) => a.start_period - b.start_period);
+  const spans = [...periods.slice(0, -1).map((p, i) => [p, periods[i + 1]!] as const), ...periods.map((p) => [p, p] as const)];
+  const tried: string[] = [];
+  for (const [a, b] of spans) {
+    const start = a.time_start.slice(0, 5), end = b.time_end.slice(0, 5);
+    const out = await api<{ results: { status: string }[] }>("POST", "/rooms/find", { date: day, start, end, term_id: ctx.termId, limit: 60 }, token);
+    if (out.results.some((r) => r.status === "requestable")) return { start, end };
+    tried.push(`${start}-${end}`);
+    if (tried.length >= 20) break; // the search allows 30 a minute per person; the page's own search must still pass
+  }
+  throw new Error(`no requestable room on ${day} for this teacher (tried ${tried.join(", ")})`);
+}
 /** dismiss the notice gate if a notice of an earlier spec is unread */
 async function ackNotice(token: string): Promise<void> {
   const me = await api<{ notice: { id: number } | null; needs_ack: boolean }>("GET", "/me/privacy", undefined, token);
@@ -494,8 +512,17 @@ test("6. batch 3: withdrawal effects in the toast; find-room 'Neden?' verdict; a
   page.on("request", (r) => {
     if (r.url().includes("/booking-policies/effective")) verdictCalls.push(r.url());
   });
+  // a time of that day with a room this teacher may ask for. The form's default (10:10-12:30) is full on the published
+  // full-term run except A 201-A 203, and those are Tıp rooms a teacher outside the Tıp faculty may not book or request
+  // since 2026-11-02 (rooms.owner_faculty_id, app/services/room_faculty.py: left out of the search). The solver run
+  // differs from stack to stack, so the window is the first one the search API answers with a requestable room.
+  const slot = await requestableWindow(B3_REQUEST_DAY, ctx.teacherToken);
   await page.goto(`/find-room?date=${ggaa(B3_REQUEST_DAY)}`);
   const view = page.getByTestId("find-room");
+  await view.getByTestId("fr-start").fill(slot.start);
+  await view.getByTestId("fr-end").fill(slot.end);
+  await expect(view.getByTestId("fr-start")).toHaveValue(slot.start);
+  await expect(view.getByTestId("fr-end")).toHaveValue(slot.end);
   await view.getByTestId("fr-search").click();
   await expect(view.getByTestId("fr-summary")).toBeVisible();
   const requestable = view.locator('[data-testid^="fr-room-"][data-status="requestable"]').first();
