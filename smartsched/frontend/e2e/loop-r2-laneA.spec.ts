@@ -188,7 +188,9 @@ test("T-R2-02 the confirm dialog is an aria-modal alertdialog that traps Tab (14
       }
       await page.keyboard.press("Escape");
       await expect(dlg).toBeHidden();
-      expect(await focusText(page)).toMatch(/sil/i);
+      // Radix FocusScope returns focus to the trigger in a timeout after the content unmounts: on a loaded runner the
+      // first read can still see <body> (pod run #163 read the theme script's text), so poll for the returned focus
+      await expect.poll(() => focusText(page), { timeout: 5000 }).toMatch(/sil/i);
       await page.context().close();
     }
   } finally {
