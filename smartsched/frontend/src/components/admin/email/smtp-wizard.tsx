@@ -73,11 +73,18 @@ function Wizard({ data, presets }: { data: MailSettings; presets: Preset[] }) {
   const [error, setError] = useState<string | null>(null);
   const [dns, setDns] = useState<DnsOut | null>(null);
   const [test, setTest] = useState<TestOut | null>(null);
+  // "E-posta ayarları kaydedildi" is said in the footer, next to the buttons, not in a toast: the bottom-right toast
+  // lay over "İleri" (the next step's primary action), and a pointer resting on it pauses the toast, so the button
+  // stayed covered (pod CI runs #158 / #161: w3-mail waited 4 min on a covered "İleri")
+  const [saved, setSaved] = useState(false);
   const save = useSaveMail();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const v = { ...data, ...d } as MailSettings & MailSettingsIn;
   const preset = presets.find((p) => p.id === v.provider);
-  const set = <K extends keyof MailSettingsIn>(k: K, val: MailSettingsIn[K]) => setD((p) => ({ ...p, [k]: val }));
+  const set = <K extends keyof MailSettingsIn>(k: K, val: MailSettingsIn[K]) => {
+    setSaved(false);
+    setD((p) => ({ ...p, [k]: val }));
+  };
   const idx = STEPS.indexOf(step);
   const pending = changes(data, d);
   const dirty = Object.keys(pending).length > 0;
@@ -93,7 +100,7 @@ function Wizard({ data, presets }: { data: MailSettings; presets: Preset[] }) {
       await save.mutateAsync(pending);
       setD({});
       setError(null);
-      toast.success(t("email.steps.saved"));
+      setSaved(true);
       return true;
     } catch (e) {
       setError(mailError(e, locale));
@@ -134,7 +141,7 @@ function Wizard({ data, presets }: { data: MailSettings; presets: Preset[] }) {
         <h3 id="mail-step-heading" ref={headingRef} tabIndex={-1} className="type-title-3 text-label-1 focus-visible:outline-2">
           {t(STEP_KEY[step])}
         </h3>
-        {step === "provider" ? <ProviderStep presets={presets} value={v.provider ?? ""} onPick={(p) => setD((prev) => ({ ...prev, ...presetFill(p) }))} /> : null}
+        {step === "provider" ? <ProviderStep presets={presets} value={v.provider ?? ""} onPick={(p) => { setSaved(false); setD((prev) => ({ ...prev, ...presetFill(p) })); }} /> : null}
         {step === "connection" ? <ConnectionStep v={v} data={data} preset={preset} set={set} /> : null}
         {step === "sender" ? <SenderStep v={v} stored={data.abroad_ack} ticked={d.abroad_ack === true} preset={preset} set={set} /> : null}
         {step === "domain" ? <DomainStep v={v} result={dns} onResult={setDns} set={set} /> : null}
@@ -146,7 +153,10 @@ function Wizard({ data, presets }: { data: MailSettings; presets: Preset[] }) {
         <Button variant="outline" disabled={idx === 0} onClick={() => go(STEPS[Math.max(idx - 1, 0)]!)} className="pointer-coarse:min-h-11">
           {t("email.steps.back")}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <p role="status" className="type-footnote text-label-2 max-sm:sr-only" data-testid="mail-saved">
+            {saved && !dirty ? t("email.steps.saved") : ""}
+          </p>
           {dirty ? (
             <Button variant="outline" onClick={() => void persist()} disabled={save.isPending} className="pointer-coarse:min-h-11" data-testid="mail-save">
               <BusyLabel busy={save.isPending} label={t("busy.saving")}>

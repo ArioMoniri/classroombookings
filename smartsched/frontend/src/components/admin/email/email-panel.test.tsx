@@ -123,6 +123,10 @@ describe("EmailSettingsPanel", () => {
     const put = state.calls.find((c) => c.method === "PUT")!.body as Record<string, unknown>;
     expect(put).toMatchObject({ provider: "microsoft365_oauth2", host: "smtp.office365.com", auth_mode: "xoauth2", oauth_provider: "microsoft" });
     expect(put).not.toHaveProperty("password");
+    // the save is said in the footer beside "İleri", never in a toast over it (pod CI #158 / #161)
+    await waitFor(() => expect(screen.getByTestId("mail-saved").textContent).toBe("E-posta ayarları kaydedildi"));
+    const { toast } = await import("sonner");
+    expect(toast.success).not.toHaveBeenCalled();
     // step 2: the heading takes focus, the copy value and the Basic-auth note are there
     const heading = await screen.findByRole("heading", { name: "Bağlantı" });
     await waitFor(() => expect(document.activeElement).toBe(heading));

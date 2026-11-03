@@ -45,6 +45,22 @@ describe("focusAfter", () => {
     expect(document.activeElement?.getAttribute("data-slot-key")).toBe("2026-02-19|3|7");
   });
 
+  it("never takes the focus from a field focused without a key or pointer press (pod CI #161, loop-r1-laneE)", () => {
+    const top = document.createElement("section");
+    top.id = "org-form-top";
+    top.tabIndex = -1;
+    top.dataset.focusFallback = "";
+    const input = document.createElement("input");
+    document.body.append(top, input);
+    focusAfter(["#org-form-top"], 0);
+    vi.advanceTimersByTime(10);
+    expect(document.activeElement).toBe(top);
+    // assistive technology or a script focuses the name field: no keydown / pointerdown reaches the window
+    input.focus();
+    vi.advanceTimersByTime(500);
+    expect(document.activeElement).toBe(input);
+  });
+
   it("stops watching when the user presses a key", () => {
     const b = cell();
     document.body.append(b);
