@@ -33,7 +33,6 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importers import normalize as n
@@ -315,15 +314,15 @@ async def snapshots(session: AsyncSession) -> list[cc.TermSnapshot]:
     terms whose rows must end). A concurrent refresh that stored the same rows first wins (this one runs again)."""
     out: list[cc.TermSnapshot] = []
     for term_id, run, plan in await published(session):
-        for attempt in (1, 2):
-            try:
-                occs = await term_occurrences(session, term_id, run, plan)
-                out.append(await cc.persist_revisions(session, term_id, occs, exam=True))
-                break
-            except IntegrityError:
-                await session.rollback()
-                if attempt == 2:
-                    raise
+
+        async def attempt(
+            term_id: int = term_id, run: ScheduleRun | None = run, plan: InvigilationPlan | None = plan
+        ) -> cc.TermSnapshot:
+            occs = await term_occurrences(session, term_id, run, plan)
+            return await cc.persist_revisions(session, term_id, occs, exam=True)
+
+        # a lost race rolls back; the run / plan are reloaded before the next try (cc.retry_lost_race)
+        out.append(await cc.retry_lost_race(session, attempt))
     return out
 
 

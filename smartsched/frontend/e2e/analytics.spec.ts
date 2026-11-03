@@ -207,7 +207,10 @@ test.describe("planning analytics", () => {
     const detail = page.getByTestId("invig-plan");
     await expect(detail).toHaveAttribute("data-status", /^(OPTIMAL|FEASIBLE|INFEASIBLE)$/, { timeout: 240_000 });
     await expect(page.getByTestId("invig-headline")).toContainText("salon-oturum");
-    await expect(page.getByTestId("invig-counts")).toContainText("846");
+    // the "Salon-oturum" tile (not any tile that happens to hold the digits): 847 room sessions on the Final (A) run.
+    // 846 until the importer read hyphenated codes (owner report 2026-11-02 item 5): row 568 "BP-230" (8 June,
+    // 14:20-15:00, C 201, alone in that room) used to be skipped as "no course code" and is now an exam of its own
+    await expect(page.getByTestId("invig-counts").locator('[data-key="posts"]')).toHaveText(/^Salon-oturum\s*847$/);
     await expect(page.getByTestId("invig-diagnosis")).toBeVisible();
 
     // lock one duty, then hand another to a free candidate (shown with the reasons of everyone who is not free)
